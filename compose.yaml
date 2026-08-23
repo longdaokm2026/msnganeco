@@ -1,0 +1,23 @@
+name: msngan-english-local
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: msngan
+      POSTGRES_USER: msngan
+      POSTGRES_PASSWORD: msngan_local_password
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # PostgreSQL 18 stores data in a major-version-specific subdirectory.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U msngan -d msngan"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

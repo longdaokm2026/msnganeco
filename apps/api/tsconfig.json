@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "jsx": "preserve",
+    "incremental": false,
+    "allowJs": false,
+    "isolatedModules": false
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "../../generated/prisma/**/*.ts"],
+  "exclude": ["../../node_modules"]
+}
