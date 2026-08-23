@@ -1,6 +1,32 @@
 name: msngan-english
 
 services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+    networks:
+      - backend
+
   web:
     image: "${WEB_IMAGE:?WEB_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}"
     restart: unless-stopped
@@ -76,5 +102,6 @@ networks:
     internal: true
 
 volumes:
+  postgres_data:
   caddy_data:
   caddy_config:

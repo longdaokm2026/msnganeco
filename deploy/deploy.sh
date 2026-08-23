@@ -47,11 +47,42 @@ health_check() {
 }
 
 export IMAGE_TAG="$release_tag"
-"${compose[@]}" pull web api caddy
+"${compose[@]}" pull web api caddy postgres
+
+echo "Starting PostgreSQL..."
+"${compose[@]}" up -d postgres
+
+echo "Waiting for PostgreSQL..."
+
+for attempt in {1..30}; do
+    if "${compose[@]}" exec -T postgres sh -c \
+       'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+       >/dev/null 2>&1; then
+        echo "PostgreSQL is ready."
+        break
+    fi
+
+    if [[ "$attempt" -eq 30 ]]; then
+        echo "PostgreSQL failed to become ready." >&2
+        "${compose[@]}" logs postgres
+        exit 1
+    fi
+
+    sleep 2
+done
+
+echo "Running Prisma migrations..."
+
+"${compose[@]}" run --rm --no-deps api \
+    ./node_modules/.bin/prisma migrate deploy
+
+echo "Starting production stack..."
+
+"${compose[@]}" up -d --remove-orphans
 
 # Run schema changes once, before new application containers receive traffic.
-"${compose[@]}" run --rm --no-deps api ./node_modules/.bin/prisma migrate deploy
-"${compose[@]}" up -d --remove-orphans
+#"${compose[@]}" run --rm --no-deps api ./node_modules/.bin/prisma migrate deploy
+#"${compose[@]}" up -d --remove-orphans
 
 if ! health_check; then
   echo "Release $release_tag failed health checks." >&2
