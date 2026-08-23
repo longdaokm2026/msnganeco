@@ -18,6 +18,13 @@ Giai đoạn 2 — Quản lý lớp học:
 - [x] Step 2B: lịch học, buổi học, điểm danh và xin vắng mặt.
 - [ ] Step 2C: liên kết phụ huynh với học sinh và quyền xem dữ liệu.
 
+Giai đoạn 3 — Triển khai:
+
+- [x] Step 3A: tạo repository GitHub và đẩy phiên bản nền tảng đầu tiên.
+- [x] Step 3B: Docker production, Caddy HTTPS, CI và workflow deploy Ubuntu.
+- [ ] Step 3C: chuẩn bị Ubuntu, PostgreSQL riêng, DNS và GitHub Environment.
+- [ ] Step 3D: deploy production lần đầu và kiểm tra vận hành.
+
 ## Chạy cục bộ
 
 Yêu cầu Node.js 22 trở lên và pnpm.
@@ -139,3 +146,24 @@ pnpm lint
 ```
 
 Không commit file `.env`, mật khẩu, token hoặc thông tin kết nối production.
+
+## Production trên Ubuntu
+
+Production dùng hai Docker image độc lập cho Web và API, Caddy làm HTTPS reverse
+proxy, còn PostgreSQL chạy ngoài application server. `main` luôn là nguồn code
+ổn định; workflow `CI` kiểm tra mọi pull request và workflow `Deploy production`
+được chạy thủ công để build/publish image lên GHCR rồi cập nhật máy chủ.
+
+Các file chính:
+
+- `Dockerfile.web`: Vinext standalone, chạy bằng user không đặc quyền.
+- `Dockerfile.api`: NestJS/Prisma, chạy bằng user không đặc quyền.
+- `compose.prod.yaml`: Web, API và Caddy; không chứa PostgreSQL.
+- `Caddyfile`: domain Web/API và HTTPS tự động.
+- `.env.production.example`: mẫu biến production, không chứa secret thật.
+- `deploy/deploy.sh`: migration, rollout, health check và khôi phục image trước.
+- `.github/workflows/ci.yml`: build/test/typecheck/lint.
+- `.github/workflows/deploy.yml`: publish GHCR và deploy qua SSH.
+
+Hướng dẫn chuẩn bị server, GitHub Environment, secrets, DNS và vận hành nằm tại
+[`deploy/README.md`](deploy/README.md).
