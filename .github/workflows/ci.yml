@@ -22,6 +22,7 @@ jobs:
       COOKIE_SECURE: "false"
       AUTH_EXPOSE_DEV_TOKENS: "false"
       NEXT_PUBLIC_API_URL: http://localhost:4000
+      MAIL_DELIVERY_ENABLED: "false"
     steps:
       - name: Checkout source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
