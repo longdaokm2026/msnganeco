@@ -6,11 +6,13 @@ import StudentSchedule from "./StudentSchedule";
 import GuardianPortal from "./GuardianPortal";
 import StudentGuardianLinks from "./StudentGuardianLinks";
 import TeacherAttendanceReport from "./TeacherAttendanceReport";
+import AdminManager from "./AdminManager";
+import type { AdminSection } from "./admin/types";
 
 type AuthMode = "login" | "register";
 type Role = "student" | "teacher" | "guardian";
 type ApiRole = "ADMIN" | "TEACHER" | "STUDENT" | "GUARDIAN";
-type DashboardView = "overview" | "classes" | "student-schedule" | "student-guardians" | "guardian-portal";
+type DashboardView = "overview" | "classes" | "student-schedule" | "student-guardians" | "guardian-portal" | "admin-users" | "admin-teachers" | "admin-classrooms" | "admin-audit";
 
 type SessionUser = {
   id: string;
@@ -76,6 +78,10 @@ const viewHashes: Record<DashboardView, string> = {
   "student-schedule": "schedule",
   "student-guardians": "guardians",
   "guardian-portal": "students",
+  "admin-users": "admin-users",
+  "admin-teachers": "admin-teachers",
+  "admin-classrooms": "admin-classrooms",
+  "admin-audit": "admin-audit",
 };
 
 function viewFromHash(): DashboardView {
@@ -89,6 +95,7 @@ function canOpenView(role: ApiRole, view: DashboardView) {
   if (role === "TEACHER") return view === "classes";
   if (role === "STUDENT") return view === "student-schedule" || view === "student-guardians";
   if (role === "GUARDIAN") return view === "guardian-portal";
+  if (role === "ADMIN") return view === "admin-users" || view === "admin-teachers" || view === "admin-classrooms" || view === "admin-audit";
   return false;
 }
 
@@ -282,7 +289,12 @@ export default function Home() {
           <aside className="dashboard-nav" aria-label="Điều hướng chính">
             <span className="nav-section">Không gian của bạn</span>
             <button className={currentView === "overview" ? "active" : ""} type="button" onClick={() => navigateDashboard("overview")}>Tổng quan</button>
-            {dashboard.actions.map((action) =>
+            {dashboard.primaryRole === "ADMIN" ? <>
+              <button className={currentView === "admin-users" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-users")}>Quản lý tài khoản</button>
+              <button className={currentView === "admin-teachers" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-teachers")}>Duyệt giáo viên</button>
+              <button className={currentView === "admin-classrooms" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-classrooms")}>Quản lý lớp học</button>
+              <button className={currentView === "admin-audit" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-audit")}>Xem nhật ký hệ thống</button>
+            </> : dashboard.actions.map((action) =>
               dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học" ? (
                 <button className={currentView === "classes" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("classes")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần" ? (
@@ -301,7 +313,9 @@ export default function Home() {
           </aside>
 
           <section className="dashboard-main" id="overview">
-            {currentView === "classes" && accessToken ? (
+            {dashboard.primaryRole === "ADMIN" && accessToken ? (
+              <AdminManager section={currentView as AdminSection} accessToken={accessToken} apiUrl={apiUrl} currentUserId={user.id} />
+            ) : currentView === "classes" && accessToken ? (
               <ClassroomManager
                 accessToken={accessToken}
                 apiUrl={apiUrl}

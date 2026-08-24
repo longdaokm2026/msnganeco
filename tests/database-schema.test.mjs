@@ -24,6 +24,10 @@ const guardianLinksMigrationUrl = new URL(
   "../prisma/migrations/20260824010000_guardian_links/migration.sql",
   import.meta.url,
 );
+const adminManagementMigrationUrl = new URL(
+  "../prisma/migrations/20260825010000_admin_management/migration.sql",
+  import.meta.url,
+);
 
 async function createDatabase() {
   const db = await PGlite.create({ extensions: { citext } });
@@ -37,6 +41,8 @@ async function createDatabase() {
   await db.exec(sessionsAttendanceMigration);
   const guardianLinksMigration = await readFile(guardianLinksMigrationUrl, "utf8");
   await db.exec(guardianLinksMigration);
+  const adminManagementMigration = await readFile(adminManagementMigrationUrl, "utf8");
+  await db.exec(adminManagementMigration);
   return db;
 }
 
@@ -68,6 +74,37 @@ test("initial migration creates the account tables", async () => {
       "users",
       "verification_tokens",
     ]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("admin migration backfills teachers and adds review metadata", async () => {
+  const db = await PGlite.create({ extensions: { citext } });
+  try {
+    for (const url of [migrationUrl, refreshFamiliesMigrationUrl, classroomsMigrationUrl, sessionsAttendanceMigrationUrl, guardianLinksMigrationUrl]) {
+      await db.exec(await readFile(url, "utf8"));
+    }
+    const teacherId = "e0000000-0000-4000-8000-000000000001";
+    await db.query(
+      `INSERT INTO users (id, email, password_hash, full_name, updated_at)
+       VALUES ($1, 'legacy-teacher@test.local', 'hash', 'Legacy Teacher', NOW())`,
+      [teacherId],
+    );
+    await db.query(`INSERT INTO teacher_profiles (user_id, updated_at) VALUES ($1, NOW())`, [teacherId]);
+    await db.exec(await readFile(adminManagementMigrationUrl, "utf8"));
+
+    const profile = await db.query(
+      `SELECT approval_status, approved_at, approved_by_id, rejected_at, rejection_note
+       FROM teacher_profiles WHERE user_id = $1`,
+      [teacherId],
+    );
+    assert.equal(profile.rows[0].approval_status, "APPROVED");
+    assert.ok(profile.rows[0].approved_at);
+
+    await db.query(`UPDATE users SET status = 'DISABLED' WHERE id = $1`, [teacherId]);
+    const user = await db.query(`SELECT status FROM users WHERE id = $1`, [teacherId]);
+    assert.equal(user.rows[0].status, "DISABLED");
   } finally {
     await db.close();
   }

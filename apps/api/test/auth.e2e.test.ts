@@ -9,6 +9,7 @@ import { after, before, describe, test } from "node:test";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { authConfig } from "../src/config/env";
+import { TeacherApprovalRepository } from "../src/access/teacher-approval-access";
 import { DashboardRepository } from "../src/dashboard/dashboard.repository";
 import type {
   StudentAttendanceReport,
@@ -243,6 +244,8 @@ describe("Auth API", () => {
       .useClass(InMemoryAuthRepository)
       .overrideProvider(DashboardRepository)
       .useClass(InMemoryDashboardRepository)
+      .overrideProvider(TeacherApprovalRepository)
+      .useValue({ isApproved: async () => true })
       .compile();
 
     const nestApp = moduleRef.createNestApplication();

@@ -17,6 +17,7 @@ enum Role {
 enum UserStatus {
   PENDING_VERIFICATION
   ACTIVE
+  DISABLED
   SUSPENDED
   DEACTIVATED
 }
@@ -89,6 +90,7 @@ model User {
   refreshTokens     RefreshToken[]
   verificationTokens VerificationToken[]
   auditLogs         AuditLog[]          @relation("AuditActor")
+  teacherApprovals  TeacherProfile[]    @relation("TeacherApprover")
 
   @@index([status])
   @@index([createdAt])
@@ -127,14 +129,19 @@ model TeacherProfile {
   bio            String?
   approvalStatus TeacherApprovalStatus @default(PENDING) @map("approval_status")
   approvedAt     DateTime?             @map("approved_at") @db.Timestamptz(3)
+  approvedById   String?               @map("approved_by_id") @db.Uuid
+  rejectedAt     DateTime?             @map("rejected_at") @db.Timestamptz(3)
+  rejectionNote  String?               @map("rejection_note") @db.VarChar(500)
   createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
   user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy     User?                 @relation("TeacherApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   classrooms     Classroom[]
   attendanceMarks AttendanceRecord[] @relation("AttendanceMarker")
   reviewedAbsences AbsenceRequest[]   @relation("AbsenceReviewer")
 
   @@index([approvalStatus])
+  @@index([approvedById])
   @@map("teacher_profiles")
 }
 

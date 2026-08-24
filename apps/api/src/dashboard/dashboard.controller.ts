@@ -1,5 +1,6 @@
 import { Controller, Get, Inject, Query, Req, UseGuards, ValidationPipe } from "@nestjs/common";
 import { Roles, StrictRoles } from "../access/roles.decorator";
+import { ApprovedTeacherGuard } from "../access/teacher-approval-access";
 import { RolesGuard } from "../access/roles.guard";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
@@ -18,6 +19,7 @@ export class DashboardController {
 
   @Get("teacher/attendance")
   @StrictRoles("TEACHER")
+  @UseGuards(ApprovedTeacherGuard)
   teacherAttendance(
     @Req() request: AuthenticatedRequest,
     @Query(new ValidationPipe({ expectedType: TeacherAttendanceQueryDto, whitelist: true, forbidNonWhitelisted: true, transform: true })) query: TeacherAttendanceQueryDto,

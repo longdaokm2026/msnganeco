@@ -13,6 +13,7 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import { StrictRoles } from "../access/roles.decorator";
+import { ApprovedTeacherGuard } from "../access/teacher-approval-access";
 import { RolesGuard } from "../access/roles.guard";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
@@ -25,7 +26,7 @@ const validate = <T>(expectedType: new () => T) =>
   new ValidationPipe({ expectedType, whitelist: true, forbidNonWhitelisted: true, transform: true });
 
 @Controller("classes")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ApprovedTeacherGuard)
 @StrictRoles("TEACHER")
 export class ClassroomController {
   constructor(@Inject(ClassroomService) private readonly classes: ClassroomService) {}

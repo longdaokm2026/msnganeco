@@ -13,6 +13,7 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 import { StrictRoles } from "../access/roles.decorator";
+import { ApprovedTeacherGuard } from "../access/teacher-approval-access";
 import { RolesGuard } from "../access/roles.guard";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
@@ -32,6 +33,7 @@ export class SessionController {
 
   @Post("classes/:classroomId/sessions")
   @StrictRoles("TEACHER")
+  @UseGuards(ApprovedTeacherGuard)
   createSession(
     @Req() request: AuthenticatedRequest,
     @Param("classroomId", ParseUUIDPipe) classroomId: string,
@@ -42,6 +44,7 @@ export class SessionController {
 
   @Get("classes/:classroomId/sessions")
   @StrictRoles("TEACHER")
+  @UseGuards(ApprovedTeacherGuard)
   listClassSessions(
     @Req() request: AuthenticatedRequest,
     @Param("classroomId", ParseUUIDPipe) classroomId: string,
@@ -51,6 +54,7 @@ export class SessionController {
 
   @Get("sessions/:sessionId/attendance")
   @StrictRoles("TEACHER")
+  @UseGuards(ApprovedTeacherGuard)
   attendanceSheet(
     @Req() request: AuthenticatedRequest,
     @Param("sessionId", ParseUUIDPipe) sessionId: string,
@@ -60,6 +64,7 @@ export class SessionController {
 
   @Put("sessions/:sessionId/attendance")
   @StrictRoles("TEACHER")
+  @UseGuards(ApprovedTeacherGuard)
   markAttendance(
     @Req() request: AuthenticatedRequest,
     @Param("sessionId", ParseUUIDPipe) sessionId: string,
@@ -86,6 +91,7 @@ export class SessionController {
 
   @Patch("absence-requests/:requestId/review")
   @StrictRoles("TEACHER")
+  @UseGuards(ApprovedTeacherGuard)
   reviewAbsence(
     @Req() request: AuthenticatedRequest,
     @Param("requestId", ParseUUIDPipe) requestId: string,
