@@ -16,7 +16,7 @@ Giai đoạn 2 — Quản lý lớp học:
 
 - [x] Step 2A: giáo viên tạo lớp, tìm và quản lý học sinh trong lớp.
 - [x] Step 2B: lịch học, buổi học, điểm danh và xin vắng mặt.
-- [ ] Step 2C: liên kết phụ huynh với học sinh và quyền xem dữ liệu.
+- [x] Step 2C: liên kết phụ huynh với học sinh và quyền xem dữ liệu.
 
 Giai đoạn 3 — Triển khai:
 
@@ -111,6 +111,29 @@ Endpoint dành riêng cho Student:
 - `POST /sessions/:sessionId/absence-requests`: xin vắng trước khi buổi học bắt đầu.
 
 Học sinh chỉ gửi được đơn cho lớp đang theo học. Một học sinh chỉ có một đơn trên mỗi buổi; đơn được duyệt tự tạo bản ghi `EXCUSED`. Mọi thao tác tạo buổi, điểm danh, xin vắng và duyệt đơn đều được ghi audit log.
+
+## Guardian links API
+
+Liên kết mới luôn bắt đầu ở trạng thái `PENDING`. Phụ huynh chỉ xem được dữ liệu
+sau khi chính học sinh chấp thuận; API trả `404` cho tài khoản không sở hữu liên
+kết để tránh lộ dữ liệu học tập.
+
+Endpoint dành cho Guardian:
+
+- `POST /guardian/student-links`: gửi yêu cầu bằng email học sinh và quan hệ.
+- `GET /guardian/student-links`: xem yêu cầu và học sinh đã liên kết.
+- `DELETE /guardian/student-links/:studentId`: hủy yêu cầu hoặc thu hồi liên kết.
+- `GET /guardian/students/:studentId/overview`: xem lớp, lịch và chuyên cần.
+
+Endpoint dành cho Student:
+
+- `GET /student/guardian-links`: xem yêu cầu liên kết phụ huynh.
+- `PATCH /student/guardian-links/:guardianId`: chấp thuận hoặc từ chối.
+- `DELETE /student/guardian-links/:guardianId`: thu hồi quyền của phụ huynh.
+
+Liên kết cũ được migration giữ ở trạng thái `ACTIVE`. Liên kết đầu tiên được học
+sinh chấp thuận tự trở thành liên hệ chính. Tạo, xác nhận, từ chối và thu hồi
+liên kết đều được ghi audit log.
 
 ## PostgreSQL local
 

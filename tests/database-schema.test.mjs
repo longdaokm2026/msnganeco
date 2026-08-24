@@ -20,6 +20,10 @@ const sessionsAttendanceMigrationUrl = new URL(
   "../prisma/migrations/20260823040000_sessions_attendance/migration.sql",
   import.meta.url,
 );
+const guardianLinksMigrationUrl = new URL(
+  "../prisma/migrations/20260824010000_guardian_links/migration.sql",
+  import.meta.url,
+);
 
 async function createDatabase() {
   const db = await PGlite.create({ extensions: { citext } });
@@ -31,6 +35,8 @@ async function createDatabase() {
   await db.exec(classroomsMigration);
   const sessionsAttendanceMigration = await readFile(sessionsAttendanceMigrationUrl, "utf8");
   await db.exec(sessionsAttendanceMigration);
+  const guardianLinksMigration = await readFile(guardianLinksMigrationUrl, "utf8");
+  await db.exec(guardianLinksMigration);
   return db;
 }
 
@@ -200,18 +206,62 @@ test("a student can have only one primary guardian", async () => {
         ('${guardianOneId}', NOW()),
         ('${guardianTwoId}', NOW());
       INSERT INTO student_guardians
-        (student_id, guardian_id, relationship, is_primary_contact)
-      VALUES ('${studentId}', '${guardianOneId}', 'MOTHER', true);
+        (student_id, guardian_id, relationship, status, is_primary_contact, responded_at)
+      VALUES ('${studentId}', '${guardianOneId}', 'MOTHER', 'ACTIVE', true, NOW());
     `);
 
     await assert.rejects(
       db.query(
         `INSERT INTO student_guardians
-          (student_id, guardian_id, relationship, is_primary_contact)
-         VALUES ($1, $2, $3, true)`,
+          (student_id, guardian_id, relationship, status, is_primary_contact, responded_at)
+         VALUES ($1, $2, $3, 'ACTIVE', true, NOW())`,
         [studentId, guardianTwoId, "FATHER"],
       ),
       /duplicate key value/i,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test("guardian links require student approval before becoming active", async () => {
+  const db = await createDatabase();
+  const studentId = "c0000000-0000-4000-8000-000000000001";
+  const guardianId = "d0000000-0000-4000-8000-000000000001";
+
+  try {
+    await db.exec(`
+      INSERT INTO users (id, email, password_hash, full_name, updated_at) VALUES
+        ('${studentId}', 'student@links.test', 'hash', 'Student', NOW()),
+        ('${guardianId}', 'guardian@links.test', 'hash', 'Guardian', NOW());
+      INSERT INTO student_profiles (user_id, updated_at) VALUES ('${studentId}', NOW());
+      INSERT INTO guardian_profiles (user_id, updated_at) VALUES ('${guardianId}', NOW());
+      INSERT INTO student_guardians (student_id, guardian_id, relationship)
+      VALUES ('${studentId}', '${guardianId}', 'MOTHER');
+    `);
+
+    const pending = await db.query(
+      `SELECT status, responded_at FROM student_guardians
+       WHERE student_id = $1 AND guardian_id = $2`,
+      [studentId, guardianId],
+    );
+    assert.deepEqual(pending.rows, [{ status: "PENDING", responded_at: null }]);
+
+    await assert.rejects(
+      db.query(
+        `UPDATE student_guardians
+         SET status = 'ACTIVE', is_primary_contact = true, responded_at = NULL, updated_at = NOW()
+         WHERE student_id = $1 AND guardian_id = $2`,
+        [studentId, guardianId],
+      ),
+      /check constraint/i,
+    );
+
+    await db.query(
+      `UPDATE student_guardians
+       SET status = 'ACTIVE', is_primary_contact = true, responded_at = NOW(), updated_at = NOW()
+       WHERE student_id = $1 AND guardian_id = $2`,
+      [studentId, guardianId],
     );
   } finally {
     await db.close();

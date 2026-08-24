@@ -63,6 +63,13 @@ enum AbsenceRequestStatus {
   CANCELLED
 }
 
+enum GuardianLinkStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  REVOKED
+}
+
 model User {
   id                String              @id @default(uuid()) @db.Uuid
   email             String              @unique @db.Citext
@@ -238,18 +245,24 @@ model GuardianProfile {
 }
 
 model StudentGuardian {
-  studentId       String          @map("student_id") @db.Uuid
-  guardianId      String          @map("guardian_id") @db.Uuid
-  relationship    String          @db.VarChar(40)
-  isPrimaryContact Boolean        @default(false) @map("is_primary_contact")
-  canViewGrades   Boolean         @default(true) @map("can_view_grades")
-  canViewAttendance Boolean       @default(true) @map("can_view_attendance")
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  student         StudentProfile  @relation(fields: [studentId], references: [userId], onDelete: Cascade)
-  guardian        GuardianProfile @relation(fields: [guardianId], references: [userId], onDelete: Cascade)
+  studentId        String             @map("student_id") @db.Uuid
+  guardianId       String             @map("guardian_id") @db.Uuid
+  relationship     String             @db.VarChar(40)
+  status           GuardianLinkStatus @default(PENDING)
+  isPrimaryContact Boolean            @default(false) @map("is_primary_contact")
+  canViewGrades    Boolean            @default(true) @map("can_view_grades")
+  canViewAttendance Boolean           @default(true) @map("can_view_attendance")
+  requestedAt      DateTime           @default(now()) @map("requested_at") @db.Timestamptz(3)
+  respondedAt      DateTime?          @map("responded_at") @db.Timestamptz(3)
+  revokedAt        DateTime?          @map("revoked_at") @db.Timestamptz(3)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  student          StudentProfile     @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  guardian         GuardianProfile    @relation(fields: [guardianId], references: [userId], onDelete: Cascade)
 
   @@id([studentId, guardianId])
-  @@index([guardianId])
+  @@index([guardianId, status])
+  @@index([studentId, status])
   @@map("student_guardians")
 }
 

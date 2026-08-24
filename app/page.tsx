@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import ClassroomManager from "./ClassroomManager";
 import StudentSchedule from "./StudentSchedule";
+import GuardianPortal from "./GuardianPortal";
+import StudentGuardianLinks from "./StudentGuardianLinks";
 
 type AuthMode = "login" | "register";
 type Role = "student" | "teacher" | "guardian";
@@ -52,7 +54,7 @@ export default function Home() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [accessToken, setAccessToken] = useState("");
-  const [dashboardView, setDashboardView] = useState<"overview" | "classes" | "student-schedule">("overview");
+  const [dashboardView, setDashboardView] = useState<"overview" | "classes" | "student-schedule" | "student-guardians" | "guardian-portal">("overview");
 
   async function openDashboard(session: SessionResponse) {
     const response = await fetch(`${apiUrl}/dashboard/overview`, {
@@ -195,6 +197,10 @@ export default function Home() {
                 <button type="button" key={action} onClick={() => setDashboardView("classes")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Xem lớp học" ? (
                 <button type="button" key={action} onClick={() => setDashboardView("student-schedule")}>{action}</button>
+              ) : dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh" ? (
+                <button type="button" key={action} onClick={() => setDashboardView("student-guardians")}>{action}</button>
+              ) : dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh" ? (
+                <button type="button" key={action} onClick={() => setDashboardView("guardian-portal")}>{action}</button>
               ) : <a key={action} href="#coming-soon">{action}</a>,
             )}
             <div className="nav-profile">
@@ -213,6 +219,10 @@ export default function Home() {
               />
             ) : dashboardView === "student-schedule" && accessToken ? (
               <StudentSchedule accessToken={accessToken} apiUrl={apiUrl} onBack={() => setDashboardView("overview")} />
+            ) : dashboardView === "student-guardians" && accessToken ? (
+              <StudentGuardianLinks accessToken={accessToken} apiUrl={apiUrl} onBack={() => setDashboardView("overview")} />
+            ) : dashboardView === "guardian-portal" && accessToken ? (
+              <GuardianPortal accessToken={accessToken} apiUrl={apiUrl} onBack={() => setDashboardView("overview")} />
             ) : (
             <>
             <div className="dashboard-intro">
@@ -221,7 +231,7 @@ export default function Home() {
                 <h1>Xin chào, {user.fullName.split(" ").at(-1)}</h1>
                 <p>{dashboard.description}</p>
               </div>
-              <span className="phase-badge">Giai đoạn 2B</span>
+              <span className="phase-badge">Giai đoạn 2C</span>
             </div>
 
             <div className="metric-grid">
@@ -243,18 +253,22 @@ export default function Home() {
                 {dashboard.actions.map((action, index) => {
                   const opensClasses = dashboard.primaryRole === "TEACHER" && action === "Tạo lớp học";
                   const opensStudentSchedule = dashboard.primaryRole === "STUDENT" && action === "Xem lớp học";
+                  const opensStudentGuardians = dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh";
+                  const opensGuardianPortal = dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh";
                   return (
                   <button
                     type="button"
                     key={action}
-                    disabled={!opensClasses && !opensStudentSchedule}
+                    disabled={!opensClasses && !opensStudentSchedule && !opensStudentGuardians && !opensGuardianPortal}
                     onClick={opensClasses
                       ? () => setDashboardView("classes")
-                      : opensStudentSchedule ? () => setDashboardView("student-schedule") : undefined}
+                      : opensStudentSchedule ? () => setDashboardView("student-schedule")
+                      : opensStudentGuardians ? () => setDashboardView("student-guardians")
+                      : opensGuardianPortal ? () => setDashboardView("guardian-portal") : undefined}
                   >
                     <span>0{index + 1}</span>
                     <strong>{action}</strong>
-                    <small>{opensClasses || opensStudentSchedule ? "Mở chức năng" : "Sẽ được mở ở giai đoạn chức năng tiếp theo"}</small>
+                    <small>{opensClasses || opensStudentSchedule || opensStudentGuardians || opensGuardianPortal ? "Mở chức năng" : "Sẽ được mở ở giai đoạn chức năng tiếp theo"}</small>
                   </button>
                 );})}
               </div>

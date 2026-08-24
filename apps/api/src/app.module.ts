@@ -5,9 +5,10 @@ import { DashboardModule } from "./dashboard/dashboard.module";
 import { SessionModule } from "./sessions/session.module";
 import { ClassroomModule } from "./classes/classroom.module";
 import { HealthController } from "./health.controller";
+import { GuardianModule } from "./guardians/guardian.module";
 
 @Module({
-  imports: [AuthModule, ClassroomModule, DashboardModule, SessionModule],
+  imports: [AuthModule, ClassroomModule, DashboardModule, GuardianModule, SessionModule],
   controllers: [HealthController],
 })
 export class AppModule {}

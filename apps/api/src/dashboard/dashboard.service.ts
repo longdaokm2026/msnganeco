@@ -36,7 +36,7 @@ const dashboardByRole = {
       { label: "Bài tập cần làm", value: "0", hint: "Không có bài tập sắp hạn" },
       { label: "Chuyên cần", value: "—", hint: "Chưa có dữ liệu điểm danh" },
     ],
-    actions: ["Xem lớp học", "Làm bài tập", "Xem kết quả"],
+    actions: ["Xem lớp học", "Quản lý phụ huynh", "Làm bài tập"],
   },
   GUARDIAN: {
     roleLabel: "Phụ huynh",
