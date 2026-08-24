@@ -34,10 +34,10 @@ const dashboardByRole = {
     description: "Theo dõi lớp học, bài tập và kết quả của bạn.",
     metrics: [
       { label: "Lớp đang học", value: "0", hint: "Chờ giáo viên thêm vào lớp" },
-      { label: "Bài tập cần làm", value: "0", hint: "Không có bài tập sắp hạn" },
+      { label: "Buổi học hôm nay", value: "0", hint: "Chưa có lịch học" },
       { label: "Chuyên cần", value: "—", hint: "Chưa có dữ liệu điểm danh" },
     ],
-    actions: ["Xem lớp học", "Quản lý phụ huynh", "Làm bài tập"],
+    actions: ["Buổi học & chuyên cần", "Quản lý phụ huynh", "Làm bài tập"],
   },
   GUARDIAN: {
     roleLabel: "Phụ huynh",
@@ -94,6 +94,47 @@ export class DashboardService {
         teacherOverview,
       };
     }
+    if (primaryRole === "STUDENT") {
+      const now = new Date();
+      const month = vietnamMonth(now);
+      const dayRange = vietnamDayRange(now);
+      const monthRange = vietnamMonthRange(month);
+      const studentOverview = await this.repository.studentOverview(
+        user.sub,
+        now,
+        dayRange.from,
+        dayRange.to,
+        month,
+        monthRange.from,
+        monthRange.to,
+      );
+      const nextSessionHint = studentOverview.nextSession
+        ? `${studentOverview.nextSession.classroomName} · ${formatVietnamDateTime(studentOverview.nextSession.scheduledStart)}`
+        : "Chưa có lịch học sắp tới";
+      const rate = studentOverview.monthAttendance.attendanceRate;
+      return {
+        primaryRole,
+        ...dashboardByRole.STUDENT,
+        metrics: [
+          {
+            label: "Lớp đang học",
+            value: String(studentOverview.activeClassCount),
+            hint: studentOverview.activeClassCount ? "Lớp đang tham gia" : "Chờ giáo viên thêm vào lớp",
+          },
+          {
+            label: "Buổi học hôm nay",
+            value: String(studentOverview.todaySessionCount),
+            hint: nextSessionHint,
+          },
+          {
+            label: "Chuyên cần tháng này",
+            value: rate === null ? "—" : `${rate}%`,
+            hint: `${studentOverview.monthAttendance.total} buổi đã điểm danh · ${studentOverview.pendingAbsenceCount} đơn chờ duyệt`,
+          },
+        ],
+        studentOverview,
+      };
+    }
     return { primaryRole, ...dashboardByRole[primaryRole] };
   }
 
@@ -101,6 +142,12 @@ export class DashboardService {
     const month = requestedMonth ?? vietnamMonth(new Date());
     const { from, to } = vietnamMonthRange(month);
     return this.repository.teacherAttendanceReport(teacherId, month, from, to);
+  }
+
+  studentAttendance(studentId: string, requestedMonth?: string) {
+    const month = requestedMonth ?? vietnamMonth(new Date());
+    const { from, to } = vietnamMonthRange(month);
+    return this.repository.studentAttendanceReport(studentId, month, from, to);
   }
 
   teachingAccess() {

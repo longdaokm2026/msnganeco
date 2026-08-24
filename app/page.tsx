@@ -45,6 +45,21 @@ type DashboardData = {
       nextSession: { title: string; scheduledStart: string } | null;
     }[];
   };
+  studentOverview?: {
+    activeClassCount: number;
+    todaySessionCount: number;
+    pendingAbsenceCount: number;
+    nextSession: { classroomName: string; title: string; scheduledStart: string } | null;
+    month: string;
+    monthAttendance: { total: number; present: number; late: number; absent: number; excused: number; attendanceRate: number | null };
+    classes: {
+      id: string;
+      code: string;
+      name: string;
+      scheduleNote: string | null;
+      nextSession: { title: string; scheduledStart: string } | null;
+    }[];
+  };
 };
 
 const roleLabels: Record<Role, string> = {
@@ -270,7 +285,7 @@ export default function Home() {
             {dashboard.actions.map((action) =>
               dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học" ? (
                 <button className={currentView === "classes" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("classes")}>{action}</button>
-              ) : dashboard.primaryRole === "STUDENT" && action === "Xem lớp học" ? (
+              ) : dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần" ? (
                 <button className={currentView === "student-schedule" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-schedule")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh" ? (
                 <button className={currentView === "student-guardians" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-guardians")}>{action}</button>
@@ -293,7 +308,7 @@ export default function Home() {
                 onBack={() => { void returnToOverview(); }}
               />
             ) : currentView === "student-schedule" && accessToken ? (
-              <StudentSchedule accessToken={accessToken} apiUrl={apiUrl} onBack={() => navigateDashboard("overview")} />
+              <StudentSchedule accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
             ) : currentView === "student-guardians" && accessToken ? (
               <StudentGuardianLinks accessToken={accessToken} apiUrl={apiUrl} onBack={() => navigateDashboard("overview")} />
             ) : currentView === "guardian-portal" && accessToken ? (
@@ -306,7 +321,7 @@ export default function Home() {
                 <h1>Xin chào, {user.fullName.split(" ").at(-1)}</h1>
                 <p>{dashboard.description}</p>
               </div>
-              <span className="phase-badge">Giai đoạn 2C</span>
+              <span className="phase-badge">Giai đoạn 2D</span>
             </div>
 
             <div className="metric-grid">
@@ -345,6 +360,36 @@ export default function Home() {
               </>
             )}
 
+            {dashboard.primaryRole === "STUDENT" && dashboard.studentOverview && (
+              <section className="student-dashboard-overview" aria-labelledby="student-classes-title">
+                <div className="overview-section-heading">
+                  <div><p className="section-kicker">Lịch học đang hoạt động</p><h2 id="student-classes-title">Lớp học của tôi</h2></div>
+                  <button type="button" onClick={() => navigateDashboard("student-schedule")}>Xem buổi học</button>
+                </div>
+                {!dashboard.studentOverview.classes.length ? (
+                  <p className="report-empty">Bạn chưa được thêm vào lớp học nào.</p>
+                ) : (
+                  <div className="student-class-grid">
+                    {dashboard.studentOverview.classes.map((classroom) => (
+                      <button type="button" key={classroom.id} onClick={() => navigateDashboard("student-schedule")}>
+                        <span>{classroom.code}</span>
+                        <strong>{classroom.name}</strong>
+                        <small>{classroom.scheduleNote ?? "Chưa có lịch học cố định"}</small>
+                        <b>{classroom.nextSession ? `Buổi tới: ${new Date(classroom.nextSession.scheduledStart).toLocaleString("vi-VN")}` : "Chưa có buổi học sắp tới"}</b>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="student-month-snapshot">
+                  <span>Tháng {dashboard.studentOverview.month.split("-").reverse().join("/")}</span>
+                  <b>{dashboard.studentOverview.monthAttendance.present} có mặt</b>
+                  <b>{dashboard.studentOverview.monthAttendance.late} đi muộn</b>
+                  <b>{dashboard.studentOverview.monthAttendance.absent} vắng</b>
+                  <b>{dashboard.studentOverview.monthAttendance.excused} vắng có phép</b>
+                </div>
+              </section>
+            )}
+
             <section className="quick-section" id="quick-actions">
               <div>
                 <p className="section-kicker">Bắt đầu nhanh</p>
@@ -353,7 +398,7 @@ export default function Home() {
               <div className="action-grid">
                 {dashboard.actions.map((action, index) => {
                   const opensClasses = dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học";
-                  const opensStudentSchedule = dashboard.primaryRole === "STUDENT" && action === "Xem lớp học";
+                  const opensStudentSchedule = dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần";
                   const opensStudentGuardians = dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh";
                   const opensGuardianPortal = dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh";
                   return (

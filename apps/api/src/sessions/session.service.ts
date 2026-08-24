@@ -59,7 +59,7 @@ export class SessionService {
   }
 
   listStudentSessions(studentId: string) {
-    return this.repository.listStudentSessions(studentId);
+    return this.repository.listStudentSessions(studentId, new Date());
   }
 
   async requestAbsence(studentId: string, sessionId: string, reason: string) {

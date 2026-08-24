@@ -1,4 +1,5 @@
 import type { AbsenceValue, AttendanceValue } from "../sessions/session.types";
+import type { StudentAttendanceSummary } from "./dashboard.types";
 
 export type AttendanceReportSession = {
   attendanceStatus: AttendanceValue | null;
@@ -30,4 +31,20 @@ export function summarizeStudentAttendance(sessions: AttendanceReportSession[]) 
     if (!isApprovedExcused) result.billableSessions += 1;
   }
   return result;
+}
+
+export function summarizeAttendanceStatuses(statuses: AttendanceValue[]): StudentAttendanceSummary {
+  const present = statuses.filter((status) => status === "PRESENT").length;
+  const late = statuses.filter((status) => status === "LATE").length;
+  const absent = statuses.filter((status) => status === "ABSENT").length;
+  const excused = statuses.filter((status) => status === "EXCUSED").length;
+  const total = statuses.length;
+  return {
+    total,
+    present,
+    late,
+    absent,
+    excused,
+    attendanceRate: total ? Math.round(((present + late) / total) * 100) : null,
+  };
 }

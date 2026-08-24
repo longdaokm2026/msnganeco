@@ -25,6 +25,15 @@ export class DashboardController {
     return this.dashboard.teacherAttendance(request.user.sub, query.month);
   }
 
+  @Get("student/attendance")
+  @StrictRoles("STUDENT")
+  studentAttendance(
+    @Req() request: AuthenticatedRequest,
+    @Query(new ValidationPipe({ expectedType: TeacherAttendanceQueryDto, whitelist: true, forbidNonWhitelisted: true, transform: true })) query: TeacherAttendanceQueryDto,
+  ) {
+    return this.dashboard.studentAttendance(request.user.sub, query.month);
+  }
+
   @Get("teaching")
   @Roles("TEACHER")
   teaching() {

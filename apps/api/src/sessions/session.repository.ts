@@ -29,7 +29,7 @@ export abstract class SessionRepository {
     sessionId: string,
     records: { studentId: string; status: string; note?: string }[],
   ): Promise<MarkAttendanceResult>;
-  abstract listStudentSessions(studentId: string): Promise<StudentSession[]>;
+  abstract listStudentSessions(studentId: string, now: Date): Promise<StudentSession[]>;
   abstract requestAbsence(
     studentId: string,
     sessionId: string,

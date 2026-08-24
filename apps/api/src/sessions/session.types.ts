@@ -36,7 +36,15 @@ export interface AttendanceRow {
 
 export interface StudentSession extends SessionSummary {
   attendanceStatus: AttendanceValue | null;
-  absenceRequest: { id: string; reason: string; status: AbsenceValue } | null;
+  absenceDeadline: string;
+  canRequestAbsence: boolean;
+  absenceRequest: {
+    id: string;
+    reason: string;
+    status: AbsenceValue;
+    reviewNote: string | null;
+    createdAt: string;
+  } | null;
 }
 
 export type OwnedResult<T> = { status: "OK"; value: T } | { status: "NOT_FOUND" };

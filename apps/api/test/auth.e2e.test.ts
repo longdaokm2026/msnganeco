@@ -10,7 +10,12 @@ import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { authConfig } from "../src/config/env";
 import { DashboardRepository } from "../src/dashboard/dashboard.repository";
-import type { TeacherAttendanceReport, TeacherOverview } from "../src/dashboard/dashboard.types";
+import type {
+  StudentAttendanceReport,
+  StudentOverview,
+  TeacherAttendanceReport,
+  TeacherOverview,
+} from "../src/dashboard/dashboard.types";
 import { AuthRepository, DuplicateIdentityError } from "../src/auth/auth.repository";
 import type {
   AuthUser,
@@ -183,6 +188,37 @@ class InMemoryDashboardRepository extends DashboardRepository {
         pendingAbsence: 0,
         billableSessions: 2,
       }],
+    };
+  }
+
+  async studentOverview(): Promise<StudentOverview> {
+    return {
+      activeClassCount: 1,
+      todaySessionCount: 1,
+      pendingAbsenceCount: 1,
+      nextSession: {
+        classroomName: "English A1",
+        title: "Speaking practice",
+        scheduledStart: "2099-01-01T10:00:00.000Z",
+      },
+      month: "2026-08",
+      monthAttendance: { total: 3, present: 1, late: 1, absent: 0, excused: 1, attendanceRate: 67 },
+      classes: [{
+        id: randomUUID(),
+        code: "MSN-A1",
+        name: "English A1",
+        scheduleNote: "Thứ 3, Thứ 5 · 19:00",
+        nextSession: { title: "Speaking practice", scheduledStart: "2099-01-01T10:00:00.000Z" },
+      }],
+    };
+  }
+
+  async studentAttendanceReport(_studentId: string, month: string): Promise<StudentAttendanceReport> {
+    const summary = { total: 3, present: 1, late: 1, absent: 0, excused: 1, attendanceRate: 67 };
+    return {
+      month,
+      totals: summary,
+      classes: [{ classroomId: randomUUID(), classroomName: "English A1", ...summary }],
     };
   }
 }
@@ -380,6 +416,31 @@ describe("Auth API", () => {
       .expect(403);
 
     await request(httpServer)
+      .get("/dashboard/overview")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        if (body.primaryRole !== "STUDENT" || body.metrics[0]?.value !== "1") {
+          throw new Error("Student dashboard is not using live data.");
+        }
+        if (body.studentOverview?.monthAttendance?.attendanceRate !== 67) {
+          throw new Error("Student attendance snapshot is missing.");
+        }
+      });
+    await request(httpServer)
+      .get("/dashboard/student/attendance?month=2026-08")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        if (body.totals?.attendanceRate !== 67 || body.classes?.length !== 1) {
+          throw new Error("Student monthly attendance report is missing.");
+        }
+      });
+    await request(httpServer)
+      .get("/dashboard/student/attendance?month=08-2026")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(400);
+    await request(httpServer)
       .get("/dashboard/learning")
       .set("Authorization", `Bearer ${studentToken}`)
       .expect(200);
@@ -390,6 +451,10 @@ describe("Auth API", () => {
     await request(httpServer)
       .get("/dashboard/teacher/attendance?month=2026-08")
       .set("Authorization", `Bearer ${studentToken}`)
+      .expect(403);
+    await request(httpServer)
+      .get("/dashboard/student/attendance?month=2026-08")
+      .set("Authorization", `Bearer ${teacherToken}`)
       .expect(403);
 
     await request(httpServer)

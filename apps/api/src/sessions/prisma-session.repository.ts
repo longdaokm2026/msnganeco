@@ -185,12 +185,18 @@ export class PrismaSessionRepository extends SessionRepository {
     });
   }
 
-  async listStudentSessions(studentId: string): Promise<StudentSession[]> {
+  async listStudentSessions(studentId: string, now: Date): Promise<StudentSession[]> {
+    const enrollments = await prisma.classEnrollment.findMany({
+      where: { studentId, status: EnrollmentStatus.ACTIVE },
+      select: { classroomId: true, joinedAt: true },
+    });
+    if (!enrollments.length) return [];
     const sessions = await prisma.classSession.findMany({
       where: {
-        classroom: {
-          enrollments: { some: { studentId, status: EnrollmentStatus.ACTIVE } },
-        },
+        OR: enrollments.map(({ classroomId, joinedAt }) => ({
+          classroomId,
+          scheduledStart: { gte: joinedAt },
+        })),
       },
       include: {
         classroom: { select: { name: true } },
@@ -200,15 +206,27 @@ export class PrismaSessionRepository extends SessionRepository {
       orderBy: { scheduledStart: "asc" },
       take: 50,
     });
-    return sessions.map((session) => ({
-      ...summary(session),
-      attendanceStatus: session.attendances[0]?.status ?? null,
-      absenceRequest: session.absenceRequests[0] ? {
-        id: session.absenceRequests[0].id,
-        reason: session.absenceRequests[0].reason,
-        status: session.absenceRequests[0].status,
-      } : null,
-    }));
+    return sessions.map((session) => {
+      const absenceRequest = session.absenceRequests[0];
+      const absenceDeadline = new Date(session.scheduledStart.getTime() - 2 * 60 * 60 * 1000);
+      return {
+        ...summary(session),
+        attendanceStatus: session.attendances[0]?.status ?? null,
+        absenceDeadline: absenceDeadline.toISOString(),
+        canRequestAbsence: session.status === "SCHEDULED"
+          && !isAbsenceRequestLate(session.scheduledStart, now)
+          && (!absenceRequest
+            || absenceRequest.status === AbsenceRequestStatus.REJECTED
+            || absenceRequest.status === AbsenceRequestStatus.CANCELLED),
+        absenceRequest: absenceRequest ? {
+          id: absenceRequest.id,
+          reason: absenceRequest.reason,
+          status: absenceRequest.status,
+          reviewNote: absenceRequest.reviewNote,
+          createdAt: absenceRequest.createdAt.toISOString(),
+        } : null,
+      };
+    });
   }
 
   async requestAbsence(
@@ -220,11 +238,12 @@ export class PrismaSessionRepository extends SessionRepository {
     return prisma.$transaction(async (tx) => {
       const session = await tx.classSession.findUnique({ where: { id: sessionId } });
       if (!session || session.status === "CANCELLED") return { status: "NOT_FOUND" };
-      if (isAbsenceRequestLate(session.scheduledStart, now)) return { status: "DEADLINE_PASSED" };
       const enrollment = await tx.classEnrollment.findFirst({
         where: { classroomId: session.classroomId, studentId, status: EnrollmentStatus.ACTIVE },
       });
       if (!enrollment) return { status: "NOT_ENROLLED" };
+      if (session.scheduledStart < enrollment.joinedAt) return { status: "NOT_ENROLLED" };
+      if (isAbsenceRequestLate(session.scheduledStart, now)) return { status: "DEADLINE_PASSED" };
       const existing = await tx.absenceRequest.findUnique({
         where: { sessionId_studentId: { sessionId, studentId } },
       });

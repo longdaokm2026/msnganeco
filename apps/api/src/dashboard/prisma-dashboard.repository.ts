@@ -1,12 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { ClassSessionStatus, EnrollmentStatus } from "../../../../generated/prisma/client";
 import { prisma } from "../../../../server/database/client";
-import { summarizeStudentAttendance } from "./attendance-report";
+import { summarizeAttendanceStatuses, summarizeStudentAttendance } from "./attendance-report";
 import { DashboardRepository } from "./dashboard.repository";
 import type {
   TeacherAttendanceReport,
   TeacherAttendanceStudentRow,
   TeacherOverview,
+  StudentAttendanceReport,
+  StudentOverview,
 } from "./dashboard.types";
 
 @Injectable()
@@ -152,5 +154,114 @@ export class PrismaDashboardRepository extends DashboardRepository {
       { completedSessions: 0, present: 0, late: 0, absent: 0, approvedAbsence: 0, rejectedAbsence: 0, pendingAbsence: 0, billableSessions: 0 },
     );
     return { month, totals, students };
+  }
+
+  async studentOverview(
+    studentId: string,
+    now: Date,
+    todayStart: Date,
+    todayEnd: Date,
+    month: string,
+    monthStart: Date,
+    monthEnd: Date,
+  ): Promise<StudentOverview> {
+    const [enrollments, todaySessionCount, pendingAbsenceCount, monthAttendances] = await Promise.all([
+      prisma.classEnrollment.findMany({
+        where: { studentId, status: EnrollmentStatus.ACTIVE, classroom: { status: "ACTIVE" } },
+        orderBy: { classroom: { name: "asc" } },
+        include: {
+          classroom: {
+            include: {
+              sessions: {
+                where: { status: ClassSessionStatus.SCHEDULED, scheduledStart: { gte: now } },
+                orderBy: { scheduledStart: "asc" },
+                take: 1,
+                select: { title: true, scheduledStart: true },
+              },
+            },
+          },
+        },
+      }),
+      prisma.classSession.count({
+        where: {
+          classroom: { enrollments: { some: { studentId, status: EnrollmentStatus.ACTIVE } } },
+          status: { not: ClassSessionStatus.CANCELLED },
+          scheduledStart: { gte: todayStart, lt: todayEnd },
+        },
+      }),
+      prisma.absenceRequest.count({ where: { studentId, status: "PENDING" } }),
+      prisma.attendanceRecord.findMany({
+        where: {
+          studentId,
+          session: {
+            status: ClassSessionStatus.COMPLETED,
+            scheduledStart: { gte: monthStart, lt: monthEnd },
+          },
+        },
+        select: { status: true },
+      }),
+    ]);
+
+    const classes = enrollments.map(({ classroom }) => ({
+      id: classroom.id,
+      code: classroom.code,
+      name: classroom.name,
+      scheduleNote: classroom.scheduleNote,
+      nextSession: classroom.sessions[0]
+        ? { title: classroom.sessions[0].title, scheduledStart: classroom.sessions[0].scheduledStart.toISOString() }
+        : null,
+    }));
+    const nextClass = classes
+      .filter((item) => item.nextSession)
+      .sort((a, b) => a.nextSession!.scheduledStart.localeCompare(b.nextSession!.scheduledStart))[0];
+
+    return {
+      activeClassCount: classes.length,
+      todaySessionCount,
+      pendingAbsenceCount,
+      nextSession: nextClass?.nextSession
+        ? { classroomName: nextClass.name, ...nextClass.nextSession }
+        : null,
+      month,
+      monthAttendance: summarizeAttendanceStatuses(monthAttendances.map(({ status }) => status)),
+      classes,
+    };
+  }
+
+  async studentAttendanceReport(
+    studentId: string,
+    month: string,
+    from: Date,
+    to: Date,
+  ): Promise<StudentAttendanceReport> {
+    const attendances = await prisma.attendanceRecord.findMany({
+      where: {
+        studentId,
+        session: {
+          status: ClassSessionStatus.COMPLETED,
+          scheduledStart: { gte: from, lt: to },
+        },
+      },
+      include: { session: { include: { classroom: { select: { id: true, name: true } } } } },
+      orderBy: { session: { scheduledStart: "asc" } },
+    });
+    const byClass = new Map<string, { classroomName: string; statuses: typeof attendances[number]["status"][] }>();
+    for (const attendance of attendances) {
+      const current = byClass.get(attendance.session.classroom.id) ?? {
+        classroomName: attendance.session.classroom.name,
+        statuses: [],
+      };
+      current.statuses.push(attendance.status);
+      byClass.set(attendance.session.classroom.id, current);
+    }
+    return {
+      month,
+      totals: summarizeAttendanceStatuses(attendances.map(({ status }) => status)),
+      classes: [...byClass.entries()].map(([classroomId, value]) => ({
+        classroomId,
+        classroomName: value.classroomName,
+        ...summarizeAttendanceStatuses(value.statuses),
+      })),
+    };
   }
 }

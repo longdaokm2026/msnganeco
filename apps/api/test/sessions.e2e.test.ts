@@ -105,9 +105,18 @@ class InMemorySessionRepository extends SessionRepository {
     return "OK";
   }
 
-  async listStudentSessions(studentId: string): Promise<StudentSession[]> {
+  async listStudentSessions(studentId: string, now: Date): Promise<StudentSession[]> {
     if (studentId !== this.studentId || !this.session) return [];
-    return [{ ...this.session, attendanceStatus: this.attendanceStatus, absenceRequest: this.absence }];
+    const deadline = new Date(new Date(this.session.scheduledStart).getTime() - 2 * 60 * 60 * 1000);
+    return [{
+      ...this.session,
+      attendanceStatus: this.attendanceStatus,
+      absenceDeadline: deadline.toISOString(),
+      canRequestAbsence: this.session.status === "SCHEDULED"
+        && now <= deadline
+        && (!this.absence || this.absence.status === "REJECTED" || this.absence.status === "CANCELLED"),
+      absenceRequest: this.absence ? { ...this.absence, createdAt: now.toISOString() } : null,
+    }];
   }
 
   async requestAbsence(
@@ -229,6 +238,9 @@ describe("Sessions and attendance API", () => {
       .expect(200)
       .expect(({ body }) => {
         if (body[0]?.id !== sessionId) throw new Error("Student schedule is missing.");
+        if (!body[0]?.canRequestAbsence || !body[0]?.absenceDeadline) {
+          throw new Error("Absence deadline experience is missing.");
+        }
       });
 
     const requested = await request(httpServer)
@@ -237,6 +249,16 @@ describe("Sessions and attendance API", () => {
       .send({ reason: "Bị ốm" })
       .expect(201);
     const requestId = requested.body.id as string;
+
+    await request(httpServer)
+      .get("/student/sessions")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        if (body[0]?.canRequestAbsence || body[0]?.absenceRequest?.status !== "PENDING") {
+          throw new Error("Pending absence state is incorrect.");
+        }
+      });
 
     await request(httpServer)
       .post(`/sessions/${sessionId}/absence-requests`)

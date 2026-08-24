@@ -37,3 +37,37 @@ export interface TeacherAttendanceReport {
   totals: Omit<TeacherAttendanceStudentRow, "classroomId" | "classroomName" | "studentId" | "studentCode" | "fullName">;
   students: TeacherAttendanceStudentRow[];
 }
+
+export interface StudentAttendanceSummary {
+  total: number;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+  attendanceRate: number | null;
+}
+
+export interface StudentOverview {
+  activeClassCount: number;
+  todaySessionCount: number;
+  pendingAbsenceCount: number;
+  nextSession: { classroomName: string; title: string; scheduledStart: string } | null;
+  month: string;
+  monthAttendance: StudentAttendanceSummary;
+  classes: {
+    id: string;
+    code: string;
+    name: string;
+    scheduleNote: string | null;
+    nextSession: { title: string; scheduledStart: string } | null;
+  }[];
+}
+
+export interface StudentAttendanceReport {
+  month: string;
+  totals: StudentAttendanceSummary;
+  classes: Array<StudentAttendanceSummary & {
+    classroomId: string;
+    classroomName: string;
+  }>;
+}

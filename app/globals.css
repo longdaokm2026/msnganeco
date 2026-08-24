@@ -113,7 +113,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .metric-card > span { color: var(--muted); font-size: 12px; font-weight: 600; }
 .metric-card > strong { margin: 12px 0 auto; color: var(--indigo); font-family: var(--font-serif), serif; font-size: 38px; }
 .metric-card > small { color: #9299a7; font-size: 10px; line-height: 1.45; }
-.teacher-class-overview, .teacher-attendance-report { margin: 0 0 28px; padding: 24px; border: 1px solid #e1ded5; border-radius: 18px; background: var(--paper); }
+.teacher-class-overview, .teacher-attendance-report, .student-dashboard-overview { margin: 0 0 28px; padding: 24px; border: 1px solid #e1ded5; border-radius: 18px; background: var(--paper); }
 .overview-section-heading, .report-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .overview-section-heading .section-kicker, .report-heading .section-kicker { color: var(--coral); }
 .overview-section-heading h2, .report-heading h2 { margin: 0; font-family: var(--font-serif), serif; font-size: 24px; }
@@ -124,6 +124,14 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .teacher-class-grid strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .teacher-class-grid small { color: var(--muted); font-size: 9px; }
 .teacher-class-grid b { margin-top: 4px; color: var(--indigo); font-size: 8px; font-weight: 600; }
+.student-class-grid { margin-top: 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
+.student-class-grid > button { min-width: 0; padding: 16px; display: grid; gap: 6px; border: 1px solid #e1ded5; border-radius: 12px; background: #f8f7f2; color: var(--ink); cursor: pointer; text-align: left; }
+.student-class-grid span { color: var(--coral); font-size: 8px; font-weight: 700; letter-spacing: .08em; }
+.student-class-grid strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.student-class-grid small { color: var(--muted); font-size: 9px; }
+.student-class-grid b { margin-top: 4px; color: var(--indigo); font-size: 8px; font-weight: 600; }
+.student-month-snapshot { margin-top: 14px; padding: 11px 13px; display: flex; flex-wrap: wrap; gap: 8px 16px; border-radius: 10px; background: #f0f1f8; color: var(--indigo); font-size: 9px; }
+.student-month-snapshot span { margin-right: auto; font-weight: 700; }
 .report-heading { align-items: center; }
 .report-heading > div > p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 10px; }
 .report-heading label { min-width: 145px; color: var(--muted); font-size: 9px; }
@@ -246,23 +254,54 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .absence-review button { padding: 5px 8px; border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font-size: 8px; font-weight: 700; }
 
 .student-schedule { min-width: 0; }
-.student-session-list { margin-top: 28px; display: grid; gap: 12px; }
+.student-month-report { margin-top: 28px; padding: 22px; border: 1px solid #e1ded5; border-radius: 16px; background: var(--paper); }
+.student-report-summary { margin-top: 18px; display: grid; grid-template-columns: 1.3fr repeat(4, 1fr); gap: 8px; }
+.student-report-summary > div { padding: 13px; display: grid; gap: 6px; border-radius: 10px; background: #f0efe9; }
+.student-report-summary span { color: var(--muted); font-size: 8px; }
+.student-report-summary strong { color: var(--indigo); font-family: var(--font-serif), serif; font-size: 21px; }
+.student-report-summary .rate { background: var(--indigo); }
+.student-report-summary .rate span { color: rgba(255,255,255,.7); }
+.student-report-summary .rate strong { color: #fff; }
+.student-class-attendance { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.student-class-attendance > div { padding: 10px 12px; display: grid; gap: 3px; border: 1px solid #e5e2da; border-radius: 9px; }
+.student-class-attendance strong { font-size: 9px; }
+.student-class-attendance span { color: var(--muted); font-size: 8px; }
+.schedule-toolbar { margin-top: 24px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.schedule-toolbar > div { padding: 4px; display: flex; gap: 3px; border-radius: 10px; background: #eceef2; }
+.schedule-toolbar button { padding: 8px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; font-size: 9px; font-weight: 700; }
+.schedule-toolbar button.active { background: #fff; color: var(--indigo); box-shadow: 0 2px 7px rgba(24,35,59,.08); }
+.schedule-toolbar > span { color: var(--muted); font-size: 9px; font-weight: 700; }
+.student-session-list { margin-top: 14px; display: grid; gap: 12px; }
 .student-session-list > article { padding: 20px; display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 17px; border: 1px solid #e1ded5; border-radius: 15px; background: var(--paper); }
+.student-session-list > article.completed { border-left: 4px solid #8aa891; }
+.student-session-list > article.cancelled { opacity: .72; }
 .session-date { height: 58px; display: grid; place-content: center; justify-items: center; border-radius: 11px; background: #eceef7; color: var(--indigo); }
 .session-date strong { font-family: var(--font-serif), serif; font-size: 23px; line-height: 1; }
 .session-date span { margin-top: 3px; font-size: 8px; font-weight: 700; text-transform: uppercase; }
 .student-session-copy > span { color: var(--coral); font-size: 9px; font-weight: 700; text-transform: uppercase; }
 .student-session-copy h2 { margin: 4px 0; font-family: var(--font-serif), serif; font-size: 18px; }
 .student-session-copy p { margin: 0 0 9px; color: var(--muted); font-size: 10px; }
-.attendance-pill, .request-pill { margin-right: 6px; padding: 4px 7px; display: inline-block; border-radius: 99px; background: #eaf6ee; color: #257346; font-size: 8px; }
+.session-statuses { display: flex; flex-wrap: wrap; gap: 6px; }
+.attendance-pill, .request-pill { padding: 5px 8px; display: inline-block; border-radius: 99px; background: #eaf6ee; color: #257346; font-size: 8px; }
+.attendance-pill.absent { background: #fff0ed; color: #9c3f2d; }
+.attendance-pill.late { background: #fff4dc; color: #78570e; }
+.attendance-pill.excused { background: #edf2fb; color: #385785; }
+.attendance-pill.unmarked { background: #eff0f2; color: var(--muted); }
 .request-pill { background: #fff4dc; color: #78570e; }
+.request-pill.approved { background: #eaf6ee; color: #257346; }
 .request-pill.rejected { background: #fff0ed; color: #9c3f2d; }
+.request-pill.cancelled { background: #eff0f2; color: var(--muted); }
+.absence-detail { margin-top: 9px; padding: 9px 11px; display: grid; gap: 4px; border-radius: 8px; background: #f8f7f2; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.absence-deadline { margin: 8px 0 0 !important; color: #51638d !important; font-size: 8px !important; font-weight: 600; }
+.absence-deadline.expired { color: #9c3f2d !important; }
 .student-session-action button { padding: 9px 12px; border: 1px solid var(--indigo); border-radius: 8px; background: transparent; color: var(--indigo); cursor: pointer; font-size: 9px; font-weight: 700; }
 .student-session-list article > form { grid-column: 2 / -1; padding-top: 12px; border-top: 1px solid #ece9e2; }
 .student-session-list textarea { min-height: 80px; resize: vertical; }
 .student-session-list form > div { margin-top: 8px; display: flex; gap: 7px; }
+.student-session-list form > small { color: var(--muted); font-size: 8px; }
 .student-session-list form button { padding: 8px 12px; border: 0; border-radius: 7px; background: var(--indigo); color: #fff; cursor: pointer; font-size: 9px; font-weight: 700; }
 .student-session-list form button + button { background: #ece9e2; color: var(--ink); }
+.schedule-empty { margin: 0; padding: 30px; border: 1px dashed #d6d3cb; border-radius: 12px; color: var(--muted); font-size: 10px; text-align: center; }
 
 .guardian-portal, .student-guardian-links { min-width: 0; }
 .manager-success { margin: 18px 0 0; padding: 11px 13px; border-radius: 9px; background: #eaf6ee; color: #257346; font-size: 12px; }
@@ -327,8 +366,9 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .dashboard-nav .nav-section, .nav-profile { display: none; }
   .dashboard-nav > a { white-space: nowrap; }
   .metric-grid, .action-grid { grid-template-columns: 1fr; }
-  .teacher-class-grid { grid-template-columns: 1fr 1fr; }
+  .teacher-class-grid, .student-class-grid { grid-template-columns: 1fr 1fr; }
   .report-summary { grid-template-columns: repeat(3, 1fr); }
+  .student-report-summary { grid-template-columns: repeat(3, 1fr); }
   .metric-card { min-height: 135px; }
   .dashboard-nav > button { white-space: nowrap; }
   .classroom-workspace { grid-template-columns: 1fr; }
@@ -346,7 +386,8 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .dashboard-main { padding: 27px 18px; }
   .dashboard-intro { display: block; }
   .overview-section-heading, .report-heading { align-items: stretch; flex-direction: column; }
-  .teacher-class-grid, .report-summary { grid-template-columns: 1fr 1fr; }
+  .teacher-class-grid, .student-class-grid, .report-summary { grid-template-columns: 1fr 1fr; }
+  .student-report-summary, .student-class-attendance { grid-template-columns: 1fr 1fr; }
   .phase-badge { display: inline-block; margin-top: 17px; }
   .metric-grid { margin: 25px 0; }
   .quick-section { padding: 20px; }

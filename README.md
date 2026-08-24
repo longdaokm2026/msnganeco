@@ -17,6 +17,7 @@ Giai đoạn 2 — Quản lý lớp học:
 - [x] Step 2A: giáo viên tạo lớp, tìm và quản lý học sinh trong lớp.
 - [x] Step 2B: lịch học, buổi học, điểm danh và xin vắng mặt.
 - [x] Step 2C: liên kết phụ huynh với học sinh và quyền xem dữ liệu.
+- [x] Step 2D: Student dashboard, lịch học, deadline xin vắng và thống kê chuyên cần theo tháng.
 
 Giai đoạn 3 — Triển khai:
 
@@ -61,6 +62,7 @@ Mọi endpoint dashboard đều yêu cầu Bearer access token. Sai vai trò tr�
 
 - `GET /dashboard/overview`: dashboard theo vai trò chính của tài khoản.
 - `GET /dashboard/teacher/attendance?month=YYYY-MM`: báo cáo chuyên cần và số lượt học tính phí theo tháng của Teacher.
+- `GET /dashboard/student/attendance?month=YYYY-MM`: báo cáo chuyên cần theo tháng và theo lớp của Student.
 - `GET /dashboard/teaching`: Teacher hoặc Admin.
 - `GET /dashboard/learning`: Student hoặc Admin.
 - `GET /dashboard/guardian`: Guardian hoặc Admin.
