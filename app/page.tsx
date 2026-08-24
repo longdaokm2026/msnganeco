@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import ClassroomManager from "./ClassroomManager";
 import StudentSchedule from "./StudentSchedule";
 import GuardianPortal from "./GuardianPortal";
@@ -9,6 +9,7 @@ import StudentGuardianLinks from "./StudentGuardianLinks";
 type AuthMode = "login" | "register";
 type Role = "student" | "teacher" | "guardian";
 type ApiRole = "ADMIN" | "TEACHER" | "STUDENT" | "GUARDIAN";
+type DashboardView = "overview" | "classes" | "student-schedule" | "student-guardians" | "guardian-portal";
 
 type SessionUser = {
   id: string;
@@ -38,6 +39,28 @@ const roleLabels: Record<Role, string> = {
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+const viewHashes: Record<DashboardView, string> = {
+  overview: "overview",
+  classes: "classes",
+  "student-schedule": "schedule",
+  "student-guardians": "guardians",
+  "guardian-portal": "students",
+};
+
+function viewFromHash(): DashboardView {
+  if (typeof window === "undefined") return "overview";
+  const hash = window.location.hash.slice(1);
+  return (Object.entries(viewHashes).find(([, value]) => value === hash)?.[0] as DashboardView | undefined) ?? "overview";
+}
+
+function canOpenView(role: ApiRole, view: DashboardView) {
+  if (view === "overview") return true;
+  if (role === "TEACHER") return view === "classes";
+  if (role === "STUDENT") return view === "student-schedule" || view === "student-guardians";
+  if (role === "GUARDIAN") return view === "guardian-portal";
+  return false;
+}
+
 async function apiError(response: Response) {
   const body = await response.json().catch(() => null) as { message?: string | string[] } | null;
   if (Array.isArray(body?.message)) return body.message.join(" ");
@@ -54,9 +77,16 @@ export default function Home() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [accessToken, setAccessToken] = useState("");
-  const [dashboardView, setDashboardView] = useState<"overview" | "classes" | "student-schedule" | "student-guardians" | "guardian-portal">("overview");
+  const [dashboardView, setDashboardView] = useState<DashboardView>("overview");
 
-  async function openDashboard(session: SessionResponse) {
+  const navigateDashboard = useCallback((view: DashboardView, replace = false) => {
+    setDashboardView(view);
+    if (typeof window === "undefined") return;
+    const url = `${window.location.pathname}${window.location.search}#${viewHashes[view]}`;
+    window.history[replace ? "replaceState" : "pushState"](null, "", url);
+  }, []);
+
+  const openDashboard = useCallback(async (session: SessionResponse) => {
     const response = await fetch(`${apiUrl}/dashboard/overview`, {
       headers: { Authorization: `Bearer ${session.accessToken}` },
     });
@@ -65,7 +95,9 @@ export default function Home() {
     setUser(session.user);
     setDashboard(overview);
     setAccessToken(session.accessToken);
-  }
+    const requestedView = viewFromHash();
+    navigateDashboard(canOpenView(overview.primaryRole, requestedView) ? requestedView : "overview", true);
+  }, [navigateDashboard]);
 
   useEffect(() => {
     let active = true;
@@ -85,7 +117,20 @@ export default function Home() {
 
     void restoreSession();
     return () => { active = false; };
-  }, []);
+  }, [openDashboard]);
+
+  useEffect(() => {
+    function syncViewFromAddress() {
+      const requestedView = viewFromHash();
+      setDashboardView(dashboard && canOpenView(dashboard.primaryRole, requestedView) ? requestedView : "overview");
+    }
+    window.addEventListener("hashchange", syncViewFromAddress);
+    window.addEventListener("popstate", syncViewFromAddress);
+    return () => {
+      window.removeEventListener("hashchange", syncViewFromAddress);
+      window.removeEventListener("popstate", syncViewFromAddress);
+    };
+  }, [dashboard]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -163,7 +208,7 @@ export default function Home() {
       setUser(null);
       setDashboard(null);
       setAccessToken("");
-      setDashboardView("overview");
+      navigateDashboard("overview", true);
       setMode("login");
       setMessage("Bạn đã đăng xuất an toàn.");
       setIsError(false);
@@ -172,10 +217,11 @@ export default function Home() {
   }
 
   if (user && dashboard) {
+    const currentView = canOpenView(dashboard.primaryRole, dashboardView) ? dashboardView : "overview";
     return (
       <main className="dashboard-shell">
         <header className="dashboard-header">
-          <a className="dashboard-brand" href="#dashboard" aria-label="Ms Ngân English">
+          <a className="dashboard-brand" href="#overview" onClick={(event) => { event.preventDefault(); navigateDashboard("overview"); }} aria-label="Ms Ngân English">
             <span className="brand-mark" aria-hidden="true">M</span>
             <span>Ms Ngân English</span>
           </a>
@@ -191,17 +237,17 @@ export default function Home() {
         <div className="dashboard-content" id="dashboard">
           <aside className="dashboard-nav" aria-label="Điều hướng chính">
             <span className="nav-section">Không gian của bạn</span>
-            <a className="active" href="#overview">Tổng quan</a>
+            <button className={currentView === "overview" ? "active" : ""} type="button" onClick={() => navigateDashboard("overview")}>Tổng quan</button>
             {dashboard.actions.map((action) =>
               dashboard.primaryRole === "TEACHER" && action === "Tạo lớp học" ? (
-                <button type="button" key={action} onClick={() => setDashboardView("classes")}>{action}</button>
+                <button className={currentView === "classes" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("classes")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Xem lớp học" ? (
-                <button type="button" key={action} onClick={() => setDashboardView("student-schedule")}>{action}</button>
+                <button className={currentView === "student-schedule" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-schedule")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh" ? (
-                <button type="button" key={action} onClick={() => setDashboardView("student-guardians")}>{action}</button>
+                <button className={currentView === "student-guardians" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-guardians")}>{action}</button>
               ) : dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh" ? (
-                <button type="button" key={action} onClick={() => setDashboardView("guardian-portal")}>{action}</button>
-              ) : <a key={action} href="#coming-soon">{action}</a>,
+                <button className={currentView === "guardian-portal" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("guardian-portal")}>{action}</button>
+              ) : <button type="button" key={action} disabled title="Chức năng sẽ được phát triển ở giai đoạn tiếp theo">{action}</button>,
             )}
             <div className="nav-profile">
               <span>Tài khoản</span>
@@ -211,18 +257,18 @@ export default function Home() {
           </aside>
 
           <section className="dashboard-main" id="overview">
-            {dashboardView === "classes" && accessToken ? (
+            {currentView === "classes" && accessToken ? (
               <ClassroomManager
                 accessToken={accessToken}
                 apiUrl={apiUrl}
-                onBack={() => setDashboardView("overview")}
+                onBack={() => navigateDashboard("overview")}
               />
-            ) : dashboardView === "student-schedule" && accessToken ? (
-              <StudentSchedule accessToken={accessToken} apiUrl={apiUrl} onBack={() => setDashboardView("overview")} />
-            ) : dashboardView === "student-guardians" && accessToken ? (
-              <StudentGuardianLinks accessToken={accessToken} apiUrl={apiUrl} onBack={() => setDashboardView("overview")} />
-            ) : dashboardView === "guardian-portal" && accessToken ? (
-              <GuardianPortal accessToken={accessToken} apiUrl={apiUrl} onBack={() => setDashboardView("overview")} />
+            ) : currentView === "student-schedule" && accessToken ? (
+              <StudentSchedule accessToken={accessToken} apiUrl={apiUrl} onBack={() => navigateDashboard("overview")} />
+            ) : currentView === "student-guardians" && accessToken ? (
+              <StudentGuardianLinks accessToken={accessToken} apiUrl={apiUrl} onBack={() => navigateDashboard("overview")} />
+            ) : currentView === "guardian-portal" && accessToken ? (
+              <GuardianPortal accessToken={accessToken} apiUrl={apiUrl} onBack={() => navigateDashboard("overview")} />
             ) : (
             <>
             <div className="dashboard-intro">
@@ -244,7 +290,7 @@ export default function Home() {
               ))}
             </div>
 
-            <section className="quick-section" id="coming-soon">
+            <section className="quick-section" id="quick-actions">
               <div>
                 <p className="section-kicker">Bắt đầu nhanh</p>
                 <h2>{dashboard.title}</h2>
@@ -261,10 +307,10 @@ export default function Home() {
                     key={action}
                     disabled={!opensClasses && !opensStudentSchedule && !opensStudentGuardians && !opensGuardianPortal}
                     onClick={opensClasses
-                      ? () => setDashboardView("classes")
-                      : opensStudentSchedule ? () => setDashboardView("student-schedule")
-                      : opensStudentGuardians ? () => setDashboardView("student-guardians")
-                      : opensGuardianPortal ? () => setDashboardView("guardian-portal") : undefined}
+                      ? () => navigateDashboard("classes")
+                      : opensStudentSchedule ? () => navigateDashboard("student-schedule")
+                      : opensStudentGuardians ? () => navigateDashboard("student-guardians")
+                      : opensGuardianPortal ? () => navigateDashboard("guardian-portal") : undefined}
                   >
                     <span>0{index + 1}</span>
                     <strong>{action}</strong>

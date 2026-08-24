@@ -95,7 +95,8 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .dashboard-nav { padding: 34px 22px; display: flex; flex-direction: column; gap: 7px; border-right: 1px solid #e7e4dc; background: var(--paper); }
 .dashboard-nav .nav-section { margin: 0 10px 10px; color: #969ca9; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .dashboard-nav > a, .dashboard-nav > button { padding: 11px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; text-decoration: none; }
-.dashboard-nav > a.active { background: #eceef7; color: var(--indigo); }
+.dashboard-nav > a.active, .dashboard-nav > button.active { background: #eceef7; color: var(--indigo); }
+.dashboard-nav > button:disabled { cursor: not-allowed; opacity: .58; }
 .nav-profile { margin-top: auto; padding: 15px 12px; display: grid; gap: 3px; border-top: 1px solid var(--line); overflow: hidden; }
 .nav-profile span { color: var(--muted); font-size: 10px; text-transform: uppercase; }
 .nav-profile strong, .nav-profile small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -177,6 +178,8 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .session-section-heading span { color: var(--ink); font-family: var(--font-serif), serif; font-size: 19px; font-weight: 600; }
 .session-section-heading strong { color: var(--muted); font-size: 9px; }
 .session-section-heading > button, .attendance-heading > button { padding: 9px 12px; border: 0; border-radius: 8px; background: var(--indigo); color: #fff; cursor: pointer; font-size: 9px; font-weight: 700; }
+.session-guide { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 7px; }
+.session-guide span { padding: 6px 9px; border-radius: 99px; background: #f0f1f8; color: var(--indigo); font-size: 8px; font-weight: 700; }
 .session-error { margin: 12px 0; color: #9c3f2d; font-size: 10px; }
 .session-form { margin-top: 14px; padding: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-radius: 11px; background: #f0efe9; }
 .session-form label { font-size: 9px; }
@@ -184,6 +187,10 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .session-form > button { width: fit-content; min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--coral); color: #fff; cursor: pointer; font-size: 9px; font-weight: 700; }
 .session-layout { margin-top: 15px; display: grid; grid-template-columns: minmax(170px, .65fr) minmax(310px, 1.35fr); gap: 14px; }
 .session-list { max-height: 520px; overflow-y: auto; }
+.session-empty, .attendance-empty { min-height: 150px; padding: 18px; display: grid; place-content: center; justify-items: center; gap: 7px; border: 1px dashed #d6d3cb; border-radius: 10px; color: var(--muted); text-align: center; }
+.session-empty strong, .attendance-empty strong { color: var(--ink); font-size: 11px; }
+.session-empty span, .attendance-empty span { max-width: 280px; font-size: 9px; line-height: 1.5; }
+.session-empty button { margin-top: 4px; padding: 8px 10px; border: 0; border-radius: 7px; background: var(--indigo); color: #fff; cursor: pointer; font-size: 8px; font-weight: 700; }
 .session-list > button { width: 100%; margin-bottom: 7px; padding: 11px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #e1ded5; border-radius: 9px; background: #fff; color: var(--ink); cursor: pointer; text-align: left; }
 .session-list > button.selected { border-color: #bfc5df; background: #f0f1f8; }
 .session-list > button span { min-width: 0; display: grid; gap: 3px; }

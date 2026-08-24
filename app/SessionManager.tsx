@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Session = {
   id: string;
@@ -63,14 +63,16 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
     }
   }
 
-  async function loadAttendance(session: Session) {
+  const loadAttendance = useCallback(async (session: Session) => {
     setSelected(session);
     setError("");
-    const response = await fetch(`${apiUrl}/sessions/${session.id}/attendance`, { headers });
+    const response = await fetch(`${apiUrl}/sessions/${session.id}/attendance`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     if (!response.ok) throw new Error(await responseMessage(response));
     const body = await response.json() as { rows: AttendanceRow[] };
     setRows(body.rows.map((row) => ({ ...row, attendanceStatus: row.attendanceStatus ?? "PRESENT" })));
-  }
+  }, [accessToken, apiUrl]);
 
   useEffect(() => {
     let active = true;
@@ -81,9 +83,18 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
         });
         if (!response.ok) throw new Error(await responseMessage(response));
         if (active) {
-          setSessions(await response.json() as Session[]);
-          setSelected(null);
-          setRows([]);
+          const items = await response.json() as Session[];
+          setSessions(items);
+          const now = Date.now();
+          const defaultSession = items.find((item) => item.status === "SCHEDULED" && new Date(item.scheduledStart).getTime() >= now)
+            ?? items.find((item) => item.status === "SCHEDULED")
+            ?? items.at(-1);
+          if (defaultSession) {
+            await loadAttendance(defaultSession);
+          } else {
+            setSelected(null);
+            setRows([]);
+          }
         }
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : "Không thể tải buổi học.");
@@ -93,7 +104,7 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
     }
     void initialLoad();
     return () => { active = false; };
-  }, [classroomId, accessToken, apiUrl]);
+  }, [classroomId, accessToken, apiUrl, loadAttendance]);
 
   async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -179,6 +190,10 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
         <button type="button" onClick={() => setShowCreate((value) => !value)}>+ Lên lịch buổi học</button>
       </div>
 
+      <p className="session-guide">
+        <span>1. Lên lịch buổi học</span><span>2. Chọn buổi học</span><span>3. Điểm danh và lưu</span>
+      </p>
+
       {error && <p className="session-error" role="alert">{error}</p>}
 
       {showCreate && (
@@ -194,11 +209,18 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
       <div className="session-layout">
         <div className="session-list">
           {loading && !sessions.length && <p className="empty-note">Đang tải buổi học...</p>}
-          {!loading && !sessions.length && <p className="empty-note">Chưa có buổi học. Hãy lên lịch buổi đầu tiên.</p>}
+          {!loading && !sessions.length && (
+            <div className="session-empty">
+              <strong>Chưa có buổi học</strong>
+              <span>Tạo buổi học đầu tiên để bắt đầu điểm danh.</span>
+              <button type="button" onClick={() => setShowCreate(true)}>+ Tạo buổi học đầu tiên</button>
+            </div>
+          )}
           {sessions.map((session) => (
             <button
               type="button"
               className={selected?.id === session.id ? "selected" : ""}
+              aria-pressed={selected?.id === session.id}
               key={session.id}
               onClick={() => loadAttendance(session).catch((reason) => setError(String(reason)))}
             >
@@ -209,10 +231,15 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
         </div>
 
         <div className="attendance-sheet">
-          {!selected ? <p className="empty-note">Chọn một buổi học để điểm danh.</p> : (
+          {!selected ? (
+            <div className="attendance-empty">
+              <strong>{sessions.length ? "Chọn một buổi học" : "Hãy tạo buổi học trước"}</strong>
+              <span>{sessions.length ? "Chọn buổi học ở danh sách bên trái để mở sổ điểm danh." : "Sau khi tạo, buổi học sẽ tự động được chọn và danh sách học sinh sẽ hiện tại đây."}</span>
+            </div>
+          ) : (
             <>
               <div className="attendance-heading">
-                <div><strong>{selected.title}</strong><small>{selected.topic ?? "Chưa có nội dung chính"}</small></div>
+                <div><strong>{selected.title}</strong><small>{new Date(selected.scheduledStart).toLocaleString("vi-VN")} · {selected.topic ?? "Chưa có nội dung chính"}</small></div>
                 {!!rows.length && <button type="button" onClick={saveAttendance} disabled={loading}>Lưu điểm danh</button>}
               </div>
               {!rows.length && <p className="empty-note">Lớp chưa có học sinh để điểm danh.</p>}
