@@ -222,7 +222,7 @@ export default function Home() {
       <main className="dashboard-shell">
         <header className="dashboard-header">
           <a className="dashboard-brand" href="#overview" onClick={(event) => { event.preventDefault(); navigateDashboard("overview"); }} aria-label="Ms Ngân English">
-            <span className="brand-mark" aria-hidden="true">M</span>
+            <span className="brand-mark" aria-hidden="true">N</span>
             <span>Ms Ngân English</span>
           </a>
           <div className="account-menu">
@@ -331,7 +331,7 @@ export default function Home() {
     <main className="auth-shell">
       <section className="brand-panel" aria-labelledby="welcome-title">
         <a className="brand" href="#top" aria-label="Ms Ngân English - Trang chủ">
-          <span className="brand-mark" aria-hidden="true">M</span>
+          <span className="brand-mark" aria-hidden="true">N</span>
           <span>Ms Ngân English</span>
         </a>
 
