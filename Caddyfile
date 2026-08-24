@@ -1,3 +1,6 @@
+{
+    email {$TLS_EMAIL}
+}
 
 {$WEB_DOMAIN} {
 	encode zstd gzip
@@ -5,6 +8,7 @@
 	header {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
 }
@@ -13,6 +17,7 @@
 	encode zstd gzip
 	reverse_proxy api:4000
 	header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
 }
