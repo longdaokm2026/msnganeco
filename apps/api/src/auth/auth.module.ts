@@ -6,9 +6,11 @@ import { AuthRepository } from "./auth.repository";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { PrismaAuthRepository } from "./prisma-auth.repository";
+import { MailModule } from "../mail/mail.module";
 
 @Module({
   imports: [
+    MailModule,
     JwtModule.register({
       secret: authConfig.accessSecret(),
       signOptions: {

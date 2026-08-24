@@ -19,6 +19,7 @@ import type {
 } from "./auth.types";
 import type { LoginDto } from "./dto/login.dto";
 import type { RegisterDto } from "./dto/register.dto";
+import { MailService } from "../mail/mail.service";
 
 const ARGON_OPTIONS = {
   // @node-rs/argon2 exposes Algorithm as an ambient const enum, which is not
@@ -60,6 +61,7 @@ export class AuthService {
   constructor(
     @Inject(AuthRepository) private readonly repository: AuthRepository,
     @Inject(JwtService) private readonly jwt: JwtService,
+    @Inject(MailService) private readonly mail: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -78,7 +80,7 @@ export class AuthService {
         verificationTokenHash: sha256(verificationToken),
         verificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       });
-
+      await this.mail.sendVerificationEmail(email, verificationToken);
       return {
         user: publicUser(user),
         verificationRequired: true,
@@ -135,6 +137,7 @@ export class AuthService {
       now,
     );
 
+
     if (!user) throw new UnauthorizedException("Phiên đăng nhập không hợp lệ.");
 
     return {
@@ -156,6 +159,7 @@ export class AuthService {
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException("Tài khoản không còn hoạt động.");
     }
+
     return { user: publicUser(user) };
   }
 
