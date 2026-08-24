@@ -1,6 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import type { Role } from "../../../../generated/prisma/client";
 import type { AccessTokenPayload } from "../auth/auth.types";
+import { DashboardRepository } from "./dashboard.repository";
 
 const rolePriority: Role[] = ["ADMIN", "TEACHER", "GUARDIAN", "STUDENT"];
 
@@ -21,11 +22,11 @@ const dashboardByRole = {
     title: "Không gian giảng dạy",
     description: "Chuẩn bị lớp, bài học và theo dõi tiến độ học sinh.",
     metrics: [
-      { label: "Lớp đang dạy", value: "0", hint: "Tạo lớp đầu tiên ở giai đoạn 2" },
+      { label: "Lớp đang dạy", value: "0", hint: "Chưa có lớp đang hoạt động" },
       { label: "Buổi học hôm nay", value: "0", hint: "Chưa có lịch học" },
-      { label: "Bài cần chấm", value: "0", hint: "Chưa có bài nộp mới" },
+      { label: "Đơn xin vắng", value: "0", hint: "Không có đơn chờ duyệt" },
     ],
-    actions: ["Tạo lớp học", "Soạn bài học", "Tạo bài tập"],
+    actions: ["Quản lý lớp học", "Soạn bài học", "Tạo bài tập"],
   },
   STUDENT: {
     roleLabel: "Học sinh",
@@ -59,9 +60,47 @@ const dashboardByRole = {
 
 @Injectable()
 export class DashboardService {
-  overview(user: AccessTokenPayload) {
+  constructor(@Inject(DashboardRepository) private readonly repository: DashboardRepository) {}
+
+  async overview(user: AccessTokenPayload) {
     const primaryRole = rolePriority.find((role) => user.roles.includes(role)) ?? "STUDENT";
+    if (primaryRole === "TEACHER") {
+      const now = new Date();
+      const { from, to } = vietnamDayRange(now);
+      const teacherOverview = await this.repository.teacherOverview(user.sub, now, from, to);
+      const nextSessionHint = teacherOverview.nextSession
+        ? `${teacherOverview.nextSession.className} · ${formatVietnamDateTime(teacherOverview.nextSession.scheduledStart)}`
+        : "Chưa có lịch học sắp tới";
+      return {
+        primaryRole,
+        ...dashboardByRole.TEACHER,
+        metrics: [
+          {
+            label: "Lớp đang dạy",
+            value: String(teacherOverview.activeClassCount),
+            hint: `${teacherOverview.activeStudentCount} học sinh đang học`,
+          },
+          {
+            label: "Buổi học hôm nay",
+            value: String(teacherOverview.todaySessionCount),
+            hint: nextSessionHint,
+          },
+          {
+            label: "Đơn xin vắng",
+            value: String(teacherOverview.pendingAbsenceCount),
+            hint: teacherOverview.pendingAbsenceCount ? "Đang chờ giáo viên duyệt" : "Không có đơn chờ duyệt",
+          },
+        ],
+        teacherOverview,
+      };
+    }
     return { primaryRole, ...dashboardByRole[primaryRole] };
+  }
+
+  teacherAttendance(teacherId: string, requestedMonth?: string) {
+    const month = requestedMonth ?? vietnamMonth(new Date());
+    const { from, to } = vietnamMonthRange(month);
+    return this.repository.teacherAttendanceReport(teacherId, month, from, to);
   }
 
   teachingAccess() {
@@ -79,4 +118,35 @@ export class DashboardService {
   administrationAccess() {
     return { allowed: true, area: "administration" };
   }
+}
+
+const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function vietnamMonth(date: Date) {
+  const shifted = new Date(date.getTime() + VIETNAM_OFFSET_MS);
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function vietnamDayRange(date: Date) {
+  const shifted = new Date(date.getTime() + VIETNAM_OFFSET_MS);
+  const from = new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()) - VIETNAM_OFFSET_MS);
+  return { from, to: new Date(from.getTime() + 24 * 60 * 60 * 1000) };
+}
+
+function vietnamMonthRange(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return {
+    from: new Date(Date.UTC(year, monthNumber - 1, 1) - VIETNAM_OFFSET_MS),
+    to: new Date(Date.UTC(year, monthNumber, 1) - VIETNAM_OFFSET_MS),
+  };
+}
+
+function formatVietnamDateTime(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

@@ -66,8 +66,8 @@ export class SessionService {
     const result = await this.repository.requestAbsence(studentId, sessionId, reason.trim(), new Date());
     if (result.status === "NOT_FOUND") throw new NotFoundException("Không tìm thấy buổi học.");
     if (result.status === "NOT_ENROLLED") throw new NotFoundException("Bạn không thuộc lớp học này.");
-    if (result.status === "SESSION_STARTED") {
-      throw new ConflictException("Không thể xin vắng sau khi buổi học đã bắt đầu.");
+    if (result.status === "DEADLINE_PASSED") {
+      throw new ConflictException("Đơn xin vắng phải được gửi trước giờ học ít nhất 2 giờ.");
     }
     if (result.status === "ALREADY_REQUESTED") {
       throw new ConflictException("Bạn đã gửi đơn xin vắng cho buổi học này.");

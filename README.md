@@ -60,6 +60,7 @@ Trong local, `AUTH_EXPOSE_DEV_TOKENS=true` cho phép giao diện hiển thị n�
 Mọi endpoint dashboard đều yêu cầu Bearer access token. Sai vai trò trả `403 Forbidden`.
 
 - `GET /dashboard/overview`: dashboard theo vai trò chính của tài khoản.
+- `GET /dashboard/teacher/attendance?month=YYYY-MM`: báo cáo chuyên cần và số lượt học tính phí theo tháng của Teacher.
 - `GET /dashboard/teaching`: Teacher hoặc Admin.
 - `GET /dashboard/learning`: Student hoặc Admin.
 - `GET /dashboard/guardian`: Guardian hoặc Admin.
@@ -108,9 +109,9 @@ Endpoint dành riêng cho Teacher và chỉ cho phép truy cập lớp thuộc g
 Endpoint dành riêng cho Student:
 
 - `GET /student/sessions`: xem lịch học, trạng thái chuyên cần và đơn đã gửi.
-- `POST /sessions/:sessionId/absence-requests`: xin vắng trước khi buổi học bắt đầu.
+- `POST /sessions/:sessionId/absence-requests`: xin vắng trước giờ học ít nhất 2 giờ.
 
-Học sinh chỉ gửi được đơn cho lớp đang theo học. Một học sinh chỉ có một đơn trên mỗi buổi; đơn được duyệt tự tạo bản ghi `EXCUSED`. Mọi thao tác tạo buổi, điểm danh, xin vắng và duyệt đơn đều được ghi audit log.
+Học sinh chỉ gửi được đơn cho lớp đang theo học. Một học sinh chỉ có một đơn trên mỗi buổi; đơn được duyệt tự tạo bản ghi `EXCUSED`. Chỉ buổi vắng được duyệt và có điểm danh `EXCUSED` mới được loại khỏi số lượt tính phí; đơn bị từ chối vẫn được tính phí sau khi buổi học hoàn thành. Mọi thao tác tạo buổi, điểm danh, xin vắng và duyệt đơn đều được ghi audit log.
 
 ## Guardian links API
 

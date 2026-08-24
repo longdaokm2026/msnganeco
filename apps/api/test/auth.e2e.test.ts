@@ -9,6 +9,8 @@ import { after, before, describe, test } from "node:test";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { authConfig } from "../src/config/env";
+import { DashboardRepository } from "../src/dashboard/dashboard.repository";
+import type { TeacherAttendanceReport, TeacherOverview } from "../src/dashboard/dashboard.types";
 import { AuthRepository, DuplicateIdentityError } from "../src/auth/auth.repository";
 import type {
   AuthUser,
@@ -139,6 +141,52 @@ class InMemoryAuthRepository extends AuthRepository {
   }
 }
 
+class InMemoryDashboardRepository extends DashboardRepository {
+  async teacherOverview(): Promise<TeacherOverview> {
+    return {
+      activeClassCount: 1,
+      activeStudentCount: 1,
+      todaySessionCount: 1,
+      pendingAbsenceCount: 1,
+      nextSession: {
+        className: "English A1",
+        title: "Speaking practice",
+        scheduledStart: "2099-01-01T10:00:00.000Z",
+      },
+      classes: [{
+        id: randomUUID(),
+        code: "MSN-A1",
+        name: "English A1",
+        studentCount: 1,
+        sessionCount: 2,
+        nextSession: { title: "Speaking practice", scheduledStart: "2099-01-01T10:00:00.000Z" },
+      }],
+    };
+  }
+
+  async teacherAttendanceReport(_teacherId: string, month: string): Promise<TeacherAttendanceReport> {
+    return {
+      month,
+      totals: { completedSessions: 2, present: 1, late: 0, absent: 1, approvedAbsence: 0, rejectedAbsence: 1, pendingAbsence: 0, billableSessions: 2 },
+      students: [{
+        classroomId: randomUUID(),
+        classroomName: "English A1",
+        studentId: randomUUID(),
+        studentCode: "HV001",
+        fullName: "Nguyễn Minh Anh",
+        completedSessions: 2,
+        present: 1,
+        late: 0,
+        absent: 1,
+        approvedAbsence: 0,
+        rejectedAbsence: 1,
+        pendingAbsence: 0,
+        billableSessions: 2,
+      }],
+    };
+  }
+}
+
 function refreshCookie(response: request.Response) {
   const cookies = response.headers["set-cookie"];
   const values = Array.isArray(cookies) ? cookies : cookies ? [cookies] : [];
@@ -157,6 +205,8 @@ describe("Auth API", () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(AuthRepository)
       .useClass(InMemoryAuthRepository)
+      .overrideProvider(DashboardRepository)
+      .useClass(InMemoryDashboardRepository)
       .compile();
 
     const nestApp = moduleRef.createNestApplication();
@@ -303,7 +353,23 @@ describe("Auth API", () => {
       .expect(200)
       .expect(({ body }) => {
         if (body.primaryRole !== "TEACHER") throw new Error("Wrong teacher dashboard.");
+        if (body.metrics[0]?.value !== "1" || body.teacherOverview?.classes?.length !== 1) {
+          throw new Error("Teacher dashboard is not using live data.");
+        }
       });
+    await request(httpServer)
+      .get("/dashboard/teacher/attendance?month=2026-08")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        if (body.totals?.rejectedAbsence !== 1 || body.totals?.billableSessions !== 2) {
+          throw new Error("Rejected absence must remain billable.");
+        }
+      });
+    await request(httpServer)
+      .get("/dashboard/teacher/attendance?month=08-2026")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .expect(400);
     await request(httpServer)
       .get("/dashboard/teaching")
       .set("Authorization", `Bearer ${teacherToken}`)
@@ -319,6 +385,10 @@ describe("Auth API", () => {
       .expect(200);
     await request(httpServer)
       .get("/dashboard/guardian")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(403);
+    await request(httpServer)
+      .get("/dashboard/teacher/attendance?month=2026-08")
       .set("Authorization", `Bearer ${studentToken}`)
       .expect(403);
 

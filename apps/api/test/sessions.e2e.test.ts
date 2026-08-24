@@ -113,9 +113,14 @@ class InMemorySessionRepository extends SessionRepository {
   async requestAbsence(
     studentId: string,
     sessionId: string,
+    _reason: string,
+    now: Date,
   ): Promise<AbsenceRequestResult> {
     if (!this.session || sessionId !== this.session.id) return { status: "NOT_FOUND" };
     if (studentId !== this.studentId) return { status: "NOT_ENROLLED" };
+    if (new Date(this.session.scheduledStart).getTime() - now.getTime() < 2 * 60 * 60 * 1000) {
+      return { status: "DEADLINE_PASSED" };
+    }
     if (this.absence && ["PENDING", "APPROVED"].includes(this.absence.status)) {
       return { status: "ALREADY_REQUESTED" };
     }
@@ -286,5 +291,21 @@ describe("Sessions and attendance API", () => {
       .set("Authorization", `Bearer ${teacherToken}`)
       .send({ decision: "REJECTED" })
       .expect(409);
+
+    const soonStart = new Date(Date.now() + 60 * 60 * 1000);
+    const soonEnd = new Date(soonStart.getTime() + 60 * 60 * 1000);
+    const soonSession = await request(httpServer)
+      .post(`/classes/${classroomId}/sessions`)
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({ title: "Too late to request", scheduledStart: soonStart.toISOString(), scheduledEnd: soonEnd.toISOString() })
+      .expect(201);
+    await request(httpServer)
+      .post(`/sessions/${soonSession.body.id}/absence-requests`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ reason: "Báo vắng muộn" })
+      .expect(409)
+      .expect(({ body }) => {
+        if (!String(body.message).includes("ít nhất 2 giờ")) throw new Error("Two-hour absence deadline is missing.");
+      });
   });
 });

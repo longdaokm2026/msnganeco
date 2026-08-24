@@ -44,5 +44,5 @@ export type CreateSessionResult = OwnedResult<SessionSummary> | { status: "DUPLI
 export type MarkAttendanceResult = "OK" | "NOT_FOUND" | "INVALID_STUDENT";
 export type AbsenceRequestResult =
   | { status: "OK"; requestId: string }
-  | { status: "NOT_FOUND" | "NOT_ENROLLED" | "SESSION_STARTED" | "ALREADY_REQUESTED" };
+  | { status: "NOT_FOUND" | "NOT_ENROLLED" | "DEADLINE_PASSED" | "ALREADY_REQUESTED" };
 export type ReviewAbsenceResult = "OK" | "NOT_FOUND" | "ALREADY_REVIEWED";

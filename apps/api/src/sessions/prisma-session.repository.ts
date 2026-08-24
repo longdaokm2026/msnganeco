@@ -6,6 +6,7 @@ import {
   Prisma,
 } from "../../../../generated/prisma/client";
 import { prisma } from "../../../../server/database/client";
+import { isAbsenceRequestLate } from "./absence-policy";
 import { SessionRepository } from "./session.repository";
 import type {
   AbsenceRequestResult,
@@ -219,7 +220,7 @@ export class PrismaSessionRepository extends SessionRepository {
     return prisma.$transaction(async (tx) => {
       const session = await tx.classSession.findUnique({ where: { id: sessionId } });
       if (!session || session.status === "CANCELLED") return { status: "NOT_FOUND" };
-      if (session.scheduledStart <= now) return { status: "SESSION_STARTED" };
+      if (isAbsenceRequestLate(session.scheduledStart, now)) return { status: "DEADLINE_PASSED" };
       const enrollment = await tx.classEnrollment.findFirst({
         where: { classroomId: session.classroomId, studentId, status: EnrollmentStatus.ACTIVE },
       });
