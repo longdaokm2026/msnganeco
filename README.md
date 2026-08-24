@@ -175,6 +175,25 @@ Không commit file `.env`, mật khẩu, token hoặc thông tin kết nối pro
 
 ## Production trên Ubuntu
 
+### Sao lưu tài liệu bài học
+
+Tệp bài học được lưu trong Docker named volume `lesson_uploads`, không nằm trong PostgreSQL. Vì vậy một bản `pg_dump` không phải là bản sao lưu đầy đủ. Khi sao lưu production cần giữ cả:
+
+1. PostgreSQL dump.
+2. Bản archive của volume `lesson_uploads`.
+
+Ví dụ khái niệm (thay tên volume thực tế và thư mục backup theo Compose project trên máy chủ):
+
+```bash
+docker run --rm \
+  -v <compose_volume_name>:/source:ro \
+  -v <backup_directory>:/backup \
+  alpine \
+  tar czf /backup/lesson_uploads_<timestamp>.tar.gz -C /source .
+```
+
+Khi restore, phục hồi PostgreSQL và volume tài liệu cùng một mốc thời gian. Không giải nén volume vào thư mục public và không phục vụ trực tiếp volume qua Caddy; download luôn đi qua API đã xác thực.
+
 Production dùng hai Docker image độc lập cho Web và API, Caddy làm HTTPS reverse
 proxy, còn PostgreSQL chạy ngoài application server. `main` luôn là nguồn code
 ổn định; workflow `CI` kiểm tra mọi pull request và workflow `Deploy production`

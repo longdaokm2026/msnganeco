@@ -9,11 +9,13 @@ import TeacherAttendanceReport from "./TeacherAttendanceReport";
 import AdminManager from "./AdminManager";
 import type { AdminSection } from "./admin/types";
 import ForgotPassword from "./ForgotPassword";
+import TeacherLessonManager from "./TeacherLessonManager";
+import StudentLessonViewer from "./StudentLessonViewer";
 
 type AuthMode = "login" | "register" | "forgot";
 type Role = "student" | "teacher" | "guardian";
 type ApiRole = "ADMIN" | "TEACHER" | "STUDENT" | "GUARDIAN";
-type DashboardView = "overview" | "classes" | "student-schedule" | "student-guardians" | "guardian-portal" | "admin-users" | "admin-teachers" | "admin-classrooms" | "admin-audit";
+type DashboardView = "overview" | "classes" | "lessons" | "student-lessons" | "student-schedule" | "student-guardians" | "guardian-portal" | "admin-users" | "admin-teachers" | "admin-classrooms" | "admin-audit";
 
 type SessionUser = {
   id: string;
@@ -76,6 +78,8 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const viewHashes: Record<DashboardView, string> = {
   overview: "overview",
   classes: "classes",
+  lessons: "lessons",
+  "student-lessons": "student-lessons",
   "student-schedule": "schedule",
   "student-guardians": "guardians",
   "guardian-portal": "students",
@@ -93,8 +97,8 @@ function viewFromHash(): DashboardView {
 
 function canOpenView(role: ApiRole, view: DashboardView) {
   if (view === "overview") return true;
-  if (role === "TEACHER") return view === "classes";
-  if (role === "STUDENT") return view === "student-schedule" || view === "student-guardians";
+  if (role === "TEACHER") return view === "classes" || view === "lessons";
+  if (role === "STUDENT") return view === "student-schedule" || view === "student-lessons" || view === "student-guardians";
   if (role === "GUARDIAN") return view === "guardian-portal";
   if (role === "ADMIN") return view === "admin-users" || view === "admin-teachers" || view === "admin-classrooms" || view === "admin-audit";
   return false;
@@ -298,8 +302,12 @@ export default function Home() {
             </> : dashboard.actions.map((action) =>
               dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học" ? (
                 <button className={currentView === "classes" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("classes")}>{action}</button>
+              ) : dashboard.primaryRole === "TEACHER" && action === "Quản lý bài học" ? (
+                <button className={currentView === "lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("lessons")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần" ? (
                 <button className={currentView === "student-schedule" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-schedule")}>{action}</button>
+              ) : dashboard.primaryRole === "STUDENT" && action === "Bài học" ? (
+                <button className={currentView === "student-lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-lessons")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh" ? (
                 <button className={currentView === "student-guardians" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-guardians")}>{action}</button>
               ) : dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh" ? (
@@ -322,6 +330,10 @@ export default function Home() {
                 apiUrl={apiUrl}
                 onBack={() => { void returnToOverview(); }}
               />
+            ) : currentView === "lessons" && accessToken ? (
+              <TeacherLessonManager accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
+            ) : currentView === "student-lessons" && accessToken ? (
+              <StudentLessonViewer accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
             ) : currentView === "student-schedule" && accessToken ? (
               <StudentSchedule accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
             ) : currentView === "student-guardians" && accessToken ? (
@@ -413,6 +425,8 @@ export default function Home() {
               <div className="action-grid">
                 {dashboard.actions.map((action, index) => {
                   const opensClasses = dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học";
+                  const opensLessons = dashboard.primaryRole === "TEACHER" && action === "Quản lý bài học";
+                  const opensStudentLessons = dashboard.primaryRole === "STUDENT" && action === "Bài học";
                   const opensStudentSchedule = dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần";
                   const opensStudentGuardians = dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh";
                   const opensGuardianPortal = dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh";
@@ -420,16 +434,18 @@ export default function Home() {
                   <button
                     type="button"
                     key={action}
-                    disabled={!opensClasses && !opensStudentSchedule && !opensStudentGuardians && !opensGuardianPortal}
+                    disabled={!opensClasses && !opensLessons && !opensStudentLessons && !opensStudentSchedule && !opensStudentGuardians && !opensGuardianPortal}
                     onClick={opensClasses
                       ? () => navigateDashboard("classes")
+                      : opensLessons ? () => navigateDashboard("lessons")
+                      : opensStudentLessons ? () => navigateDashboard("student-lessons")
                       : opensStudentSchedule ? () => navigateDashboard("student-schedule")
                       : opensStudentGuardians ? () => navigateDashboard("student-guardians")
                       : opensGuardianPortal ? () => navigateDashboard("guardian-portal") : undefined}
                   >
                     <span>0{index + 1}</span>
                     <strong>{action}</strong>
-                    <small>{opensClasses || opensStudentSchedule || opensStudentGuardians || opensGuardianPortal ? "Mở chức năng" : "Sẽ được mở ở giai đoạn chức năng tiếp theo"}</small>
+                    <small>{opensClasses || opensLessons || opensStudentLessons || opensStudentSchedule || opensStudentGuardians || opensGuardianPortal ? "Mở chức năng" : "Sẽ được mở ở giai đoạn chức năng tiếp theo"}</small>
                   </button>
                 );})}
               </div>

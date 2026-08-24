@@ -55,6 +55,9 @@ export class PrismaSessionRepository extends SessionRepository {
           data: { classroomId, ...input },
           include: { classroom: { select: { name: true } } },
         });
+        const lesson = await tx.lesson.create({
+          data: { sessionId: created.id, title: created.title, createdById: teacherId, updatedById: teacherId },
+        });
         await tx.auditLog.create({
           data: {
             actorId: teacherId,
@@ -62,6 +65,9 @@ export class PrismaSessionRepository extends SessionRepository {
             entityType: "ClassSession",
             entityId: created.id,
           },
+        });
+        await tx.auditLog.create({
+          data: { actorId: teacherId, action: "LESSON_CREATED", entityType: "Lesson", entityId: lesson.id, metadata: { sessionId: created.id, classroomId } },
         });
         return created;
       });

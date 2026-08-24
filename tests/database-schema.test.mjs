@@ -28,6 +28,10 @@ const adminManagementMigrationUrl = new URL(
   "../prisma/migrations/20260825010000_admin_management/migration.sql",
   import.meta.url,
 );
+const lessonManagementMigrationUrl = new URL(
+  "../prisma/migrations/20260825020000_lesson_management/migration.sql",
+  import.meta.url,
+);
 
 async function createDatabase() {
   const db = await PGlite.create({ extensions: { citext } });
@@ -43,6 +47,8 @@ async function createDatabase() {
   await db.exec(guardianLinksMigration);
   const adminManagementMigration = await readFile(adminManagementMigrationUrl, "utf8");
   await db.exec(adminManagementMigration);
+  const lessonManagementMigration = await readFile(lessonManagementMigrationUrl, "utf8");
+  await db.exec(lessonManagementMigration);
   return db;
 }
 
@@ -66,6 +72,8 @@ test("initial migration creates the account tables", async () => {
       "class_sessions",
       "classrooms",
       "guardian_profiles",
+      "lesson_attachments",
+      "lessons",
       "refresh_tokens",
       "student_guardians",
       "student_profiles",
@@ -77,6 +85,26 @@ test("initial migration creates the account tables", async () => {
   } finally {
     await db.close();
   }
+});
+
+test("lesson migration preserves historical sessions and enforces one lesson per session", async () => {
+  const db = await PGlite.create({ extensions: { citext } });
+  const teacherId = "11000000-0000-4000-8000-000000000001";
+  const classroomId = "11000000-0000-4000-8000-000000000002";
+  const sessionId = "11000000-0000-4000-8000-000000000003";
+  try {
+    for (const url of [migrationUrl, refreshFamiliesMigrationUrl, classroomsMigrationUrl, sessionsAttendanceMigrationUrl, guardianLinksMigrationUrl, adminManagementMigrationUrl]) await db.exec(await readFile(url, "utf8"));
+    await db.exec(`INSERT INTO users (id,email,password_hash,full_name,status,updated_at) VALUES ('${teacherId}','lesson-teacher@test.local','hash','Teacher','ACTIVE',NOW()); INSERT INTO teacher_profiles (user_id,approval_status,updated_at) VALUES ('${teacherId}','APPROVED',NOW()); INSERT INTO classrooms (id,teacher_id,code,name,updated_at) VALUES ('${classroomId}','${teacherId}','MSN-LESSON','Lesson Class',NOW()); INSERT INTO class_sessions (id,classroom_id,title,scheduled_start,scheduled_end,updated_at) VALUES ('${sessionId}','${classroomId}','Historical',NOW(),NOW()+INTERVAL '1 hour',NOW());`);
+    await db.exec(await readFile(lessonManagementMigrationUrl, "utf8"));
+    const history = await db.query(`SELECT count(*)::int AS count FROM class_sessions WHERE id=$1`, [sessionId]); assert.equal(history.rows[0].count, 1);
+    const lessonId = "11000000-0000-4000-8000-000000000004";
+    await db.query(`INSERT INTO lessons (id,session_id,title,created_by_id,updated_by_id,updated_at) VALUES ($1,$2,'Lesson',$3,$3,NOW())`, [lessonId, sessionId, teacherId]);
+    await db.query(`INSERT INTO lesson_attachments (id,lesson_id,file_name,file_type,file_size,storage_key,uploaded_by_id) VALUES ($1,$2,'Worksheet.pdf','application/pdf',12,'test-storage-key',$3)`, ["11000000-0000-4000-8000-000000000006", lessonId, teacherId]);
+    await assert.rejects(db.query(`INSERT INTO lessons (id,session_id,title,created_by_id,updated_by_id,updated_at) VALUES ($1,$2,'Duplicate',$3,$3,NOW())`, ["11000000-0000-4000-8000-000000000005", sessionId, teacherId]), /duplicate key value/i);
+    await db.query(`DELETE FROM class_sessions WHERE id=$1`, [sessionId]);
+    const lessons = await db.query(`SELECT count(*)::int AS count FROM lessons WHERE session_id=$1`, [sessionId]); assert.equal(lessons.rows[0].count, 0);
+    const attachments = await db.query(`SELECT count(*)::int AS count FROM lesson_attachments WHERE lesson_id=$1`, [lessonId]); assert.equal(attachments.rows[0].count, 0);
+  } finally { await db.close(); }
 });
 
 test("admin migration backfills teachers and adds review metadata", async () => {

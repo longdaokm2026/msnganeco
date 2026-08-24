@@ -71,6 +71,21 @@ enum GuardianLinkStatus {
   REVOKED
 }
 
+enum LessonStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum LessonAttachmentCategory {
+  IMAGE
+  DOCUMENT
+  WORKSHEET
+  READING
+  SLIDE
+  OTHER
+}
+
 model User {
   id                String              @id @default(uuid()) @db.Uuid
   email             String              @unique @db.Citext
@@ -91,6 +106,9 @@ model User {
   verificationTokens VerificationToken[]
   auditLogs         AuditLog[]          @relation("AuditActor")
   teacherApprovals  TeacherProfile[]    @relation("TeacherApprover")
+  lessonsCreated    Lesson[]            @relation("LessonCreatedBy")
+  lessonsUpdated    Lesson[]            @relation("LessonUpdatedBy")
+  lessonUploads     LessonAttachment[]
 
   @@index([status])
   @@index([createdAt])
@@ -196,10 +214,55 @@ model ClassSession {
   classroom      Classroom          @relation(fields: [classroomId], references: [id], onDelete: Cascade)
   attendances    AttendanceRecord[]
   absenceRequests AbsenceRequest[]
+  lesson          Lesson?
 
   @@unique([classroomId, scheduledStart])
   @@index([scheduledStart, status])
   @@map("class_sessions")
+}
+
+model Lesson {
+  id            String       @id @default(uuid()) @db.Uuid
+  sessionId     String       @unique @map("session_id") @db.Uuid
+  status        LessonStatus @default(DRAFT)
+  title         String       @db.VarChar(200)
+  summary       String?
+  mainContent   String?      @map("main_content")
+  theory        String?
+  vocabulary    String?
+  grammar       String?
+  examples      String?
+  reviewNotes   String?      @map("review_notes")
+  homeworkNotes String?      @map("homework_notes")
+  publishedAt   DateTime?    @map("published_at") @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String       @map("created_by_id") @db.Uuid
+  updatedById   String       @map("updated_by_id") @db.Uuid
+  session       ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy     User         @relation("LessonCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy     User         @relation("LessonUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  attachments   LessonAttachment[]
+
+  @@index([status, updatedAt])
+  @@map("lessons")
+}
+
+model LessonAttachment {
+  id           String                   @id @default(uuid()) @db.Uuid
+  lessonId     String                   @map("lesson_id") @db.Uuid
+  fileName     String                   @map("file_name") @db.VarChar(255)
+  fileType     String                   @map("file_type") @db.VarChar(150)
+  fileSize     Int                      @map("file_size")
+  storageKey   String                   @unique @map("storage_key") @db.VarChar(500)
+  category     LessonAttachmentCategory @default(OTHER)
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  uploadedById String                   @map("uploaded_by_id") @db.Uuid
+  lesson       Lesson                   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  uploadedBy   User                     @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([lessonId])
+  @@map("lesson_attachments")
 }
 
 model AttendanceRecord {
