@@ -40,6 +40,8 @@ export interface RequestMetadata {
   userAgent?: string;
 }
 
+export type PasswordResetIssue = { email: string } | null;
+
 export interface AccessTokenPayload {
   sub: string;
   email: string;

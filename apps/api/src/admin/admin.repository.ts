@@ -7,6 +7,9 @@ import type {
   Page,
   TeacherReviewResult,
   UserStatusResult,
+  ProfileUpdateResult,
+  VerificationResendResult,
+  DeleteUserResult,
 } from "./admin.types";
 
 export abstract class AdminRepository {
@@ -14,6 +17,9 @@ export abstract class AdminRepository {
   abstract listUsers(query: AdminUserQuery): Promise<Page<unknown>>;
   abstract userDetail(userId: string): Promise<unknown | null>;
   abstract updateUserStatus(actorId: string, userId: string, status: UserStatus): Promise<UserStatusResult>;
+  abstract updateUserProfile(actorId: string, userId: string, input: { fullName?: string; phone?: string | null }): Promise<ProfileUpdateResult>;
+  abstract createVerificationToken(actorId: string, userId: string, tokenHash: string, expiresAt: Date): Promise<VerificationResendResult>;
+  abstract deleteUser(actorId: string, userId: string, reason?: string): Promise<DeleteUserResult>;
   abstract pendingTeachers(page: number, pageSize: number): Promise<Page<unknown>>;
   abstract reviewTeacher(
     actorId: string,

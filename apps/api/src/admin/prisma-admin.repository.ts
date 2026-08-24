@@ -17,6 +17,9 @@ import type {
   Page,
   TeacherReviewResult,
   UserStatusResult,
+  ProfileUpdateResult,
+  VerificationResendResult,
+  DeleteUserResult,
 } from "./admin.types";
 
 const safeUserSelect = {
@@ -121,13 +124,78 @@ export class PrismaAdminRepository extends AdminRepository {
       await tx.auditLog.create({
         data: {
           actorId,
-          action: "USER_STATUS_CHANGED",
+          action: status === UserStatus.DISABLED ? "USER_DISABLED" : "USER_ENABLED",
           entityType: "User",
           entityId: userId,
           metadata: { previousStatus: user.status, status },
         },
       });
       return "UPDATED";
+    });
+  }
+
+  async updateUserProfile(actorId: string, userId: string, input: { fullName?: string; phone?: string | null }): Promise<ProfileUpdateResult> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const existing = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
+        if (!existing) return { status: "NOT_FOUND" };
+        const user = await tx.user.update({ where: { id: userId }, data: input, select: safeUserSelect });
+        await tx.auditLog.create({ data: { actorId, action: "USER_PROFILE_UPDATED", entityType: "User", entityId: userId, metadata: { changedFields: Object.keys(input) } } });
+        return { status: "UPDATED", user: { ...user, roles: user.roles.map(({ role }) => role) } };
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { status: "DUPLICATE_PHONE" };
+      throw error;
+    }
+  }
+
+  async createVerificationToken(actorId: string, userId: string, tokenHash: string, expiresAt: Date): Promise<VerificationResendResult> {
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { email: true, emailVerifiedAt: true, status: true } });
+      if (!user) return { status: "NOT_FOUND" };
+      if (user.emailVerifiedAt) return { status: "ALREADY_VERIFIED" };
+      if (user.status === UserStatus.DISABLED) return { status: "DISABLED" };
+      const now = new Date();
+      await tx.verificationToken.updateMany({ where: { userId, purpose: "EMAIL_VERIFICATION", usedAt: null }, data: { usedAt: now } });
+      await tx.verificationToken.create({ data: { userId, purpose: "EMAIL_VERIFICATION", tokenHash, expiresAt } });
+      await tx.auditLog.create({ data: { actorId, action: "VERIFICATION_EMAIL_RESENT", entityType: "User", entityId: userId, metadata: { email: user.email } } });
+      return { status: "CREATED", email: user.email };
+    });
+  }
+
+  async deleteUser(actorId: string, userId: string, reason?: string): Promise<DeleteUserResult> {
+    if (actorId === userId) return "SELF_DELETE";
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          email: true, roles: { select: { role: true } },
+          studentProfile: { select: { _count: { select: { enrollments: true, attendances: true, absenceRequests: true, guardianLinks: true } } } },
+          teacherProfile: { select: { _count: { select: { classrooms: true, attendanceMarks: true, reviewedAbsences: true } } } },
+          guardianProfile: { select: { _count: { select: { studentLinks: true } } } },
+        },
+      });
+      if (!user) return "NOT_FOUND";
+      const studentCounts = user.studentProfile?._count;
+      const teacherCounts = user.teacherProfile?._count;
+      const guardianCounts = user.guardianProfile?._count;
+      const hasDependencies = Boolean(
+        (studentCounts && Object.values(studentCounts).some(Boolean)) ||
+        (teacherCounts && Object.values(teacherCounts).some(Boolean)) ||
+        (guardianCounts && Object.values(guardianCounts).some(Boolean)),
+      );
+      if (hasDependencies) return "HAS_DEPENDENCIES";
+      await tx.refreshToken.deleteMany({ where: { userId } });
+      await tx.verificationToken.deleteMany({ where: { userId } });
+      await tx.userRole.deleteMany({ where: { userId } });
+      await tx.studentProfile.deleteMany({ where: { userId } });
+      await tx.teacherProfile.deleteMany({ where: { userId } });
+      await tx.guardianProfile.deleteMany({ where: { userId } });
+      await tx.user.delete({ where: { id: userId } });
+      await tx.auditLog.create({
+        data: { actorId, action: "USER_DELETED", entityType: "User", entityId: userId, metadata: { email: user.email, roles: user.roles.map(({ role }) => role), ...(reason ? { reason } : {}) } },
+      });
+      return "DELETED";
     });
   }
 

@@ -13,6 +13,7 @@ import type {
   CreateUserInput,
   RefreshTokenInput,
   RotateRefreshTokenInput,
+  PasswordResetIssue,
 } from "./auth.types";
 
 type UserWithRoles = Prisma.UserGetPayload<{ include: { roles: true } }>;
@@ -186,6 +187,42 @@ export class PrismaAuthRepository extends AuthRepository {
     await prisma.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null },
       data: { revokedAt: now },
+    });
+  }
+
+  async issuePasswordReset(email: string, tokenHash: string, expiresAt: Date): Promise<PasswordResetIssue> {
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { email }, select: { id: true, email: true, status: true } });
+      if (!user || user.status !== UserStatus.ACTIVE) return null;
+      const now = new Date();
+      await tx.verificationToken.updateMany({
+        where: { userId: user.id, purpose: VerificationPurpose.PASSWORD_RESET, usedAt: null },
+        data: { usedAt: now },
+      });
+      await tx.verificationToken.create({
+        data: { userId: user.id, purpose: VerificationPurpose.PASSWORD_RESET, tokenHash, expiresAt },
+      });
+      return { email: user.email };
+    });
+  }
+
+  async completePasswordReset(tokenHash: string, passwordHash: string, now: Date): Promise<AuthUser | null> {
+    return prisma.$transaction(async (tx) => {
+      const token = await tx.verificationToken.findUnique({
+        where: { tokenHash }, include: { user: { include: { roles: true } } },
+      });
+      if (!token || token.purpose !== VerificationPurpose.PASSWORD_RESET || token.usedAt || token.expiresAt <= now || token.user.status !== UserStatus.ACTIVE) return null;
+      const consumed = await tx.verificationToken.updateMany({
+        where: { id: token.id, usedAt: null, expiresAt: { gt: now } }, data: { usedAt: now },
+      });
+      if (consumed.count !== 1) return null;
+      const user = await tx.user.update({ where: { id: token.userId }, data: { passwordHash }, include: { roles: true } });
+      await tx.verificationToken.updateMany({
+        where: { userId: user.id, purpose: VerificationPurpose.PASSWORD_RESET, id: { not: token.id }, usedAt: null }, data: { usedAt: now },
+      });
+      await tx.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } });
+      await tx.auditLog.create({ data: { actorId: user.id, action: "PASSWORD_RESET_COMPLETED", entityType: "User", entityId: user.id } });
+      return toAuthUser(user);
     });
   }
 

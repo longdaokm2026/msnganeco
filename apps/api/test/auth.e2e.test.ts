@@ -25,6 +25,7 @@ import type {
   RefreshTokenInput,
   RotateRefreshTokenInput,
 } from "../src/auth/auth.types";
+import { MailService } from "../src/mail/mail.service";
 
 type StoredUser = AuthUserWithPassword & {
   verificationTokenHash: string;
@@ -40,6 +41,8 @@ type StoredRefreshToken = RefreshTokenInput & {
 class InMemoryAuthRepository extends AuthRepository {
   private readonly users = new Map<string, StoredUser>();
   private readonly refreshTokens = new Map<string, StoredRefreshToken>();
+  private readonly resetTokens = new Map<string, { userId: string; expiresAt: Date; usedAt?: Date }>();
+  latestResetHash = "";
 
   seedActiveUser(user: AuthUser) {
     this.users.set(user.id, {
@@ -145,6 +148,32 @@ class InMemoryAuthRepository extends AuthRepository {
     const token = this.refreshTokens.get(tokenHash);
     if (token) token.revokedAt = now;
   }
+
+  async issuePasswordReset(email: string, tokenHash: string, expiresAt: Date) {
+    const user = [...this.users.values()].find((candidate) => candidate.email === email && candidate.status === "ACTIVE");
+    if (!user) return null;
+    for (const token of this.resetTokens.values()) if (token.userId === user.id && !token.usedAt) token.usedAt = new Date();
+    this.resetTokens.set(tokenHash, { userId: user.id, expiresAt }); this.latestResetHash = tokenHash;
+    return { email: user.email };
+  }
+
+  async completePasswordReset(tokenHash: string, passwordHash: string, now: Date) {
+    const token = this.resetTokens.get(tokenHash); if (!token || token.usedAt || token.expiresAt <= now) return null;
+    const user = this.users.get(token.userId); if (!user || user.status !== "ACTIVE") return null;
+    token.usedAt = now; user.passwordHash = passwordHash;
+    for (const candidate of this.resetTokens.values()) if (candidate.userId === user.id && !candidate.usedAt) candidate.usedAt = now;
+    for (const session of this.refreshTokens.values()) if (session.userId === user.id && !session.revokedAt) session.revokedAt = now;
+    return user;
+  }
+
+  expireLatestReset() { const token = this.resetTokens.get(this.latestResetHash); if (token) token.expiresAt = new Date(0); }
+  activeRefreshCount(email: string) { const user = [...this.users.values()].find((item) => item.email === email); return [...this.refreshTokens.values()].filter((item) => item.userId === user?.id && !item.revokedAt).length; }
+}
+
+class TestMailService {
+  lastResetToken = "";
+  async sendVerificationEmail() {}
+  async sendPasswordResetEmail(_email: string, token: string) { this.lastResetToken = token; }
 }
 
 class InMemoryDashboardRepository extends DashboardRepository {
@@ -237,6 +266,7 @@ describe("Auth API", () => {
   let httpServer: Parameters<typeof request>[0];
   let jwt: JwtService;
   let repository: InMemoryAuthRepository;
+  let mail: TestMailService;
 
   before(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -246,6 +276,8 @@ describe("Auth API", () => {
       .useClass(InMemoryDashboardRepository)
       .overrideProvider(TeacherApprovalRepository)
       .useValue({ isApproved: async () => true })
+      .overrideProvider(MailService)
+      .useClass(TestMailService)
       .compile();
 
     const nestApp = moduleRef.createNestApplication();
@@ -258,6 +290,7 @@ describe("Auth API", () => {
     httpServer = nestApp.getHttpServer();
     jwt = moduleRef.get(JwtService);
     repository = moduleRef.get(AuthRepository) as InMemoryAuthRepository;
+    mail = moduleRef.get(MailService) as unknown as TestMailService;
   });
 
   after(async () => {
@@ -570,5 +603,33 @@ describe("Auth API", () => {
     if (unknown.body.message !== existing.body.message) {
       throw new Error("Login failure messages leak account existence.");
     }
+  });
+
+  test("forgot and reset password are generic, hashed, one-time and revoke sessions", async () => {
+    const email = "student@example.com";
+    const unknown = await request(httpServer).post("/auth/forgot-password").send({ email: "missing@example.com" }).expect(200);
+    const existing = await request(httpServer).post("/auth/forgot-password").send({ email }).expect(200);
+    if (unknown.body.message !== existing.body.message) throw new Error("Forgot password leaks account existence.");
+    const firstRaw = mail.lastResetToken; const firstHash = repository.latestResetHash;
+    if (!firstRaw || firstHash === firstRaw || firstHash.length !== 64) throw new Error("Reset token was not stored as a SHA-256 hash.");
+
+    await request(httpServer).post("/auth/forgot-password").send({ email }).expect(200);
+    const secondRaw = mail.lastResetToken;
+    await request(httpServer).post("/auth/reset-password").send({ token: firstRaw, password: "NewEnglish@456", passwordConfirmation: "NewEnglish@456" }).expect(400);
+
+    await request(httpServer).post("/auth/login").send({ email, password: "English@123" }).expect(200);
+    if (repository.activeRefreshCount(email) < 1) throw new Error("Expected an active session before reset.");
+    await request(httpServer).post("/auth/reset-password").send({ token: secondRaw, password: "NewEnglish@456", passwordConfirmation: "NewEnglish@456" }).expect(200);
+    if (repository.activeRefreshCount(email) !== 0) throw new Error("Password reset did not revoke sessions.");
+    await request(httpServer).post("/auth/reset-password").send({ token: secondRaw, password: "AnotherPass123", passwordConfirmation: "AnotherPass123" }).expect(400);
+    await request(httpServer).post("/auth/login").send({ email, password: "English@123" }).expect(401);
+    await request(httpServer).post("/auth/login").send({ email, password: "NewEnglish@456" }).expect(200);
+
+    await request(httpServer).post("/auth/forgot-password").send({ email }).expect(200); repository.expireLatestReset();
+    await request(httpServer).post("/auth/reset-password").send({ token: mail.lastResetToken, password: "ExpiredPass123", passwordConfirmation: "ExpiredPass123" }).expect(400);
+    await request(httpServer).post("/auth/reset-password").send({ token: "bad", password: "ExpiredPass123", passwordConfirmation: "ExpiredPass123" }).expect(400);
+    repository.setStatus(email, "DISABLED"); const unchangedHash = repository.latestResetHash;
+    await request(httpServer).post("/auth/forgot-password").send({ email }).expect(200);
+    if (repository.latestResetHash !== unchangedHash) throw new Error("Disabled account received a reset token.");
   });
 });

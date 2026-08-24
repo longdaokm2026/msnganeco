@@ -26,3 +26,6 @@ export type AdminAuditQuery = Pagination & {
 
 export type UserStatusResult = "UPDATED" | "NOT_FOUND" | "SELF_DISABLED";
 export type TeacherReviewResult = "UPDATED" | "NOT_FOUND" | "ALREADY_REVIEWED";
+export type ProfileUpdateResult = { status: "UPDATED"; user: unknown } | { status: "NOT_FOUND" } | { status: "DUPLICATE_PHONE" };
+export type VerificationResendResult = { status: "CREATED"; email: string } | { status: "NOT_FOUND" } | { status: "ALREADY_VERIFIED" } | { status: "DISABLED" };
+export type DeleteUserResult = "DELETED" | "NOT_FOUND" | "SELF_DELETE" | "HAS_DEPENDENCIES";

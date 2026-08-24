@@ -91,4 +91,16 @@ export class MailService {
       throw new Error(`Failed to send verification email: ${error.message}`);
     }
   }
+
+  async sendPasswordResetEmail(email: string, token: string) {
+    if (!this.enabled || !this.resend) return;
+    const resetUrl = `${this.webOrigin}/reset-password?token=${encodeURIComponent(token)}`;
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: [email],
+      subject: "Đặt lại mật khẩu Ms Ngân English",
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6"><h2>Đặt lại mật khẩu</h2><p>Nhấn vào nút bên dưới để tạo mật khẩu mới.</p><p><a href="${resetUrl}" style="display:inline-block;padding:12px 20px;background:#111827;color:#fff;text-decoration:none;border-radius:6px">Đặt lại mật khẩu</a></p><p>Liên kết có hiệu lực trong 30 phút. Nếu bạn không yêu cầu thay đổi này, hãy bỏ qua email.</p></div>`,
+    });
+    if (error) throw new Error(`Failed to send password reset email: ${error.message}`);
+  }
 }

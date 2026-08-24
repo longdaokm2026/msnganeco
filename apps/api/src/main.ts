@@ -18,7 +18,7 @@ async function bootstrap() {
   app.use(helmet());
   app.use(cookieParser());
   app.use(
-    ["/auth/register", "/auth/login", "/auth/refresh"],
+    ["/auth/register", "/auth/login", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password"],
     rateLimit({
       windowMs: 60_000,
       limit: 10,

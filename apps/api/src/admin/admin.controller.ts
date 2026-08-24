@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -25,6 +26,8 @@ import {
   RejectTeacherDto,
   UpdateUserStatusDto,
 } from "./dto/admin.dto";
+import { UpdateAdminUserProfileDto } from "./dto/update-admin-user-profile.dto";
+import { DeleteAdminUserDto } from "./dto/delete-admin-user.dto";
 
 const validate = <T>(expectedType: new () => T) => new ValidationPipe({
   expectedType,
@@ -56,6 +59,25 @@ export class AdminController {
   ) {
     return this.admin.updateUserStatus(request.user.sub, userId, dto.status);
   }
+
+  @Patch("users/:userId/profile")
+  updateProfile(
+    @Req() request: AuthenticatedRequest,
+    @Param("userId", ParseUUIDPipe) userId: string,
+    @Body(validate(UpdateAdminUserProfileDto)) dto: UpdateAdminUserProfileDto,
+  ) { return this.admin.updateUserProfile(request.user.sub, userId, dto); }
+
+  @Post("users/:userId/resend-verification")
+  resendVerification(@Req() request: AuthenticatedRequest, @Param("userId", ParseUUIDPipe) userId: string) {
+    return this.admin.resendVerification(request.user.sub, userId);
+  }
+
+  @Delete("users/:userId")
+  deleteUser(
+    @Req() request: AuthenticatedRequest,
+    @Param("userId", ParseUUIDPipe) userId: string,
+    @Body(validate(DeleteAdminUserDto)) dto: DeleteAdminUserDto,
+  ) { return this.admin.deleteUser(request.user.sub, userId, dto.reason); }
 
   @Get("teachers/pending")
   pendingTeachers(@Query(validate(PaginationDto)) query: PaginationDto) {

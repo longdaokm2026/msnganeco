@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { UserStatus } from "../../../../generated/prisma/client";
 import { AdminRepository } from "./admin.repository";
+import { MailService } from "../mail/mail.service";
+import { createAuthToken, hashAuthToken, normalizePhone } from "../auth/auth-token.util";
 import type { AdminAuditQuery, AdminClassroomQuery, AdminUserQuery } from "./admin.types";
 
 function vietnamDayBounds(now = new Date()) {
@@ -12,7 +14,10 @@ function vietnamDayBounds(now = new Date()) {
 
 @Injectable()
 export class AdminService {
-  constructor(@Inject(AdminRepository) private readonly repository: AdminRepository) {}
+  constructor(
+    @Inject(AdminRepository) private readonly repository: AdminRepository,
+    @Inject(MailService) private readonly mail: MailService,
+  ) {}
 
   overview(now = new Date()) {
     const { start, end } = vietnamDayBounds(now);
@@ -32,6 +37,39 @@ export class AdminService {
     if (result === "NOT_FOUND") throw new NotFoundException("Không tìm thấy tài khoản.");
     if (result === "SELF_DISABLED") throw new BadRequestException("Quản trị viên không thể khóa tài khoản của chính mình.");
     return { userId, status };
+  }
+
+  async updateUserProfile(actorId: string, userId: string, input: { fullName?: string; phone?: string | null }) {
+    if (input.fullName === undefined && input.phone === undefined) throw new BadRequestException("Cần cung cấp ít nhất một trường cần cập nhật.");
+    const normalized: { fullName?: string; phone?: string | null } = {};
+    if (input.fullName !== undefined) {
+      const name = input.fullName.trim().replace(/\s+/g, " ");
+      if (!name) throw new BadRequestException("Họ và tên không được để trống.");
+      normalized.fullName = name;
+    }
+    if (input.phone !== undefined) normalized.phone = input.phone?.trim() ? normalizePhone(input.phone) : null;
+    const result = await this.repository.updateUserProfile(actorId, userId, normalized);
+    if (result.status === "NOT_FOUND") throw new NotFoundException("Không tìm thấy tài khoản.");
+    if (result.status === "DUPLICATE_PHONE") throw new ConflictException("Số điện thoại đã được sử dụng.");
+    return result.user;
+  }
+
+  async resendVerification(actorId: string, userId: string) {
+    const token = createAuthToken();
+    const result = await this.repository.createVerificationToken(actorId, userId, hashAuthToken(token), new Date(Date.now() + 24 * 60 * 60 * 1000));
+    if (result.status === "NOT_FOUND") throw new NotFoundException("Không tìm thấy tài khoản.");
+    if (result.status === "ALREADY_VERIFIED") throw new ConflictException("Email của tài khoản đã được xác thực.");
+    if (result.status === "DISABLED") throw new ConflictException("Không thể gửi xác thực cho tài khoản đang bị khóa.");
+    await this.mail.sendVerificationEmail(result.email, token);
+    return { message: `Đã gửi lại email xác thực tới ${result.email}.` };
+  }
+
+  async deleteUser(actorId: string, userId: string, reason?: string) {
+    const result = await this.repository.deleteUser(actorId, userId, reason?.trim() || undefined);
+    if (result === "NOT_FOUND") throw new NotFoundException("Không tìm thấy tài khoản.");
+    if (result === "SELF_DELETE") throw new BadRequestException("Quản trị viên không thể xóa tài khoản của chính mình.");
+    if (result === "HAS_DEPENDENCIES") throw new ConflictException("Không thể xóa tài khoản vì tài khoản đã phát sinh dữ liệu học tập hoặc vận hành. Hãy khóa tài khoản thay vì xóa.");
+    return { success: true };
   }
 
   pendingTeachers(page: number, pageSize: number) {

@@ -8,8 +8,9 @@ import StudentGuardianLinks from "./StudentGuardianLinks";
 import TeacherAttendanceReport from "./TeacherAttendanceReport";
 import AdminManager from "./AdminManager";
 import type { AdminSection } from "./admin/types";
+import ForgotPassword from "./ForgotPassword";
 
-type AuthMode = "login" | "register";
+type AuthMode = "login" | "register" | "forgot";
 type Role = "student" | "teacher" | "guardian";
 type ApiRole = "ADMIN" | "TEACHER" | "STUDENT" | "GUARDIAN";
 type DashboardView = "overview" | "classes" | "student-schedule" | "student-guardians" | "guardian-portal" | "admin-users" | "admin-teachers" | "admin-classrooms" | "admin-audit";
@@ -441,6 +442,8 @@ export default function Home() {
     );
   }
 
+  if (mode === "forgot") return <ForgotPassword apiUrl={apiUrl} onBack={() => { setMode("login"); setMessage(""); }} />;
+
   return (
     <main className="auth-shell">
       <section className="brand-panel" aria-labelledby="welcome-title">
@@ -557,7 +560,7 @@ export default function Home() {
               </span>
             </label>
 
-            {mode === "login" && <a className="forgot-link" href="#forgot-password">Quên mật khẩu?</a>}
+            {mode === "login" && <button className="forgot-link forgot-button" type="button" onClick={() => setMode("forgot")}>Quên mật khẩu?</button>}
 
             <button className="primary-button" type="submit" disabled={loading}>
               {loading

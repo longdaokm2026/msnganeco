@@ -110,6 +110,20 @@ test("admin migration backfills teachers and adds review metadata", async () => 
   }
 });
 
+test("password reset tokens are hashed-token records and cascade with users", async () => {
+  const db = await createDatabase();
+  const userId = "f0000000-0000-4000-8000-000000000001";
+  const tokenId = "f0000000-0000-4000-8000-000000000002";
+  try {
+    await db.query(`INSERT INTO users (id, email, password_hash, full_name, status, updated_at) VALUES ($1, 'reset@test.local', 'hash', 'Reset User', 'ACTIVE', NOW())`, [userId]);
+    await db.query(`INSERT INTO verification_tokens (id, user_id, purpose, token_hash, expires_at) VALUES ($1, $2, 'PASSWORD_RESET', $3, NOW() + INTERVAL '30 minutes')`, [tokenId, userId, "a".repeat(64)]);
+    await assert.rejects(db.query(`INSERT INTO verification_tokens (id, user_id, purpose, token_hash, expires_at) VALUES ($1, $2, 'PASSWORD_RESET', $3, NOW())`, ["f0000000-0000-4000-8000-000000000003", userId, "a".repeat(64)]), /duplicate key value/i);
+    await db.query(`DELETE FROM users WHERE id = $1`, [userId]);
+    const remaining = await db.query(`SELECT count(*)::int AS count FROM verification_tokens WHERE user_id = $1`, [userId]);
+    assert.equal(remaining.rows[0].count, 0);
+  } finally { await db.close(); }
+});
+
 test("sessions and absence review states are enforced by the database", async () => {
   const db = await createDatabase();
   const teacherId = "70000000-0000-4000-8000-000000000001";

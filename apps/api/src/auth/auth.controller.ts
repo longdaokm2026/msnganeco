@@ -19,6 +19,8 @@ import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { VerifyEmailDto } from "./dto/verify-email.dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import type { AuthenticatedRequest } from "./jwt-auth.guard";
 
 const REFRESH_COOKIE = "msngan_refresh";
@@ -93,6 +95,18 @@ export class AuthController {
     const session = await this.auth.login(dto, metadata(request));
     response.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions());
     return { accessToken: session.accessToken, user: session.user };
+  }
+
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body(new ValidationPipe({ expectedType: ForgotPasswordDto, whitelist: true, forbidNonWhitelisted: true, transform: true })) dto: ForgotPasswordDto) {
+    return this.auth.forgotPassword(dto);
+  }
+
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body(new ValidationPipe({ expectedType: ResetPasswordDto, whitelist: true, forbidNonWhitelisted: true, transform: true })) dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto);
   }
 
   @Post("refresh")

@@ -8,7 +8,6 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "@node-rs/argon2";
-import { createHash, randomBytes } from "node:crypto";
 import { Role, UserStatus } from "../../../../generated/prisma/client";
 import { authConfig } from "../config/env";
 import { AuthRepository, DuplicateIdentityError } from "./auth.repository";
@@ -20,6 +19,9 @@ import type {
 import type { LoginDto } from "./dto/login.dto";
 import type { RegisterDto } from "./dto/register.dto";
 import { MailService } from "../mail/mail.service";
+import { createAuthToken, hashAuthToken, normalizeEmail, normalizePhone } from "./auth-token.util";
+import type { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import type { ResetPasswordDto } from "./dto/reset-password.dto";
 
 const ARGON_OPTIONS = {
   // @node-rs/argon2 exposes Algorithm as an ambient const enum, which is not
@@ -29,19 +31,6 @@ const ARGON_OPTIONS = {
   timeCost: 2,
   parallelism: 1,
 };
-
-const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
-const randomToken = () => randomBytes(32).toString("base64url");
-
-function normalizePhone(value: string) {
-  let phone = value.trim().replace(/[\s().-]/g, "");
-  if (phone.startsWith("0")) phone = `+84${phone.slice(1)}`;
-  else if (phone.startsWith("84")) phone = `+${phone}`;
-  if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
-    throw new BadRequestException("Số điện thoại không hợp lệ.");
-  }
-  return phone;
-}
 
 function publicUser(user: AuthUser) {
   return {
@@ -65,8 +54,8 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const verificationToken = randomToken();
-    const email = dto.email.trim().toLowerCase();
+    const verificationToken = createAuthToken();
+    const email = normalizeEmail(dto.email);
     const passwordHash = await hash(dto.password, ARGON_OPTIONS);
 
     try {
@@ -77,7 +66,7 @@ export class AuthService {
         passwordHash,
         role: dto.role as Exclude<Role, "ADMIN">,
         studentCode: dto.studentCode?.trim() || undefined,
-        verificationTokenHash: sha256(verificationToken),
+        verificationTokenHash: hashAuthToken(verificationToken),
         verificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       });
       await this.mail.sendVerificationEmail(email, verificationToken);
@@ -95,7 +84,7 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const user = await this.repository.verifyEmail(sha256(token), new Date());
+    const user = await this.repository.verifyEmail(hashAuthToken(token), new Date());
     if (!user) {
       throw new BadRequestException("Mã xác minh không hợp lệ hoặc đã hết hạn.");
     }
@@ -103,7 +92,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, metadata: RequestMetadata) {
-    const email = dto.email.trim().toLowerCase();
+    const email = normalizeEmail(dto.email);
     const user = await this.repository.findUserByEmail(email);
     const passwordMatches = user
       ? await verify(user.passwordHash, dto.password)
@@ -125,12 +114,12 @@ export class AuthService {
   async refresh(currentToken: string | undefined, metadata: RequestMetadata) {
     if (!currentToken) throw new UnauthorizedException("Phiên đăng nhập không hợp lệ.");
 
-    const nextToken = randomToken();
+    const nextToken = createAuthToken();
     const now = new Date();
     const user = await this.repository.rotateRefreshToken(
       {
-        currentTokenHash: sha256(currentToken),
-        tokenHash: sha256(nextToken),
+        currentTokenHash: hashAuthToken(currentToken),
+        tokenHash: hashAuthToken(nextToken),
         expiresAt: new Date(now.getTime() + authConfig.refreshTtlSeconds() * 1000),
         ...metadata,
       },
@@ -149,7 +138,7 @@ export class AuthService {
 
   async logout(currentToken: string | undefined) {
     if (currentToken) {
-      await this.repository.revokeRefreshToken(sha256(currentToken), new Date());
+      await this.repository.revokeRefreshToken(hashAuthToken(currentToken), new Date());
     }
     return { success: true };
   }
@@ -163,10 +152,32 @@ export class AuthService {
     return { user: publicUser(user) };
   }
 
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const message = "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi.";
+    const token = createAuthToken();
+    const issued = await this.repository.issuePasswordReset(
+      normalizeEmail(dto.email),
+      hashAuthToken(token),
+      new Date(Date.now() + 30 * 60 * 1000),
+    );
+    if (issued) {
+      try { await this.mail.sendPasswordResetEmail(issued.email, token); } catch { /* Preserve account-enumeration resistance. */ }
+    }
+    return { message };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    if (dto.password !== dto.passwordConfirmation) throw new BadRequestException("Mật khẩu xác nhận không khớp.");
+    const passwordHash = await hash(dto.password, ARGON_OPTIONS);
+    const user = await this.repository.completePasswordReset(hashAuthToken(dto.token), passwordHash, new Date());
+    if (!user) throw new BadRequestException("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
+    return { message: "Mật khẩu đã được cập nhật." };
+  }
+
   private async createSession(user: AuthUser, metadata: RequestMetadata) {
-    const refreshToken = randomToken();
+    const refreshToken = createAuthToken();
     await this.repository.createRefreshToken(user.id, {
-      tokenHash: sha256(refreshToken),
+      tokenHash: hashAuthToken(refreshToken),
       expiresAt: new Date(Date.now() + authConfig.refreshTtlSeconds() * 1000),
       ...metadata,
     });

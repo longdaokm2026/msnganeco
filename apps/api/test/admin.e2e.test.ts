@@ -15,6 +15,7 @@ import { AuthRepository } from "../src/auth/auth.repository";
 import type { AuthUser, AuthUserWithPassword } from "../src/auth/auth.types";
 import { JwtAuthGuard } from "../src/auth/jwt-auth.guard";
 import { authConfig } from "../src/config/env";
+import { MailService } from "../src/mail/mail.service";
 
 type StoredUser = AuthUser & { createdAt: string; emailVerifiedAt: string | null };
 type Teacher = { userId: string; approvalStatus: "PENDING" | "APPROVED" | "REJECTED"; user: StoredUser };
@@ -52,7 +53,23 @@ class InMemoryAdminRepository extends AdminRepository {
   async updateUserStatus(actorId: string, userId: string, status: AuthUser["status"]) {
     if (actorId === userId && status === "DISABLED") return "SELF_DISABLED" as const;
     const user = this.users.find((item) => item.id === userId); if (!user) return "NOT_FOUND" as const;
-    user.status = status; this.audit(actorId, "USER_STATUS_CHANGED", "User", userId); return "UPDATED" as const;
+    user.status = status; this.audit(actorId, status === "DISABLED" ? "USER_DISABLED" : "USER_ENABLED", "User", userId); return "UPDATED" as const;
+  }
+  async updateUserProfile(actorId: string, userId: string, input: { fullName?: string; phone?: string | null }) {
+    const user = this.users.find((item) => item.id === userId); if (!user) return { status: "NOT_FOUND" as const };
+    Object.assign(user, input); this.audit(actorId, "USER_PROFILE_UPDATED", "User", userId); return { status: "UPDATED" as const, user };
+  }
+  async createVerificationToken(actorId: string, userId: string) {
+    const user = this.users.find((item) => item.id === userId); if (!user) return { status: "NOT_FOUND" as const };
+    if (user.emailVerifiedAt) return { status: "ALREADY_VERIFIED" as const };
+    if (user.status === "DISABLED") return { status: "DISABLED" as const };
+    this.audit(actorId, "VERIFICATION_EMAIL_RESENT", "User", userId); return { status: "CREATED" as const, email: user.email };
+  }
+  async deleteUser(actorId: string, userId: string) {
+    if (actorId === userId) return "SELF_DELETE" as const;
+    const index = this.users.findIndex((item) => item.id === userId); if (index < 0) return "NOT_FOUND" as const;
+    if (this.users[index]?.roles.includes("STUDENT")) return "HAS_DEPENDENCIES" as const;
+    this.users.splice(index, 1); this.audit(actorId, "USER_DELETED", "User", userId); return "DELETED" as const;
   }
   async pendingTeachers(page: number, pageSize: number): Promise<Page<unknown>> {
     const items = this.teachers.filter((teacher) => teacher.approvalStatus === "PENDING");
@@ -92,7 +109,7 @@ describe("Admin API", () => {
     ], [{ id: classroomId, name: "English A1", code: "MSN-A1", status: "ACTIVE", teacher: { id: teacherApproveId }, students: [], capacity: { current: 0, maximum: 20 }, upcomingSessions: [] }]);
     const moduleRef = await Test.createTestingModule({
       imports: [JwtModule.register({ secret: authConfig.accessSecret() })], controllers: [AdminController],
-      providers: [AdminService, JwtAuthGuard, RolesGuard, { provide: AuthRepository, useValue: new AdminTestAuthRepository(users) }, { provide: AdminRepository, useValue: repository }],
+      providers: [AdminService, JwtAuthGuard, RolesGuard, { provide: MailService, useValue: { sendVerificationEmail: async () => undefined } }, { provide: AuthRepository, useValue: new AdminTestAuthRepository(users) }, { provide: AdminRepository, useValue: repository }],
     }).compile();
     app = moduleRef.createNestApplication(); await app.init(); httpServer = app.getHttpServer(); jwt = moduleRef.get(JwtService);
   });
@@ -113,7 +130,27 @@ describe("Admin API", () => {
     assert.equal(users[1].status, "DISABLED");
     await request(httpServer).patch(`/admin/users/${studentId}/status`).set("Authorization", authorization).send({ status: "ACTIVE" }).expect(200);
     await request(httpServer).patch(`/admin/users/${adminId}/status`).set("Authorization", authorization).send({ status: "DISABLED" }).expect(400);
-    assert.equal(repository.audits.filter((item) => item.action === "USER_STATUS_CHANGED").length, 2);
+    assert.equal(repository.audits.filter((item) => item.action === "USER_DISABLED" || item.action === "USER_ENABLED").length, 2);
+  });
+
+  test("edits profiles, resends verification and safely deletes only unused accounts", async () => {
+    const authorization = `Bearer ${await token(users[0])}`;
+    await request(httpServer).patch(`/admin/users/${studentId}/profile`).set("Authorization", authorization).send({ fullName: "  Nguyễn Văn Mới  ", phone: "090 123 4567" }).expect(200);
+    assert.equal(users.find((user) => user.id === studentId)?.fullName, "Nguyễn Văn Mới");
+    await request(httpServer).patch(`/admin/users/${studentId}/profile`).set("Authorization", `Bearer ${await token(users[1])}`).send({ fullName: "No" }).expect(403);
+    await request(httpServer).patch(`/admin/users/${studentId}/profile`).set("Authorization", authorization).send({ email: "changed@example.com" }).expect(400);
+
+    const pendingId = randomUUID(); const unusedId = randomUUID();
+    users.push({ id: pendingId, email: "pending@msngan.test", phone: null, fullName: "Pending", status: "PENDING_VERIFICATION", roles: ["GUARDIAN"], createdAt: new Date().toISOString(), emailVerifiedAt: null });
+    users.push({ id: unusedId, email: "unused@msngan.test", phone: null, fullName: "Unused", status: "PENDING_VERIFICATION", roles: ["GUARDIAN"], createdAt: new Date().toISOString(), emailVerifiedAt: null });
+    const resent = await request(httpServer).post(`/admin/users/${pendingId}/resend-verification`).set("Authorization", authorization).send({}).expect(201);
+    assert.equal(resent.body.verificationToken, undefined);
+    await request(httpServer).post(`/admin/users/${studentId}/resend-verification`).set("Authorization", authorization).send({}).expect(409);
+    await request(httpServer).delete(`/admin/users/${adminId}`).set("Authorization", authorization).send({}).expect(400);
+    await request(httpServer).delete(`/admin/users/${studentId}`).set("Authorization", authorization).send({}).expect(409);
+    await request(httpServer).delete(`/admin/users/${unusedId}`).set("Authorization", authorization).send({ reason: "Unused" }).expect(200);
+    assert.equal(users.some((user) => user.id === unusedId), false);
+    for (const action of ["USER_PROFILE_UPDATED", "VERIFICATION_EMAIL_RESENT", "USER_DELETED"]) assert.ok(repository.audits.some((item) => item.action === action));
   });
 
   test("approves/rejects teachers, exposes classrooms read-only and lists audit logs", async () => {

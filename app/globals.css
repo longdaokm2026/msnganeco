@@ -397,6 +397,19 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .admin-reject-box { margin-top: 9px; display: grid; gap: 6px; }
 .admin-reject-box textarea { width: 260px; resize: vertical; }
 .admin-error { padding: 10px 12px; border-radius: 8px; background: #f9e7e3; color: #9c3f2d; font-size: 9px; }
+.admin-success { padding: 10px 12px; border-radius: 8px; background: #e5f3ea; color: #257346; font-size: 9px; }
+.admin-user-actions { flex-wrap: wrap; min-width: 240px; }
+.admin-actions .admin-delete { border-color: #b44635; color: #b44635; }
+.admin-edit-form { display: grid; gap: 14px; }
+.admin-edit-form label { display: grid; gap: 6px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.admin-edit-form input { min-height: 42px; padding: 10px 12px; border: 1px solid #d9dce7; border-radius: 8px; font: inherit; }
+.admin-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.admin-dialog-actions button, .auth-text-button { padding: 9px 13px; border: 1px solid var(--indigo); border-radius: 7px; background: transparent; color: var(--indigo); cursor: pointer; font: inherit; font-size: 9px; font-weight: 700; }
+.admin-dialog-actions button:last-child { background: var(--indigo); color: #fff; }
+.forgot-button { border: 0; background: transparent; cursor: pointer; font: inherit; }
+.auth-text-button { margin-top: 12px; width: 100%; border: 0; }
+.auth-primary-link { display: flex; align-items: center; justify-content: space-between; text-decoration: none; }
+.brand-button { border: 0; background: transparent; cursor: pointer; font: inherit; }
 
 @media (max-width: 860px) {
   .dashboard-content { grid-template-columns: 1fr; }
