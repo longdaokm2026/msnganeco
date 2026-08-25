@@ -73,10 +73,11 @@ export async function generateQuizWithResponses(createResponse: CreateResponse, 
     response = await createResponse({
       model,
       store: false,
-      max_output_tokens: Math.min(12_000, Math.max(2_000, count * 450)),
+      reasoning: { effort: "low" },
+      max_output_tokens: Math.min(10_000, Math.max(2_000, count * 350)),
       instructions,
       input: JSON.stringify({ candidateQuestionCount: count, finalQuestionCount, vocabulary: vocabulary.map(({ word, meaning, example }) => ({ word, meaning, example })) }),
-      text: { format: { type: "json_schema", name: "quick_vocabulary_quiz", strict: true, schema } },
+      text: { verbosity: "low", format: { type: "json_schema", name: "quick_vocabulary_quiz", strict: true, schema } },
     });
   } catch (error) {
     throw new AIQuizGenerationError("request", safeAIErrorMessage(error), openAIErrorDetails(error));

@@ -194,7 +194,7 @@ Tích hợp OpenAI là tùy chọn và chỉ chạy ở backend khi tạo câu h
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.6
 AI_QUIZ_ENABLED=false
-AI_QUIZ_TIMEOUT_MS=15000
+AI_QUIZ_TIMEOUT_MS=45000
 ```
 
 Không dùng tiền tố `NEXT_PUBLIC_` và không đưa key vào frontend. Ứng dụng khởi động bình thường khi không có `OPENAI_API_KEY`.

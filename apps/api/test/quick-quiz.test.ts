@@ -116,7 +116,9 @@ describe("Quick Quiz AI validation and automatic fallback", () => {
     }, vocabulary, 2, "test-model");
     const result = await service(async () => raw).generate(vocabulary, 2);
     assert.equal(request?.model, "test-model");
+    assert.deepEqual(request?.reasoning, { effort: "low" });
     assert.equal("response_format" in (request ?? {}), false);
+    assert.equal((request?.text as { verbosity?: string })?.verbosity, "low");
     assert.equal(((request?.text as { format?: { type?: string } })?.format?.type), "json_schema");
     const questionSchema = (((request?.text as { format?: { schema?: { properties?: { questions?: { items?: { properties?: Record<string, { type?: unknown }> } } } } } })?.format?.schema?.properties?.questions?.items?.properties) ?? {});
     assert.equal(questionSchema.sourceWord?.type, "string");
