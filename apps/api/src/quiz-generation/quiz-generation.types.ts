@@ -9,9 +9,11 @@ export type VocabularyRecord = {
 };
 
 export type GeneratedQuestionKind = "EN_TO_VI_MCQ" | "VI_TO_EN_MCQ" | "CONTEXT_FILL" | "TRUE_FALSE" | "MATCHING";
+export type GeneratedQuestionPattern = "EN_TO_VI" | "VI_TO_EN" | "SENTENCE_COMPLETION" | "SITUATION" | "ODD_ONE_OUT" | "MEANING_IN_CONTEXT" | "MATCHING" | "TRUE_FALSE";
 
 export type GeneratedQuizQuestion = {
   kind: GeneratedQuestionKind;
+  pattern?: GeneratedQuestionPattern;
   sourceWord: string;
   prompt: string;
   options?: string[];

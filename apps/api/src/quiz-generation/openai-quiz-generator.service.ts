@@ -13,9 +13,10 @@ const schema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["type", "sourceWord", "prompt", "options", "correctAnswer", "pairs"],
+        required: ["type", "pattern", "sourceWord", "prompt", "options", "correctAnswer", "pairs"],
         properties: {
           type: { type: "string", enum: ["MULTIPLE_CHOICE", "MATCHING", "FILL_BLANK", "TRUE_FALSE"] },
+          pattern: { type: "string", enum: ["EN_TO_VI", "VI_TO_EN", "SENTENCE_COMPLETION", "SITUATION", "ODD_ONE_OUT", "MEANING_IN_CONTEXT", "MATCHING", "TRUE_FALSE"] },
           sourceWord: { type: ["string", "null"] },
           prompt: { type: "string" },
           options: { type: ["array", "null"], items: { type: "string" }, minItems: 2, maxItems: 4 },
@@ -36,20 +37,22 @@ const schema = {
   },
 } as const;
 
-const instructions = `You generate English vocabulary quizzes for school students.
-Goal: produce a varied pool of valid candidate questions so the server can select the requested final quiz size.
-Success means the candidate pool is diverse, grounded, non-duplicate, and contains enough valid questions after server validation.
-Use ONLY the supplied vocabulary records containing word, Vietnamese meaning, and example sentence.
-Never change a teacher-provided meaning or introduce another meaning.
-Use clear, age-appropriate Vietnamese or English prompts and avoid duplicate or ambiguous questions.
-Prefer distractors from other supplied records. Each MCQ must contain exactly one correct option and unique options.
-Aim for this distribution: 40% English-to-Vietnamese multiple choice, 20% Vietnamese-to-English multiple choice, 20% fill blank from exact examples, 10% true/false, and 10% matching.
-Use different source words and prompt wording where possible. A source word may appear in more than one question only when the question skill or direction is meaningfully different.
-For MULTIPLE_CHOICE, ask either English-to-Vietnamese or Vietnamese-to-English and keep the supplied meaning exact.
-For FILL_BLANK, use ____ only when the supplied example contains the source word exactly.
-For TRUE_FALSE, correctAnswer must be TRUE or FALSE.
-For MATCHING, use exact supplied word/meaning pairs. Use null for fields that do not apply to a question type.
-Return only the required structured output.`;
+const instructions = `You generate a varied and educational English vocabulary Quick Quiz for school students.
+
+Use ONLY the supplied teacher vocabulary records: English word, Vietnamese meaning, and example sentence. Do not invent target vocabulary or replace a teacher-provided meaning.
+
+For a 20-question final quiz, aim for approximately: 25% English word to Vietnamese meaning, 20% Vietnamese meaning to English word, 20% sentence completion, 15% best word for a simple real-life situation, 10% category or odd-one-out, and 10% meaning-in-context or simple inference. Scale this mix proportionally for other final quiz sizes and for the larger candidate pool.
+
+Do not generate more than two consecutive questions with the same pattern. Avoid repeatedly using prompts such as “What does X mean?”, “What is the Vietnamese meaning of X?”, or “Choose the correct Vietnamese meaning of X?”. Use simple meaning questions only as part of the mix.
+
+Every question must have exactly one correct answer, plausible and unique distractors, age-appropriate language, unambiguous wording, and no knowledge outside the supplied vocabulary. Avoid culturally obscure facts.
+
+For sentence completion, the correct option must fit both grammar and meaning. Reuse the teacher example when useful, or write a short sentence using common English. Include ____ in the prompt.
+For situation questions, use simple everyday contexts and select the best supplied word.
+For category or odd-one-out, generate a question only when at least four supplied words clearly form a comparable set with one grounded odd item.
+For meaning-in-context, keep the target word visible in a short context and test only its supplied meaning.
+
+Use MULTIPLE_CHOICE for all six preferred patterns. Set pattern accurately. Options and the correct answer must be exact supplied words or meanings. Use null for fields that do not apply. Return only the required structured output.`;
 
 @Injectable()
 export class OpenAIQuizGenerator {

@@ -107,8 +107,8 @@ describe("Quick Quiz AI validation and automatic fallback", () => {
     process.env.AI_QUIZ_ENABLED = "true"; process.env.OPENAI_API_KEY = "test-only"; process.env.OPENAI_MODEL = "test-model";
     let request: Record<string, unknown> | undefined;
     const structuredQuestions = [
-      { type: "MULTIPLE_CHOICE", sourceWord: "sunny", prompt: "‘sunny’ có nghĩa là gì?", options: ["có mưa", "có nắng", "có gió"], correctAnswer: "có nắng", pairs: null },
-      { type: "MULTIPLE_CHOICE", sourceWord: "rainy", prompt: "Từ nào có nghĩa là ‘có mưa’?", options: ["sunny", "rainy", "windy"], correctAnswer: "rainy", pairs: null },
+      { type: "MULTIPLE_CHOICE", pattern: "EN_TO_VI", sourceWord: "sunny", prompt: "‘sunny’ có nghĩa là gì?", options: ["có mưa", "có nắng", "có gió"], correctAnswer: "có nắng", pairs: null },
+      { type: "MULTIPLE_CHOICE", pattern: "VI_TO_EN", sourceWord: "rainy", prompt: "Từ nào có nghĩa là ‘có mưa’?", options: ["sunny", "rainy", "windy"], correctAnswer: "rainy", pairs: null },
     ];
     const raw = await generateQuizWithResponses(async (input) => {
       request = input as unknown as Record<string, unknown>;
@@ -149,6 +149,21 @@ describe("Quick Quiz AI validation and automatic fallback", () => {
     const diagnostics = validateGeneratedQuestionsWithDiagnostics(raw, vocabulary, 10);
     assert.equal(diagnostics.generatedCount, 4);
     assert.equal(diagnostics.rejections.unsupported_type, 1);
+  });
+
+  test("accepts grounded varied patterns and rejects a third consecutive pattern", () => {
+    const raw = [
+      { type: "MULTIPLE_CHOICE", pattern: "SITUATION", sourceWord: "sunny", prompt: "The sky is bright and there are no clouds. Which word fits best?", options: ["sunny", "rainy", "windy"], correctAnswer: "sunny" },
+      { type: "MULTIPLE_CHOICE", pattern: "SITUATION", sourceWord: "rainy", prompt: "Take an umbrella because water is falling from the sky. Which word fits?", options: ["sunny", "rainy", "cloudy"], correctAnswer: "rainy" },
+      { type: "MULTIPLE_CHOICE", pattern: "SITUATION", sourceWord: "windy", prompt: "The trees are moving strongly. Which word fits?", options: ["sunny", "rainy", "windy"], correctAnswer: "windy" },
+      { type: "MULTIPLE_CHOICE", pattern: "ODD_ONE_OUT", sourceWord: "cloudy", prompt: "Choose the odd one out.", options: ["sunny", "rainy", "windy", "cloudy"], correctAnswer: "cloudy" },
+      { type: "MULTIPLE_CHOICE", pattern: "MEANING_IN_CONTEXT", sourceWord: "windy", prompt: "It is windy, so hold your hat. What does windy mean?", options: ["có nắng", "có mưa", "có gió"], correctAnswer: "có gió" },
+      { type: "MULTIPLE_CHOICE", pattern: "SENTENCE_COMPLETION", sourceWord: "sunny", prompt: "Today is ____ and bright.", options: ["sunny", "rainy", "cloudy"], correctAnswer: "sunny" },
+    ];
+    const result = validateGeneratedQuestionsWithDiagnostics(raw, vocabulary, 10);
+    assert.deepEqual(result.questions.map((item) => item.pattern), ["SITUATION", "SITUATION", "ODD_ONE_OUT", "MEANING_IN_CONTEXT", "SENTENCE_COMPLETION"]);
+    assert.equal(result.rejections.pattern_run_exceeded, 1);
+    assert.equal(result.questions.every((item) => toPersistedQuestion(item).type === AssignmentQuestionType.VOCAB_MULTIPLE_CHOICE), true);
   });
 
   for (const failure of ["timeout", "network", "401", "429", "500", "SDK exception"]) {

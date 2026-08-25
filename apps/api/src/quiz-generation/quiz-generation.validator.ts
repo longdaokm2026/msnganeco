@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { AssignmentQuestionType, AssignmentSection } from "../../../../generated/prisma/client";
-import type { GeneratedQuizQuestion, PersistedQuestionInput, VocabularyRecord } from "./quiz-generation.types";
+import type { GeneratedQuestionPattern, GeneratedQuizQuestion, PersistedQuestionInput, VocabularyRecord } from "./quiz-generation.types";
 
 const normalized = (value: string) => value.trim().normalize("NFKC").toLocaleLowerCase("en");
 const nonblank = (value: unknown): value is string => typeof value === "string" && Boolean(value.trim());
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
-export type QuestionRejectionReason = "invalid_shape" | "missing_fields" | "duplicate_prompt" | "unsupported_type" | "invalid_matching" | "unknown_source_word" | "invalid_correct_answer" | "ungrounded_prompt" | "invalid_context" | "invalid_true_false" | "invalid_options" | "ungrounded_options";
+export type QuestionRejectionReason = "invalid_shape" | "missing_fields" | "duplicate_prompt" | "unsupported_type" | "invalid_pattern" | "pattern_run_exceeded" | "invalid_matching" | "unknown_source_word" | "invalid_correct_answer" | "ungrounded_prompt" | "invalid_context" | "invalid_true_false" | "invalid_options" | "ungrounded_options";
 export type GeneratedQuestionValidation = { questions: GeneratedQuizQuestion[]; generatedCount: number; processedCount: number; rejectedCount: number; rejections: Partial<Record<QuestionRejectionReason, number>> };
 
 export function validateGeneratedQuestionsWithDiagnostics(raw: unknown, vocabulary: VocabularyRecord[], limit: number): GeneratedQuestionValidation {
@@ -18,16 +18,29 @@ export function validateGeneratedQuestionsWithDiagnostics(raw: unknown, vocabula
   const valid: GeneratedQuizQuestion[] = [];
   const rejections: Partial<Record<QuestionRejectionReason, number>> = {};
   const reject = (reason: QuestionRejectionReason) => { rejections[reason] = (rejections[reason] ?? 0) + 1; };
+  let lastPattern: GeneratedQuestionPattern | null = null;
+  let patternRun = 0;
+  const accept = (question: GeneratedQuizQuestion, promptKey: string) => {
+    const pattern = question.pattern ?? (question.kind === "EN_TO_VI_MCQ" ? "EN_TO_VI" : question.kind === "VI_TO_EN_MCQ" ? "VI_TO_EN" : question.kind === "CONTEXT_FILL" ? "SENTENCE_COMPLETION" : question.kind);
+    if (pattern === lastPattern && patternRun >= 2) { reject("pattern_run_exceeded"); return false; }
+    patternRun = pattern === lastPattern ? patternRun + 1 : 1;
+    lastPattern = pattern;
+    prompts.add(promptKey);
+    valid.push({ ...question, pattern });
+    return true;
+  };
   let processedCount = 0;
   for (const value of raw) {
     processedCount += 1;
     if (!record(value)) { reject("invalid_shape"); continue; }
     const declaredKind = nonblank(value.kind) ? value.kind : nonblank(value.type) ? value.type : "";
     const aliasedKind = declaredKind === "FILL_BLANK" ? "CONTEXT_FILL" : declaredKind;
+    const declaredPattern = nonblank(value.pattern) ? value.pattern : "";
     if (!nonblank(value.prompt)) { reject("missing_fields"); continue; }
     const promptKey = normalized(value.prompt);
     if (prompts.has(promptKey)) { reject("duplicate_prompt"); continue; }
     if (aliasedKind === "MATCHING") {
+      if (declaredPattern && declaredPattern !== "MATCHING") { reject("invalid_pattern"); continue; }
       if (!Array.isArray(value.pairs)) { reject("invalid_matching"); continue; }
       const pairs = value.pairs.flatMap((pair) => {
         if (!record(pair)) return [];
@@ -37,8 +50,7 @@ export function validateGeneratedQuestionsWithDiagnostics(raw: unknown, vocabula
         return sourceItem && normalized(sourceItem.meaning) === normalized(right) ? [{ left: sourceItem.word, right: sourceItem.meaning }] : [];
       });
       if (pairs.length < 2 || pairs.length !== value.pairs.length || new Set(pairs.map((pair) => normalized(pair.left))).size !== pairs.length || new Set(pairs.map((pair) => normalized(pair.right))).size !== pairs.length) { reject("invalid_matching"); continue; }
-      prompts.add(promptKey);
-      valid.push({ kind: "MATCHING", sourceWord: pairs[0].left, prompt: value.prompt.trim(), pairs });
+      accept({ kind: "MATCHING", pattern: "MATCHING", sourceWord: pairs[0].left, prompt: value.prompt.trim(), pairs }, promptKey);
       if (valid.length === limit) break;
       continue;
     }
@@ -46,22 +58,28 @@ export function validateGeneratedQuestionsWithDiagnostics(raw: unknown, vocabula
     if (!nonblank(value.sourceWord) || !nonblank(value.correctAnswer)) { reject("missing_fields"); continue; }
     const sourceRecord = source.get(normalized(value.sourceWord));
     if (!sourceRecord) { reject("unknown_source_word"); continue; }
-    const kind = aliasedKind === "MULTIPLE_CHOICE"
-      ? normalized(value.correctAnswer) === normalized(sourceRecord.meaning) ? "EN_TO_VI_MCQ" : normalized(value.correctAnswer) === normalized(sourceRecord.word) ? "VI_TO_EN_MCQ" : ""
-      : aliasedKind;
+    const supportedPatterns = new Set<GeneratedQuestionPattern>(["EN_TO_VI", "VI_TO_EN", "SENTENCE_COMPLETION", "SITUATION", "ODD_ONE_OUT", "MEANING_IN_CONTEXT", "TRUE_FALSE"]);
+    let pattern = declaredPattern as GeneratedQuestionPattern;
+    if (!pattern) pattern = aliasedKind === "EN_TO_VI_MCQ" ? "EN_TO_VI" : aliasedKind === "VI_TO_EN_MCQ" ? "VI_TO_EN" : aliasedKind === "CONTEXT_FILL" ? "SENTENCE_COMPLETION" : aliasedKind === "TRUE_FALSE" ? "TRUE_FALSE" : normalized(value.correctAnswer) === normalized(sourceRecord.meaning) ? "EN_TO_VI" : "VI_TO_EN";
+    if (!supportedPatterns.has(pattern)) { reject("invalid_pattern"); continue; }
+    const meaningAnswer = pattern === "EN_TO_VI" || pattern === "MEANING_IN_CONTEXT";
+    const wordAnswer = ["VI_TO_EN", "SENTENCE_COMPLETION", "SITUATION", "ODD_ONE_OUT"].includes(pattern);
+    const kind = aliasedKind === "TRUE_FALSE" || pattern === "TRUE_FALSE" ? "TRUE_FALSE" : aliasedKind === "CONTEXT_FILL" ? "CONTEXT_FILL" : meaningAnswer ? "EN_TO_VI_MCQ" : wordAnswer ? "VI_TO_EN_MCQ" : "";
     if (!kind) { reject("invalid_correct_answer"); continue; }
     const item: { kind: "EN_TO_VI_MCQ" | "VI_TO_EN_MCQ" | "CONTEXT_FILL" | "TRUE_FALSE"; sourceWord: string; prompt: string; options: unknown; correctAnswer: string } = { kind: kind as "EN_TO_VI_MCQ" | "VI_TO_EN_MCQ" | "CONTEXT_FILL" | "TRUE_FALSE", sourceWord: value.sourceWord, prompt: value.prompt, options: value.options, correctAnswer: value.correctAnswer };
     const prompt = item.prompt;
     const recordItem = sourceRecord;
-    if (item.kind === "EN_TO_VI_MCQ" && normalized(item.correctAnswer) !== normalized(recordItem.meaning)) { reject("invalid_correct_answer"); continue; }
-    if ((item.kind === "VI_TO_EN_MCQ" || item.kind === "CONTEXT_FILL") && normalized(item.correctAnswer) !== normalized(recordItem.word)) { reject("invalid_correct_answer"); continue; }
-    if (item.kind === "EN_TO_VI_MCQ" && !normalized(item.prompt).includes(normalized(recordItem.word))) { reject("ungrounded_prompt"); continue; }
-    if (item.kind === "VI_TO_EN_MCQ" && !normalized(item.prompt).includes(normalized(recordItem.meaning))) { reject("ungrounded_prompt"); continue; }
+    if (meaningAnswer && normalized(item.correctAnswer) !== normalized(recordItem.meaning)) { reject("invalid_correct_answer"); continue; }
+    if (wordAnswer && normalized(item.correctAnswer) !== normalized(recordItem.word)) { reject("invalid_correct_answer"); continue; }
+    if ((pattern === "EN_TO_VI" || pattern === "MEANING_IN_CONTEXT") && !normalized(item.prompt).includes(normalized(recordItem.word))) { reject("ungrounded_prompt"); continue; }
+    if (pattern === "VI_TO_EN" && !normalized(item.prompt).includes(normalized(recordItem.meaning))) { reject("ungrounded_prompt"); continue; }
+    if (pattern === "SENTENCE_COMPLETION" && !/_{3,}/u.test(item.prompt)) { reject("invalid_context"); continue; }
     if (item.kind === "CONTEXT_FILL") {
       const groundedPrompt = recordItem.example?.replace(new RegExp(`\\b${recordItem.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "iu"), "____");
       if (!groundedPrompt || normalized(item.prompt) !== normalized(groundedPrompt)) { reject("invalid_context"); continue; }
     }
     if (item.kind === "TRUE_FALSE") {
+      if (pattern !== "TRUE_FALSE") { reject("invalid_pattern"); continue; }
       if (!["TRUE", "FALSE"].includes(item.correctAnswer) || !normalized(item.prompt).includes(normalized(recordItem.word))) { reject("invalid_true_false"); continue; }
       const quotedMeaning = vocabulary.find((entry) => normalized(prompt).includes(normalized(entry.meaning)))?.meaning;
       if (!quotedMeaning || (item.correctAnswer === "TRUE") !== (normalized(quotedMeaning) === normalized(recordItem.meaning))) { reject("invalid_true_false"); continue; }
@@ -71,11 +89,11 @@ export function validateGeneratedQuestionsWithDiagnostics(raw: unknown, vocabula
       const options = item.options.filter(nonblank).map((option) => option.trim());
       const unique = new Set(options.map(normalized));
       if (unique.size !== options.length || options.length < 2 || options.length > 4 || options.filter((option) => normalized(option) === normalized(item.correctAnswer)).length !== 1) { reject("invalid_options"); continue; }
+      if (pattern === "ODD_ONE_OUT" && options.length !== 4) { reject("invalid_options"); continue; }
       if (options.some((option) => !(item.kind === "EN_TO_VI_MCQ" ? meanings : words).has(normalized(option)))) { reject("ungrounded_options"); continue; }
       item.options = options;
     }
-    prompts.add(promptKey);
-    valid.push({ kind: item.kind, sourceWord: recordItem.word, prompt: item.prompt.trim(), options: Array.isArray(item.options) ? item.options as string[] : undefined, correctAnswer: item.correctAnswer.trim() });
+    accept({ kind: item.kind, pattern, sourceWord: recordItem.word, prompt: item.prompt.trim(), options: Array.isArray(item.options) ? item.options as string[] : undefined, correctAnswer: item.correctAnswer.trim() }, promptKey);
     if (valid.length === limit) break;
   }
   const rejectedCount = Object.values(rejections).reduce((sum, count) => sum + (count ?? 0), 0);
