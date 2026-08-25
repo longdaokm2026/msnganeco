@@ -4,8 +4,9 @@ import { afterEach, describe, test } from "node:test";
 import { AssignmentQuestionType } from "../../../generated/prisma/client";
 import { attemptDurationMs, attemptExpired } from "../src/assignments/attempt-timing";
 import { gradeQuestion } from "../src/assignments/grading";
+import { AIQuizGenerationError } from "../src/quiz-generation/ai-quiz-generation.error";
 import { LocalQuizGenerator } from "../src/quiz-generation/local-quiz-generator.service";
-import { OpenAIQuizGenerator } from "../src/quiz-generation/openai-quiz-generator.service";
+import { generateQuizWithResponses, OpenAIQuizGenerator } from "../src/quiz-generation/openai-quiz-generator.service";
 import { QuickQuizController } from "../src/quiz-generation/quick-quiz.controller";
 import { QuickQuizRepository } from "../src/quiz-generation/quick-quiz.repository";
 import { QuickQuizService } from "../src/quiz-generation/quick-quiz.service";
@@ -29,7 +30,7 @@ afterEach(() => {
   if (originalEnv.model === undefined) delete process.env.OPENAI_MODEL; else process.env.OPENAI_MODEL = originalEnv.model;
 });
 
-function service(generate: (...args: unknown[]) => Promise<GeneratedQuizQuestion[]>) {
+function service(generate: (...args: unknown[]) => Promise<unknown[]>) {
   return new QuizGenerationService({ generate } as unknown as OpenAIQuizGenerator, new LocalQuizGenerator());
 }
 
@@ -76,10 +77,49 @@ describe("Quick Quiz deterministic local generation", () => {
 });
 
 describe("Quick Quiz AI validation and automatic fallback", () => {
-  test("uses one successful structured AI result", async () => {
+  test("parses Responses API output_text and uses AI generation mode", async () => {
     process.env.AI_QUIZ_ENABLED = "true"; process.env.OPENAI_API_KEY = "test-only"; process.env.OPENAI_MODEL = "test-model";
-    let calls = 0; const result = await service(async () => { calls += 1; return validAi(); }).generate(vocabulary, 2);
-    assert.equal(calls, 1); assert.equal(result.mode, "AI"); assert.equal(result.model, "test-model"); assert.equal(result.questions.length, 2);
+    let request: Record<string, unknown> | undefined;
+    const structuredQuestions = [
+      { type: "MULTIPLE_CHOICE", sourceWord: "sunny", prompt: "‘sunny’ có nghĩa là gì?", options: ["có mưa", "có nắng", "có gió"], correctAnswer: "có nắng", pairs: null },
+      { type: "MULTIPLE_CHOICE", sourceWord: "rainy", prompt: "Từ nào có nghĩa là ‘có mưa’?", options: ["sunny", "rainy", "windy"], correctAnswer: "rainy", pairs: null },
+    ];
+    const raw = await generateQuizWithResponses(async (input) => {
+      request = input as unknown as Record<string, unknown>;
+      return { status: "completed", output_text: JSON.stringify({ questions: structuredQuestions }) };
+    }, vocabulary, 2, "test-model");
+    const result = await service(async () => raw).generate(vocabulary, 2);
+    assert.equal(request?.model, "test-model");
+    assert.equal("response_format" in (request ?? {}), false);
+    assert.equal(((request?.text as { format?: { type?: string } })?.format?.type), "json_schema");
+    assert.equal(result.mode, "AI"); assert.equal(result.model, "test-model"); assert.equal(result.questions.length, 2);
+  });
+
+  test("safely extracts output_text content from response.output", async () => {
+    const questions = await generateQuizWithResponses(async () => ({ status: "completed", output: [{ type: "reasoning" }, { type: "message", content: [{ type: "output_text", text: JSON.stringify({ questions: validAi() }) }] }] }), vocabulary, 2, "test-model");
+    assert.equal(questions.length, 2);
+  });
+
+  test("classifies malformed, empty and invalid-schema output by the exact stage", async () => {
+    const failure = async (response: unknown) => {
+      try { await generateQuizWithResponses(async () => response, vocabulary, 2, "test-model"); assert.fail("Expected generation to fail"); }
+      catch (error) { assert.equal(error instanceof AIQuizGenerationError, true); return (error as AIQuizGenerationError).stage; }
+    };
+    assert.equal(await failure({ status: "completed", output_text: "{" }), "response_parse");
+    assert.equal(await failure({ status: "completed", output_text: "" }), "response_parse");
+    assert.equal(await failure({ status: "completed", output_text: JSON.stringify({ items: [] }) }), "schema_validation");
+  });
+
+  test("normalizes generic vocabulary question types and discards unsupported types", () => {
+    const raw = [
+      { type: "MULTIPLE_CHOICE", sourceWord: "sunny", prompt: "What does sunny mean?", options: ["có nắng", "có mưa"], correctAnswer: "có nắng" },
+      { type: "FILL_BLANK", sourceWord: "rainy", prompt: "It is ____ today.", options: null, correctAnswer: "rainy" },
+      { type: "MATCHING", prompt: "Nối từ với nghĩa", pairs: [{ left: "sunny", right: "có nắng" }, { left: "rainy", right: "có mưa" }] },
+      { type: "ESSAY", sourceWord: "windy", prompt: "Write an essay", correctAnswer: "windy" },
+    ];
+    const normalized = validateGeneratedQuestions(raw, vocabulary, 10);
+    assert.deepEqual(normalized.map((item) => item.kind), ["EN_TO_VI_MCQ", "CONTEXT_FILL", "MATCHING"]);
+    assert.deepEqual(normalized.map(toPersistedQuestion).map((item) => item.type), [AssignmentQuestionType.VOCAB_MULTIPLE_CHOICE, AssignmentQuestionType.VOCAB_FILL_BLANK, AssignmentQuestionType.VOCAB_MATCHING]);
   });
 
   for (const failure of ["timeout", "network", "401", "429", "500", "SDK exception"]) {
@@ -95,6 +135,20 @@ describe("Quick Quiz AI validation and automatic fallback", () => {
     assert.equal((await service(async () => [{ kind: "EN_TO_VI_MCQ", sourceWord: "unknown", prompt: "Bad", options: ["x", "y"], correctAnswer: "x" }]).generate(vocabulary, 2)).mode, "LOCAL");
     assert.equal((await service(async () => validAi().slice(0, 1)).generate(vocabulary, 2)).mode, "LOCAL");
     assert.deepEqual(validateGeneratedQuestions({ questions: validAi() }, vocabulary, 2), []);
+  });
+
+  test("malformed output, empty output and request errors fall back locally", async () => {
+    process.env.AI_QUIZ_ENABLED = "true"; process.env.OPENAI_API_KEY = "test-only";
+    const responses = [
+      async () => ({ status: "completed", output_text: "{" }),
+      async () => ({ status: "completed", output_text: "" }),
+      async () => { const error = Object.assign(new Error("Request failed"), { status: 500, type: "server_error", code: "internal_error" }); throw error; },
+    ];
+    for (const create of responses) {
+      const result = await service(async () => generateQuizWithResponses(create, vocabulary, 2, "test-model")).generate(vocabulary, 2);
+      assert.equal(result.mode, "LOCAL");
+      assert.equal(result.questions.length, 2);
+    }
   });
 });
 

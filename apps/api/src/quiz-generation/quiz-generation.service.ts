@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { aiQuizConfig } from "../config/env";
+import { AIQuizGenerationError, openAIErrorDetails, safeAIErrorMessage, type AIQuizFailureStage } from "./ai-quiz-generation.error";
 import { LocalQuizGenerator } from "./local-quiz-generator.service";
 import { OpenAIQuizGenerator } from "./openai-quiz-generator.service";
 import type { GenerationResult, VocabularyRecord } from "./quiz-generation.types";
@@ -18,14 +19,31 @@ export class QuizGenerationService {
         const model = aiQuizConfig.model();
         const raw = await this.openai.generate(vocabulary.slice(0, Math.max(target, 4)), target, { apiKey: aiQuizConfig.apiKey(), model, timeoutMs: aiQuizConfig.timeoutMs() });
         const questions = validateGeneratedQuestions(raw, vocabulary, target);
-        if (questions.length < target) throw new Error("AI_INSUFFICIENT_VALID_QUESTIONS");
+        if (questions.length < target) throw new AIQuizGenerationError("question_normalization", `Only ${questions.length} of ${target} generated questions passed validation`);
         this.logger.log("AI quiz generation succeeded");
         return { mode: "AI", model, questions };
       } catch (error) {
-        this.logger.warn(error instanceof Error && error.name === "APIConnectionTimeoutError" ? "AI quiz generation timed out" : "AI quiz generation unavailable; using local fallback");
+        this.logFailure(aiQuizConfig.model(), error);
       }
     }
     const questions = validateGeneratedQuestions(this.local.generate(vocabulary, target), vocabulary, target);
     return { mode: "LOCAL", model: null, questions };
+  }
+
+  private logFailure(model: string, error: unknown) {
+    const staged = error instanceof AIQuizGenerationError ? error : null;
+    const details = staged ?? openAIErrorDetails(error);
+    const stage: AIQuizFailureStage = staged?.stage ?? "request";
+    const fields = [
+      "AI Quick Quiz generation failed",
+      `model=${model}`,
+      `stage=${stage}`,
+      `httpStatus=${details.httpStatus ?? "n/a"}`,
+      `errorType=${details.errorType ?? (error instanceof Error ? error.name : "unknown")}`,
+      `errorCode=${details.errorCode ?? "n/a"}`,
+      `message=${JSON.stringify(safeAIErrorMessage(error))}`,
+      "fallback=LOCAL",
+    ];
+    this.logger.warn(fields.join(" "));
   }
 }

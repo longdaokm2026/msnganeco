@@ -8,14 +8,15 @@ export type VocabularyRecord = {
   lessonTitle: string;
 };
 
-export type GeneratedQuestionKind = "EN_TO_VI_MCQ" | "VI_TO_EN_MCQ" | "CONTEXT_FILL" | "TRUE_FALSE";
+export type GeneratedQuestionKind = "EN_TO_VI_MCQ" | "VI_TO_EN_MCQ" | "CONTEXT_FILL" | "TRUE_FALSE" | "MATCHING";
 
 export type GeneratedQuizQuestion = {
   kind: GeneratedQuestionKind;
   sourceWord: string;
   prompt: string;
   options?: string[];
-  correctAnswer: string;
+  correctAnswer?: string;
+  pairs?: { left: string; right: string }[];
 };
 
 export type PersistedQuestionInput = {
@@ -56,4 +57,3 @@ export type QuickQuizSaveInput = {
 export type QuickQuizRepositoryResult<T = unknown> =
   | { status: "OK"; value: T }
   | { status: "NOT_FOUND" | "INVALID" | "INVALID_STATE"; message?: string };
-
