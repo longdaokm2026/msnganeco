@@ -613,6 +613,32 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .student-result-summary { padding: 22px; display: flex; align-items: center; gap: 18px; border-radius: 12px; background: var(--indigo); color: #fff; }
 .student-result-summary h2 { margin: 0; font-family: var(--font-serif), serif; }
 .student-result-summary strong { margin-left: auto; font-size: 20px; }
+.assignment-manager .assignment-section-title p { font-size: 10px; }
+.assignment-manager .question-list article b { font-size: 11px; line-height: 1.5; }
+.assignment-manager .question-list article small, .assignment-manager .question-list article em { font-size: 9px; }
+.assignment-manager .attempt-detail article header { font-size: 10px; }
+.assignment-manager .attempt-detail article h3 { font-size: 12px; line-height: 1.55; }
+.assignment-manager .attempt-detail article p { font-size: 10px; }
+.assignment-manager .read-aloud-fields label, .assignment-manager .read-aloud-grading label { font-size: 10px; }
+.assignment-manager .assignment-results .admin-table { font-size: 10px; }
+.student-assignment-manager .student-assignment-intro > p { font-size: 11px; }
+.student-assignment-manager .student-assignment-intro dt { font-size: 9px; }
+.student-assignment-manager .student-assignment-intro dd { font-size: 11px; }
+.student-assignment-manager .student-attempt > header { font-size: 10px; }
+.student-assignment-manager .student-passage p { font-size: 12px; }
+.student-assignment-manager .student-question-list article > header { font-size: 10px; }
+.student-assignment-manager .student-question-list h3 { font-size: 13px; }
+.student-assignment-manager .answer-options label, .student-assignment-manager .matching-answers label { font-size: 11px; }
+.student-assignment-manager .student-question-list footer { font-size: 10px; }
+.student-assignment-manager .student-read-aloud blockquote { font-size: 13px; }
+.student-assignment-manager .student-read-aloud > small, .student-assignment-manager .read-aloud-instructions { font-size: 10px; }
+.lesson-manager .lesson-editor label { font-size: 10px; }
+.lesson-manager .lesson-editor input, .lesson-manager .lesson-editor textarea { font-size: 11px; }
+.student-lessons .student-lesson-detail section > p { font-size: 12px; }
+.student-lessons .student-lesson-list p, .student-lessons .student-lesson-list small { font-size: 10px; }
+.grade-save-status { width: fit-content; margin: 0; padding: 8px 10px; border-radius: 7px; font-size: 10px !important; font-weight: 700; }
+.grade-save-status.success { background: #e5f3ea; color: #257346 !important; }
+.grade-save-status.error { background: #fff0ed; color: #9c3f2d !important; }
 .quick-quiz-button { border-color: #ee7558 !important; background: #fff4ef !important; color: #b94e35 !important; }
 .quick-quiz-form { padding: 22px; display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 12px; border: 1px solid #dedbd2; border-radius: 16px; background: var(--paper); }
 .quick-quiz-form header { grid-column: 1 / -1; }
