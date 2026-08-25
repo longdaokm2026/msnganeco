@@ -161,8 +161,11 @@ export default function StudentSchedule({ accessToken, apiUrl, onBack }: Props) 
       <div className="manager-heading">
         <div>
           <button className="back-button" type="button" onClick={onBack}>← Tổng quan</button>
-          <p className="section-kicker">Lịch học của tôi</p>
-          <h1>Buổi học & chuyên cần</h1>
+          <h1 className="manager-title-path">
+            <span>Buổi học &amp; chuyên cần</span>
+            <i aria-hidden="true">›</i>
+            <strong>Lịch học của tôi</strong>
+          </h1>
           <p>Theo dõi kết quả điểm danh và gửi đơn xin vắng trước giờ học ít nhất 2 giờ.</p>
         </div>
       </div>
