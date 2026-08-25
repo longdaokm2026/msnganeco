@@ -11,9 +11,9 @@ import { QuickQuizController } from "../src/quiz-generation/quick-quiz.controlle
 import { QuickQuizRepository } from "../src/quiz-generation/quick-quiz.repository";
 import { QuickQuizService } from "../src/quiz-generation/quick-quiz.service";
 import { rankLeaderboard } from "../src/quiz-generation/leaderboard";
-import { QuizGenerationService } from "../src/quiz-generation/quiz-generation.service";
+import { aiCandidateCount, QuizGenerationService } from "../src/quiz-generation/quiz-generation.service";
 import type { GeneratedQuizQuestion, VocabularyRecord } from "../src/quiz-generation/quiz-generation.types";
-import { toPersistedQuestion, validateGeneratedQuestions } from "../src/quiz-generation/quiz-generation.validator";
+import { toPersistedQuestion, validateGeneratedQuestions, validateGeneratedQuestionsWithDiagnostics } from "../src/quiz-generation/quiz-generation.validator";
 import { parseLessonVocabulary } from "../src/quiz-generation/vocabulary-parser";
 
 const vocabulary: VocabularyRecord[] = [
@@ -77,6 +77,32 @@ describe("Quick Quiz deterministic local generation", () => {
 });
 
 describe("Quick Quiz AI validation and automatic fallback", () => {
+  test("requests a bounded candidate buffer and accepts the requested valid subset in one AI call", async () => {
+    process.env.AI_QUIZ_ENABLED = "true"; process.env.OPENAI_API_KEY = "test-only"; process.env.OPENAI_MODEL = "test-model";
+    let calls = 0; let candidateCount = 0; let finalQuestionCount = 0;
+    const result = await service(async (...args) => {
+      calls += 1;
+      candidateCount = args[1] as number;
+      finalQuestionCount = (args[2] as { finalQuestionCount: number }).finalQuestionCount;
+      return [
+        { type: "ESSAY", prompt: "Unsupported" },
+        { type: "MULTIPLE_CHOICE", sourceWord: "unknown", prompt: "Unknown", options: ["x", "y"], correctAnswer: "x" },
+        ...validAi(),
+        { ...validAi()[0], prompt: "Another valid sunny question" },
+      ];
+    }).generate(vocabulary, 2);
+    assert.equal(calls, 1);
+    assert.equal(candidateCount, aiCandidateCount(2));
+    assert.equal(finalQuestionCount, 2);
+    assert.equal(result.mode, "AI");
+    assert.equal(result.questions.length, 2);
+  });
+
+  test("caps candidate buffer growth", () => {
+    assert.equal(aiCandidateCount(20), 27);
+    assert.equal(aiCandidateCount(100), 108);
+  });
+
   test("parses Responses API output_text and uses AI generation mode", async () => {
     process.env.AI_QUIZ_ENABLED = "true"; process.env.OPENAI_API_KEY = "test-only"; process.env.OPENAI_MODEL = "test-model";
     let request: Record<string, unknown> | undefined;
@@ -120,6 +146,9 @@ describe("Quick Quiz AI validation and automatic fallback", () => {
     const normalized = validateGeneratedQuestions(raw, vocabulary, 10);
     assert.deepEqual(normalized.map((item) => item.kind), ["EN_TO_VI_MCQ", "CONTEXT_FILL", "MATCHING"]);
     assert.deepEqual(normalized.map(toPersistedQuestion).map((item) => item.type), [AssignmentQuestionType.VOCAB_MULTIPLE_CHOICE, AssignmentQuestionType.VOCAB_FILL_BLANK, AssignmentQuestionType.VOCAB_MATCHING]);
+    const diagnostics = validateGeneratedQuestionsWithDiagnostics(raw, vocabulary, 10);
+    assert.equal(diagnostics.generatedCount, 4);
+    assert.equal(diagnostics.rejections.unsupported_type, 1);
   });
 
   for (const failure of ["timeout", "network", "401", "429", "500", "SDK exception"]) {

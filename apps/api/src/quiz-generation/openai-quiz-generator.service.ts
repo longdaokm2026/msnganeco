@@ -37,10 +37,14 @@ const schema = {
 } as const;
 
 const instructions = `You generate English vocabulary quizzes for school students.
+Goal: produce a varied pool of valid candidate questions so the server can select the requested final quiz size.
+Success means the candidate pool is diverse, grounded, non-duplicate, and contains enough valid questions after server validation.
 Use ONLY the supplied vocabulary records containing word, Vietnamese meaning, and example sentence.
 Never change a teacher-provided meaning or introduce another meaning.
 Use clear, age-appropriate Vietnamese or English prompts and avoid duplicate or ambiguous questions.
 Prefer distractors from other supplied records. Each MCQ must contain exactly one correct option and unique options.
+Aim for this distribution: 40% English-to-Vietnamese multiple choice, 20% Vietnamese-to-English multiple choice, 20% fill blank from exact examples, 10% true/false, and 10% matching.
+Use different source words and prompt wording where possible. A source word may appear in more than one question only when the question skill or direction is meaningfully different.
 For MULTIPLE_CHOICE, ask either English-to-Vietnamese or Vietnamese-to-English and keep the supplied meaning exact.
 For FILL_BLANK, use ____ only when the supplied example contains the source word exactly.
 For TRUE_FALSE, correctAnswer must be TRUE or FALSE.
@@ -49,9 +53,9 @@ Return only the required structured output.`;
 
 @Injectable()
 export class OpenAIQuizGenerator {
-  async generate(vocabulary: VocabularyRecord[], count: number, config: { apiKey: string; model: string; timeoutMs: number }): Promise<unknown[]> {
+  async generate(vocabulary: VocabularyRecord[], count: number, config: { apiKey: string; model: string; timeoutMs: number; finalQuestionCount?: number }): Promise<unknown[]> {
     const client = new OpenAI({ apiKey: config.apiKey, timeout: config.timeoutMs, maxRetries: 0 });
-    return generateQuizWithResponses((input) => client.responses.create(input), vocabulary, count, config.model);
+    return generateQuizWithResponses((input) => client.responses.create(input), vocabulary, count, config.model, config.finalQuestionCount);
   }
 }
 
@@ -70,7 +74,7 @@ function outputTextFrom(response: unknown) {
   }).join("").trim();
 }
 
-export async function generateQuizWithResponses(createResponse: CreateResponse, vocabulary: VocabularyRecord[], count: number, model: string): Promise<unknown[]> {
+export async function generateQuizWithResponses(createResponse: CreateResponse, vocabulary: VocabularyRecord[], count: number, model: string, finalQuestionCount = count): Promise<unknown[]> {
   let response: unknown;
   try {
     response = await createResponse({
@@ -78,7 +82,7 @@ export async function generateQuizWithResponses(createResponse: CreateResponse, 
       store: false,
       max_output_tokens: Math.min(12_000, Math.max(2_000, count * 450)),
       instructions,
-      input: JSON.stringify({ requestedQuestionCount: count, vocabulary: vocabulary.map(({ word, meaning, example }) => ({ word, meaning, example })) }),
+      input: JSON.stringify({ candidateQuestionCount: count, finalQuestionCount, vocabulary: vocabulary.map(({ word, meaning, example }) => ({ word, meaning, example })) }),
       text: { format: { type: "json_schema", name: "quick_vocabulary_quiz", strict: true, schema } },
     });
   } catch (error) {

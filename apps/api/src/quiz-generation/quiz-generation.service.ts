@@ -4,7 +4,11 @@ import { AIQuizGenerationError, openAIErrorDetails, safeAIErrorMessage, type AIQ
 import { LocalQuizGenerator } from "./local-quiz-generator.service";
 import { OpenAIQuizGenerator } from "./openai-quiz-generator.service";
 import type { GenerationResult, VocabularyRecord } from "./quiz-generation.types";
-import { validateGeneratedQuestions } from "./quiz-generation.validator";
+import { validateGeneratedQuestions, validateGeneratedQuestionsWithDiagnostics } from "./quiz-generation.validator";
+
+export function aiCandidateCount(target: number) {
+  return target + Math.min(8, Math.max(3, Math.ceil(target * 0.35)));
+}
 
 @Injectable()
 export class QuizGenerationService {
@@ -17,10 +21,12 @@ export class QuizGenerationService {
     if (aiQuizConfig.enabled()) {
       try {
         const model = aiQuizConfig.model();
-        const raw = await this.openai.generate(vocabulary.slice(0, Math.max(target, 4)), target, { apiKey: aiQuizConfig.apiKey(), model, timeoutMs: aiQuizConfig.timeoutMs() });
-        const questions = validateGeneratedQuestions(raw, vocabulary, target);
-        if (questions.length < target) throw new AIQuizGenerationError("question_normalization", `Only ${questions.length} of ${target} generated questions passed validation`);
-        this.logger.log("AI quiz generation succeeded");
+        const candidateCount = aiCandidateCount(target);
+        const raw = await this.openai.generate(vocabulary.slice(0, Math.max(target, 4)), candidateCount, { apiKey: aiQuizConfig.apiKey(), model, timeoutMs: aiQuizConfig.timeoutMs(), finalQuestionCount: target });
+        const validation = validateGeneratedQuestionsWithDiagnostics(raw, vocabulary, target);
+        const questions = validation.questions;
+        if (questions.length < target) throw new AIQuizGenerationError("question_normalization", `Only ${questions.length} of ${target} questions passed validation; generated=${validation.generatedCount}; processed=${validation.processedCount}; rejected=${JSON.stringify(validation.rejections)}`);
+        this.logger.log(`AI quiz generation succeeded model=${model} requested=${target} candidates=${validation.generatedCount} processed=${validation.processedCount} accepted=${questions.length} rejected=${validation.rejectedCount}`);
         return { mode: "AI", model, questions };
       } catch (error) {
         this.logFailure(aiQuizConfig.model(), error);
