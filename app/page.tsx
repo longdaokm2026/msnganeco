@@ -281,6 +281,7 @@ export default function Home() {
             <span className="brand-mark" aria-hidden="true">N</span>
             <span>Ms Ngân English</span>
           </a>
+          <p className="dashboard-tagline">Learn with confidence. Grow without limits.</p>
           <div className="account-menu">
             <span>
               <strong>{user.fullName}</strong>
@@ -316,8 +317,9 @@ export default function Home() {
             )}
             <div className="nav-profile">
               <span>Tài khoản</span>
-              <strong>{user.email}</strong>
-              <small>{user.phone}</small>
+              <strong>{user.fullName}</strong>
+              <small>{user.email}</small>
+              <small>{user.phone ?? "Chưa cập nhật số điện thoại"}</small>
             </div>
           </aside>
 

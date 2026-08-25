@@ -162,8 +162,11 @@ export default function ClassroomManager({ accessToken, apiUrl, onBack }: Props)
       <div className="manager-heading">
         <div>
           <button className="back-button" type="button" onClick={onBack}>← Tổng quan</button>
-          <p className="section-kicker">Quản lý lớp học</p>
-          <h1>Lớp học của tôi</h1>
+          <h1 className="manager-title-path">
+            <span>Quản lý lớp học</span>
+            <i aria-hidden="true">›</i>
+            <strong>Lớp học của tôi</strong>
+          </h1>
           <p>Tạo lớp và thêm những học sinh đã đăng ký tài khoản.</p>
         </div>
         <button className="new-class-button" type="button" onClick={() => setShowCreate(true)}>
