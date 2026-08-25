@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { AssignmentQuestionType } from "../../../generated/prisma/client";
-import { gradeQuestion, normalizeAnswer, studentConfig } from "../src/assignments/grading";
+import { gradeQuestion, normalizeAnswer, studentConfig, validateQuestion } from "../src/assignments/grading";
 import { assignmentPublishError, missingRequiredReadAloud } from "../src/assignments/manual-grading";
 import { humanReadableQuestionResult, objectiveResult } from "../src/assignments/result-view";
 
@@ -35,6 +35,13 @@ describe("Assignment deterministic grading", () => {
     const tfng = gradeQuestion({ type: AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN, points: 1, config: { correctAnswer: "NOT_GIVEN" } }, { value: "FALSE" });
     assert.deepEqual([mcq.isCorrect, mcq.awardedPoints], [true, 2]);
     assert.deepEqual([tfng.isCorrect, tfng.awardedPoints], [false, 0]);
+  });
+
+  test("allows the explicitly marked vocabulary true/false adapter without weakening normal section validation", () => {
+    const base = { type: AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN, prompt: "‘Sunny’ có nghĩa là ‘có nắng’.", explanation: null, points: 1, required: true, passageId: null };
+    assert.equal(validateQuestion({ ...base, section: "VOCABULARY", config: { correctAnswer: "TRUE", quickQuizVocabulary: true } }), null);
+    assert.match(validateQuestion({ ...base, section: "VOCABULARY", config: { correctAnswer: "TRUE" } }) ?? "", /không thuộc đúng phần/);
+    assert.match(validateQuestion({ ...base, section: "VOCABULARY", config: { correctAnswer: "NOT_GIVEN", quickQuizVocabulary: true } }) ?? "", /TRUE hoặc FALSE/);
   });
 
   test("normalizes Unicode, case and repeated whitespace without fuzzy grading", () => {

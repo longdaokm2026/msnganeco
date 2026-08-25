@@ -49,7 +49,7 @@ export function validateGeneratedQuestions(raw: unknown, vocabulary: VocabularyR
 }
 
 export function toPersistedQuestion(item: GeneratedQuizQuestion): PersistedQuestionInput {
-  if (item.kind === "TRUE_FALSE") return { type: AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN, section: AssignmentSection.VOCABULARY, prompt: item.prompt, explanation: null, points: 1, required: true, config: { correctAnswer: item.correctAnswer } };
+  if (item.kind === "TRUE_FALSE") return { type: AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN, section: AssignmentSection.VOCABULARY, prompt: item.prompt, explanation: null, points: 1, required: true, config: { correctAnswer: item.correctAnswer, quickQuizVocabulary: true } };
   if (item.kind === "CONTEXT_FILL") return { type: AssignmentQuestionType.VOCAB_FILL_BLANK, section: AssignmentSection.VOCABULARY, prompt: item.prompt, explanation: null, points: 1, required: true, config: { acceptedAnswers: [item.correctAnswer], caseSensitive: false } };
   const options = item.options!.map((text) => ({ id: randomUUID(), text }));
   const correct = options.find((option) => normalized(option.text) === normalized(item.correctAnswer));

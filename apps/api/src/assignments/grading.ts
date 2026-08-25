@@ -18,7 +18,8 @@ export function normalizeAnswer(value: string, caseSensitive = false) {
 }
 
 export function validateQuestion(input: QuestionInput) {
-  if (sectionFor(input.type) !== input.section) return "Loại câu hỏi không thuộc đúng phần nội dung.";
+  const quickVocabularyTrueFalse = input.type === AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN && input.section === AssignmentSection.VOCABULARY && record(input.config) && input.config.quickQuizVocabulary === true;
+  if (sectionFor(input.type) !== input.section && !quickVocabularyTrueFalse) return "Loại câu hỏi không thuộc đúng phần nội dung.";
   if (!input.prompt.trim()) return "Nội dung câu hỏi không được để trống.";
   if (!Number.isFinite(input.points) || input.points <= 0 || input.points > 1000) return "Điểm câu hỏi phải lớn hơn 0.";
   if (!record(input.config)) return "Cấu hình câu hỏi không hợp lệ.";
@@ -30,6 +31,7 @@ export function validateQuestion(input: QuestionInput) {
     if (typeof config.correctOptionId !== "string" || !ids.includes(config.correctOptionId)) return "Cần chọn đúng một đáp án đúng.";
   } else if (input.type === AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN) {
     if (!["TRUE", "FALSE", "NOT_GIVEN"].includes(String(config.correctAnswer))) return "Đáp án phải là TRUE, FALSE hoặc NOT_GIVEN.";
+    if (quickVocabularyTrueFalse && config.correctAnswer === "NOT_GIVEN") return "Quick Quiz từ vựng chỉ chấp nhận đáp án TRUE hoặc FALSE.";
   } else if (textAnswer.has(input.type)) {
     const accepted = strings(config.acceptedAnswers);
     if (!accepted?.length || accepted.some((item) => !item.trim())) return "Cần nhập ít nhất một đáp án được chấp nhận.";
@@ -49,7 +51,7 @@ export function validateQuestion(input: QuestionInput) {
 export function studentConfig(type: AssignmentQuestionType, raw: unknown) {
   const config = record(raw) ? raw : {};
   if (mcq.has(type)) return { options: config.options };
-  if (type === AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN) return { values: ["TRUE", "FALSE", "NOT_GIVEN"] };
+  if (type === AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN) return { values: config.quickQuizVocabulary === true ? ["TRUE", "FALSE"] : ["TRUE", "FALSE", "NOT_GIVEN"] };
   if (type === AssignmentQuestionType.VOCAB_MATCHING && Array.isArray(config.pairs)) return { left: config.pairs.filter(record).map((item) => ({ id: item.leftId, text: item.leftText })), right: config.pairs.filter(record).map((item) => ({ id: item.rightId, text: item.rightText })).sort((a, b) => String(a.id).localeCompare(String(b.id))) };
   if (type === AssignmentQuestionType.GRAMMAR_SENTENCE_ORDER && Array.isArray(config.tokens)) return { tokens: [...config.tokens].filter(record).sort((a, b) => String(a.id).localeCompare(String(b.id))) };
   return {};
