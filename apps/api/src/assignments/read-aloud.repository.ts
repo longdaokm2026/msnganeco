@@ -1,6 +1,8 @@
 import type { Role } from "../../../../generated/prisma/client";
 
-export type ReadAloudTaskInput = { title?: string | null; readingText: string; instructions?: string | null; maxScore: number; maxDurationSeconds?: number | null };
+export const READ_ALOUD_MAX_SCORE = 10;
+
+export type ReadAloudTaskInput = { title?: string | null; readingText: string; instructions?: string | null; maxScore?: number; maxDurationSeconds?: number | null };
 export type ReadAloudAudioInput = { fileName: string; fileType: string; fileSize: number; storageKey: string; durationSeconds?: number | null };
 export type ReadAloudResult<T = unknown> = { status: "OK"; value: T } | { status: "NOT_FOUND" | "INVALID" | "INVALID_STATE" | "FORBIDDEN"; message?: string };
 export type ReadAloudAudioRecord = { storageKey: string; fileName: string; fileType: string };

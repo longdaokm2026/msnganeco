@@ -6,7 +6,7 @@ import { extname, join } from "node:path";
 
 export type AudioUploadFile = { originalname: string; mimetype: string; size: number; buffer: Buffer };
 
-const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const allowed = new Map<string, string[]>([
   [".webm", ["audio/webm"]],
   [".ogg", ["audio/ogg"]],
@@ -21,7 +21,7 @@ export class ReadAloudStorageService {
   readonly directory = process.env.ASSIGNMENT_UPLOAD_DIR?.trim() || join(tmpdir(), "msngan-assignments", "audio");
 
   validate(file: AudioUploadFile) {
-    if (file.size > MAX_AUDIO_BYTES) throw new PayloadTooLargeException("Bản ghi không được vượt quá 20 MB.");
+    if (file.size > MAX_AUDIO_BYTES) throw new PayloadTooLargeException("Bản ghi không được vượt quá 10 MB.");
     if (!file.size) throw new BadRequestException("Bản ghi âm đang trống.");
     const extension = extname(file.originalname).toLowerCase();
     const mime = file.mimetype.toLowerCase().split(";", 1)[0]!.trim();

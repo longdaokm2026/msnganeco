@@ -1,12 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { AssignmentAttemptStatus, AssignmentStatus, EnrollmentStatus, Prisma, Role, UserStatus } from "../../../../generated/prisma/client";
 import { prisma } from "../../../../server/database/client";
-import { ReadAloudRepository, type ReadAloudAudioInput, type ReadAloudAudioRecord, type ReadAloudResult, type ReadAloudTaskInput } from "./read-aloud.repository";
-import { calculateAssignmentOutcome } from "./manual-grading";
+import { READ_ALOUD_MAX_SCORE, ReadAloudRepository, type ReadAloudAudioInput, type ReadAloudAudioRecord, type ReadAloudResult, type ReadAloudTaskInput } from "./read-aloud.repository";
 
 const number = (value: Prisma.Decimal | number | null) => value === null ? null : typeof value === "number" ? value : value.toNumber();
 const taskSelect = { id: true, assignmentId: true, title: true, readingText: true, instructions: true, maxScore: true, maxDurationSeconds: true, createdAt: true, updatedAt: true } satisfies Prisma.AssignmentReadAloudTaskSelect;
-const taskView = (task: Prisma.AssignmentReadAloudTaskGetPayload<{ select: typeof taskSelect }>) => ({ ...task, maxScore: number(task.maxScore) });
+const taskView = (task: Prisma.AssignmentReadAloudTaskGetPayload<{ select: typeof taskSelect }>) => ({ ...task, maxScore: READ_ALOUD_MAX_SCORE });
 const submissionSelect = {
   id: true, assignmentId: true, readAloudTaskId: true, attemptId: true, studentId: true, durationSeconds: true,
   submittedAt: true, score: true, feedback: true, gradedAt: true, createdAt: true, updatedAt: true,
@@ -20,7 +19,7 @@ export class PrismaReadAloudRepository extends ReadAloudRepository {
     return prisma.$transaction(async (tx) => {
       const assignment = await tx.assignment.findFirst({ where: { id: assignmentId, status: AssignmentStatus.DRAFT, classroom: { teacherId } }, select: { id: true, classroomId: true, readAloudTask: { select: { id: true } } } });
       if (!assignment) return { status: "NOT_FOUND" };
-      const task = await tx.assignmentReadAloudTask.upsert({ where: { assignmentId }, create: { assignmentId, title: input.title?.trim() || null, readingText: input.readingText.trim(), instructions: input.instructions?.trim() || null, maxScore: input.maxScore, maxDurationSeconds: input.maxDurationSeconds ?? 300 }, update: { title: input.title?.trim() || null, readingText: input.readingText.trim(), instructions: input.instructions?.trim() || null, maxScore: input.maxScore, maxDurationSeconds: input.maxDurationSeconds ?? 300 }, select: taskSelect });
+      const task = await tx.assignmentReadAloudTask.upsert({ where: { assignmentId }, create: { assignmentId, title: input.title?.trim() || null, readingText: input.readingText.trim(), instructions: input.instructions?.trim() || null, maxScore: READ_ALOUD_MAX_SCORE, maxDurationSeconds: input.maxDurationSeconds ?? 300 }, update: { title: input.title?.trim() || null, readingText: input.readingText.trim(), instructions: input.instructions?.trim() || null, maxScore: READ_ALOUD_MAX_SCORE, maxDurationSeconds: input.maxDurationSeconds ?? 300 }, select: taskSelect });
       await tx.auditLog.create({ data: { actorId: teacherId, action: assignment.readAloudTask ? "ASSIGNMENT_READ_ALOUD_UPDATED" : "ASSIGNMENT_READ_ALOUD_ENABLED", entityType: "AssignmentReadAloudTask", entityId: task.id, metadata: { assignmentId, classroomId: assignment.classroomId } } });
       return { status: "OK", value: taskView(task) };
     });
@@ -82,19 +81,13 @@ export class PrismaReadAloudRepository extends ReadAloudRepository {
 
   async grade(teacherId: string, assignmentId: string, submissionId: string, score: number, feedback?: string | null): Promise<ReadAloudResult> {
     return prisma.$transaction(async (tx) => {
-      const item = await tx.assignmentReadAloudSubmission.findFirst({ where: { id: submissionId, assignmentId, submittedAt: { not: null }, assignment: { classroom: { teacherId } } }, select: { attemptId: true, studentId: true, readAloudTask: { select: { maxScore: true } } } });
+      const item = await tx.assignmentReadAloudSubmission.findFirst({ where: { id: submissionId, assignmentId, submittedAt: { not: null }, assignment: { classroom: { teacherId } } }, select: { attemptId: true, studentId: true } });
       if (!item) return { status: "NOT_FOUND" };
-      const manualMax = Number(item.readAloudTask.maxScore);
-      if (score < 0 || score > manualMax) return { status: "INVALID", message: `Điểm đọc phải từ 0 đến ${manualMax}.` };
+      if (score < 0 || score > READ_ALOUD_MAX_SCORE) return { status: "INVALID", message: `Điểm đọc phải từ 0 đến ${READ_ALOUD_MAX_SCORE}.` };
       const now = new Date();
       const submission = await tx.assignmentReadAloudSubmission.update({ where: { id: submissionId }, data: { score, feedback: feedback?.trim() || null, gradedById: teacherId, gradedAt: now }, select: submissionSelect });
-      const auto = await tx.assignmentAnswer.aggregate({ where: { attemptId: item.attemptId }, _sum: { awardedPoints: true } });
-      const attempt = await tx.assignmentAttempt.findUnique({ where: { id: item.attemptId }, select: { maxScore: true } });
-      const automaticScore = Number(auto._sum.awardedPoints ?? 0);
-      const maxScore = Number(attempt?.maxScore ?? 0);
-      const outcome = calculateAssignmentOutcome({ automaticScore, automaticMaxScore: maxScore - manualMax, manualMaxScore: manualMax, manualScore: score });
-      await tx.assignmentAttempt.update({ where: { id: item.attemptId }, data: outcome });
-      await tx.auditLog.create({ data: { actorId: teacherId, action: "ASSIGNMENT_READ_ALOUD_GRADED", entityType: "AssignmentReadAloudSubmission", entityId: submissionId, metadata: { assignmentId, attemptId: item.attemptId, studentId: item.studentId, score, maxScore: manualMax } } });
+      await tx.assignmentAttempt.update({ where: { id: item.attemptId }, data: { status: AssignmentAttemptStatus.FULLY_GRADED } });
+      await tx.auditLog.create({ data: { actorId: teacherId, action: "ASSIGNMENT_READ_ALOUD_GRADED", entityType: "AssignmentReadAloudSubmission", entityId: submissionId, metadata: { assignmentId, attemptId: item.attemptId, studentId: item.studentId, score, maxScore: READ_ALOUD_MAX_SCORE } } });
       return { status: "OK", value: submissionView(submission) };
     });
   }

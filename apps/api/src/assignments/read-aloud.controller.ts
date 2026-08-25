@@ -34,7 +34,7 @@ export class ReadAloudController {
 
   @Get("student/assignments/:assignmentId/read-aloud") @StrictRoles("STUDENT")
   studentTask(@Req() request: AuthenticatedRequest, @Param("assignmentId", ParseUUIDPipe) assignmentId: string) { return this.readAloud.studentTask(request.user.sub, assignmentId); }
-  @Post("student/assignment-attempts/:attemptId/read-aloud/upload") @StrictRoles("STUDENT") @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  @Post("student/assignment-attempts/:attemptId/read-aloud/upload") @StrictRoles("STUDENT") @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 10 * 1024 * 1024, files: 1 } }))
   upload(@Req() request: AuthenticatedRequest, @Param("attemptId", ParseUUIDPipe) attemptId: string, @UploadedFile() file: AudioUploadFile | undefined, @Body(validate(ReadAloudUploadDto)) body: ReadAloudUploadDto) { return this.readAloud.upload(request.user.sub, attemptId, file, body.durationSeconds); }
   @Get("student/assignment-attempts/:attemptId/read-aloud/audio") @StrictRoles("STUDENT")
   async ownAudio(@Req() request: AuthenticatedRequest, @Param("attemptId", ParseUUIDPipe) attemptId: string, @Res({ passthrough: true }) response: Response) { return stream(response, await this.readAloud.audioForAttempt(request.user.sub, attemptId)); }

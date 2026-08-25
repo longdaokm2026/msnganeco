@@ -2,17 +2,33 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { AssignmentQuestionType } from "../../../generated/prisma/client";
 import { gradeQuestion, normalizeAnswer, studentConfig } from "../src/assignments/grading";
-import { assignmentPublishError, calculateAssignmentOutcome, missingRequiredReadAloud } from "../src/assignments/manual-grading";
+import { assignmentPublishError, missingRequiredReadAloud } from "../src/assignments/manual-grading";
+import { humanReadableQuestionResult, objectiveResult } from "../src/assignments/result-view";
 
 describe("Assignment deterministic grading", () => {
-  test("keeps auto-only grading unchanged and correctly finalizes mixed manual scores", () => {
-    assert.deepEqual(calculateAssignmentOutcome({ automaticScore: 48, automaticMaxScore: 60 }), { status: "AUTO_GRADED", score: 48, maxScore: 60, percentage: 80 });
-    assert.deepEqual(calculateAssignmentOutcome({ automaticScore: 48, automaticMaxScore: 60, manualMaxScore: 10 }), { status: "PENDING_MANUAL_GRADE", score: 48, maxScore: 70, percentage: null });
-    assert.deepEqual(calculateAssignmentOutcome({ automaticScore: 48, automaticMaxScore: 60, manualMaxScore: 10, manualScore: 8.5 }), { status: "FULLY_GRADED", score: 56.5, maxScore: 70, percentage: 56.5 / 70 * 100 });
+  test("keeps objective accuracy separate from the fixed 0–10 read-aloud score", () => {
+    assert.deepEqual(objectiveResult([{ isCorrect: true }, { isCorrect: true }, { isCorrect: false }, { isCorrect: true }, { isCorrect: false }, { isCorrect: true }, { isCorrect: true }, { isCorrect: false }], 8), { correctCount: 5, totalQuestions: 8, percentage: 62.5 });
     assert.equal(missingRequiredReadAloud({ id: "task" }, null), true);
     assert.equal(missingRequiredReadAloud({ id: "task" }, { id: "audio" }), false);
     assert.equal(assignmentPublishError({ title: "Read", questionCount: 0, readAloudTask: { readingText: "Hello", maxScore: 10 } }), null);
     assert.match(assignmentPublishError({ title: "Read", questionCount: 0, readAloudTask: { readingText: " ", maxScore: 10 } }) ?? "", /nội dung bài đọc/);
+  });
+
+  test("renders human-readable answers for every question family without leaking IDs or JSON", () => {
+    const mcq = humanReadableQuestionResult({ type: AssignmentQuestionType.VOCAB_MULTIPLE_CHOICE, config: { options: [{ id: "option-secret-uuid", text: "Apple" }, { id: "correct-secret-uuid", text: "Banana" }], correctOptionId: "correct-secret-uuid" } }, { answer: { selectedOptionId: "option-secret-uuid" }, isCorrect: false });
+    const tfng = humanReadableQuestionResult({ type: AssignmentQuestionType.READING_TRUE_FALSE_NOT_GIVEN, config: { correctAnswer: "NOT_GIVEN" } }, { answer: { value: "FALSE" }, isCorrect: false });
+    const fill = humanReadableQuestionResult({ type: AssignmentQuestionType.GRAMMAR_FILL_BLANK, config: { acceptedAnswers: ["goes", "does go"] } }, { answer: { text: "go" }, isCorrect: false });
+    const matching = humanReadableQuestionResult({ type: AssignmentQuestionType.VOCAB_MATCHING, config: { pairs: [{ leftId: "left-secret", leftText: "Cat", rightId: "right-secret", rightText: "Mèo" }] } }, { answer: { mappings: [{ leftId: "left-secret", rightId: "right-secret" }] }, isCorrect: true });
+    const ordering = humanReadableQuestionResult({ type: AssignmentQuestionType.GRAMMAR_SENTENCE_ORDER, config: { tokens: [{ id: "token-one", text: "I" }, { id: "token-two", text: "learn" }], correctOrder: ["token-one", "token-two"] } }, { answer: { orderedIds: ["token-two", "token-one"] }, isCorrect: false });
+    assert.deepEqual([mcq.studentAnswer, mcq.correctAnswer], ["Apple", "Banana"]);
+    assert.deepEqual([tfng.studentAnswer, tfng.correctAnswer], ["Sai", "Không có thông tin"]);
+    assert.deepEqual([fill.studentAnswer, fill.correctAnswer], ["go", "goes / does go"]);
+    assert.deepEqual(matching.matching, { correctPairs: 1, totalPairs: 1 });
+    assert.deepEqual([matching.studentAnswer, matching.correctAnswer], ["Cat → Mèo", "Cat → Mèo"]);
+    assert.deepEqual([ordering.studentAnswer, ordering.correctAnswer], ["learn I", "I learn"]);
+    assert.equal(humanReadableQuestionResult({ type: AssignmentQuestionType.VOCAB_MULTIPLE_CHOICE, config: { options: [{ id: "a", text: "Ẩn" }], correctOptionId: "a" } }, { answer: { selectedOptionId: "a" }, isCorrect: true }, false).correctAnswer, undefined);
+    const serialized = JSON.stringify({ mcq, tfng, fill, matching, ordering });
+    for (const secret of ["option-secret-uuid", "correct-secret-uuid", "left-secret", "right-secret", "token-one", "token-two"]) assert.equal(serialized.includes(secret), false);
   });
   test("grades multiple choice and true/false/not given by exact identifiers", () => {
     const mcq = gradeQuestion({ type: AssignmentQuestionType.VOCAB_MULTIPLE_CHOICE, points: 2, config: { correctOptionId: "b" } }, { selectedOptionId: "b" });
