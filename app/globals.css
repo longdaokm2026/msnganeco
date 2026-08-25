@@ -600,6 +600,27 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .student-result-summary { padding: 22px; display: flex; align-items: center; gap: 18px; border-radius: 12px; background: var(--indigo); color: #fff; }
 .student-result-summary h2 { margin: 0; font-family: var(--font-serif), serif; }
 .student-result-summary strong { margin-left: auto; font-size: 20px; }
+.quick-quiz-button { border-color: #ee7558 !important; background: #fff4ef !important; color: #b94e35 !important; }
+.quick-quiz-form { padding: 22px; display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 12px; border: 1px solid #dedbd2; border-radius: 16px; background: var(--paper); }
+.quick-quiz-form header { grid-column: 1 / -1; }
+.quick-quiz-form header h2 { margin: 4px 0; font-family: var(--font-serif), serif; font-size: 24px; }
+.quick-quiz-form header p { margin: 0; color: var(--muted); font-size: 9px; }
+.quick-quiz-form label { display: grid; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 700; }
+.quick-quiz-form .check-row { display: flex; align-items: center; gap: 8px; }
+.quick-quiz-form .check-row input { width: auto; min-height: auto; }
+.quick-quiz-form button { width: fit-content; min-height: 42px; padding: 10px 16px; align-self: end; border: 1px solid var(--indigo); border-radius: 8px; background: var(--indigo); color: #fff; font-size: 9px; font-weight: 800; }
+.quick-quiz-notice { grid-column: 1 / -1; padding: 13px 15px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #f0c7b9; border-radius: 10px; background: #fff4ef; color: #753b2f; }
+.quick-quiz-notice p { margin: 4px 0 0; font-size: 9px; }
+.quick-quiz-notice button, .leaderboard-toggle { padding: 8px 11px; border: 1px solid var(--indigo); border-radius: 7px; background: #fff; color: var(--indigo); cursor: pointer; font-size: 8px; font-weight: 800; }
+.quick-leaderboard { padding: 20px; display: grid; gap: 10px; border: 1px solid #dedbd2; border-radius: 12px; background: var(--paper); }
+.quick-leaderboard ol { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }
+.quick-leaderboard li { padding: 10px 12px; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 14px; border-radius: 8px; background: #f1f1f5; font-size: 9px; }
+.quick-leaderboard li small { color: var(--muted); }
+.student-attempt > header strong { color: var(--indigo); }
+.student-attempt > header .timer-warning { color: #b23e2d; }
+.student-result-summary { flex-wrap: wrap; }
+.student-result-summary small { color: #dfe2f2; }
+.leaderboard-toggle { width: fit-content; }
 
 @media (max-width: 860px) {
   .dashboard-tagline { display: none; }
@@ -621,7 +642,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .admin-metric-grid { grid-template-columns: repeat(2, 1fr); }
   .admin-filters, .admin-audit-filters { grid-template-columns: 1fr 1fr; }
   .lesson-workspace { grid-template-columns: 220px minmax(0, 1fr); }
-  .assignment-create { grid-template-columns: 1fr 1fr; }
+  .assignment-create, .quick-quiz-form { grid-template-columns: 1fr 1fr; }
   .assignment-create button { width: fit-content; }
   .assignment-grid, .student-assignment-list { grid-template-columns: 1fr 1fr; }
   .assignment-editor { grid-template-columns: 1fr; }
@@ -669,7 +690,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .lesson-session-list { border-right: 0; border-bottom: 1px solid #e4e1d9; }
   .student-lesson-list > article { grid-template-columns: 52px 1fr; }
   .student-lesson-list article > button { grid-column: 2; width: fit-content; }
-  .assignment-create, .assignment-filters, .assignment-grid, .student-assignment-list, .assignment-form-grid, .student-assignment-intro dl, .matching-answers { grid-template-columns: 1fr; }
+  .assignment-create, .quick-quiz-form, .assignment-filters, .assignment-grid, .student-assignment-list, .assignment-form-grid, .student-assignment-intro dl, .matching-answers { grid-template-columns: 1fr; }
   .question-list article { grid-template-columns: 34px 1fr; }
   .question-list footer { grid-column: 2; }
   .assignment-sticky-actions, .student-submit-bar { align-items: stretch; flex-direction: column; }

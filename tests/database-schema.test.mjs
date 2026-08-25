@@ -40,6 +40,10 @@ const assignmentReadAloudMigrationUrl = new URL(
   "../prisma/migrations/20260825040000_assignment_read_aloud/migration.sql",
   import.meta.url,
 );
+const quickQuizMigrationUrl = new URL(
+  "../prisma/migrations/20260825050000_quick_vocabulary_quiz/migration.sql",
+  import.meta.url,
+);
 
 async function createDatabase() {
   const db = await PGlite.create({ extensions: { citext } });
@@ -61,6 +65,8 @@ async function createDatabase() {
   await db.exec(assignmentCoreMigration);
   const assignmentReadAloudMigration = await readFile(assignmentReadAloudMigrationUrl, "utf8");
   await db.exec(assignmentReadAloudMigration);
+  const quickQuizMigration = await readFile(quickQuizMigrationUrl, "utf8");
+  await db.exec(quickQuizMigration);
   return db;
 }
 
@@ -152,6 +158,25 @@ test("read-aloud migration enforces one task and one secure audio submission per
     await assert.rejects(db.query(`INSERT INTO assignment_read_aloud_tasks (assignment_id,reading_text,max_score,max_duration_seconds,updated_at) VALUES ($1,'Again',10,300,NOW())`, [assignmentId]), /duplicate key value/i);
     await assert.rejects(db.query(`UPDATE assignment_read_aloud_tasks SET max_duration_seconds=301 WHERE id=$1`, [taskId]), /check constraint/i);
     await assert.rejects(db.query(`INSERT INTO assignment_read_aloud_submissions (assignment_id,read_aloud_task_id,attempt_id,student_id,audio_attachment_id,updated_at) VALUES ($1,$2,$3,$4,$5,NOW())`, [assignmentId, taskId, attemptId, studentId, audioId]), /duplicate key value/i);
+  } finally { await db.close(); }
+});
+
+test("quick quiz migration is additive and applies safe defaults to existing assignments", async () => {
+  const db = await PGlite.create({ extensions: { citext } });
+  const teacherId = "14000000-0000-4000-8000-000000000001";
+  const classroomId = "14000000-0000-4000-8000-000000000002";
+  const assignmentId = "14000000-0000-4000-8000-000000000003";
+  try {
+    for (const url of [migrationUrl, refreshFamiliesMigrationUrl, classroomsMigrationUrl, sessionsAttendanceMigrationUrl, guardianLinksMigrationUrl, adminManagementMigrationUrl, lessonManagementMigrationUrl, assignmentCoreMigrationUrl, assignmentReadAloudMigrationUrl]) await db.exec(await readFile(url, "utf8"));
+    await db.exec(`
+      INSERT INTO users (id,email,password_hash,full_name,status,updated_at) VALUES ('${teacherId}','quiz-teacher@test.local','hash','Teacher','ACTIVE',NOW());
+      INSERT INTO teacher_profiles (user_id,approval_status,updated_at) VALUES ('${teacherId}','APPROVED',NOW());
+      INSERT INTO classrooms (id,teacher_id,code,name,updated_at) VALUES ('${classroomId}','${teacherId}','MSN-QUIZ','Quiz Class',NOW());
+      INSERT INTO assignments (id,classroom_id,created_by_id,title,updated_at) VALUES ('${assignmentId}','${classroomId}','${teacherId}','Existing assignment',NOW());
+    `);
+    await db.exec(await readFile(quickQuizMigrationUrl, "utf8"));
+    const row = await db.query(`SELECT generation_mode, generation_model, source_lesson_ids, show_leaderboard FROM assignments WHERE id=$1`, [assignmentId]);
+    assert.deepEqual(row.rows[0], { generation_mode: "MANUAL", generation_model: null, source_lesson_ids: [], show_leaderboard: true });
   } finally { await db.close(); }
 });
 

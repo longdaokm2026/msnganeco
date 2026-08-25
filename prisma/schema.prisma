@@ -100,6 +100,12 @@ enum AssignmentStatus {
   ARCHIVED
 }
 
+enum AssignmentGenerationMode {
+  MANUAL
+  AI
+  LOCAL
+}
+
 enum AssignmentSection {
   VOCABULARY
   GRAMMAR
@@ -330,6 +336,10 @@ model Assignment {
   shuffleOptions       Boolean          @default(false) @map("shuffle_options")
   showScoreImmediately Boolean          @default(true) @map("show_score_immediately")
   showAnswersAfterSubmit Boolean        @default(false) @map("show_answers_after_submit")
+  showLeaderboard        Boolean        @default(true) @map("show_leaderboard")
+  generationMode         AssignmentGenerationMode @default(MANUAL) @map("generation_mode")
+  generationModel        String?        @map("generation_model") @db.VarChar(100)
+  sourceLessonIds        String[]       @default([]) @map("source_lesson_ids") @db.Uuid
   publishedAt          DateTime?        @map("published_at") @db.Timestamptz(3)
   closedAt             DateTime?        @map("closed_at") @db.Timestamptz(3)
   createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -347,6 +357,7 @@ model Assignment {
   @@index([lessonId])
   @@index([status])
   @@index([dueAt])
+  @@index([generationMode])
   @@map("assignments")
 }
 

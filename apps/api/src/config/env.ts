@@ -23,6 +23,13 @@ export const authConfig = {
     process.env.NODE_ENV !== "production" && process.env.AUTH_EXPOSE_DEV_TOKENS === "true",
 };
 
+export const aiQuizConfig = {
+  enabled: () => process.env.AI_QUIZ_ENABLED === "true" && Boolean(process.env.OPENAI_API_KEY?.trim()),
+  apiKey: () => process.env.OPENAI_API_KEY?.trim() ?? "",
+  model: () => process.env.OPENAI_MODEL?.trim() || "gpt-5.6",
+  timeoutMs: () => integer("AI_QUIZ_TIMEOUT_MS", 15_000),
+};
+
 export function validateEnvironment() {
   authConfig.accessSecret();
   authConfig.accessTtlSeconds();

@@ -11,8 +11,10 @@ export class CreateAssignmentDto {
   @IsOptional() @ValidateIf((_, value) => value !== null) @IsISO8601() dueAt?: string | null;
   @IsBoolean() allowLateSubmission!: boolean;
   @IsInt() @Min(1) @Max(20) maxAttempts!: number;
+  @IsOptional() @ValidateIf((_, value) => value !== null) @Transform(({ value }) => Number(value)) @IsInt() @Min(1) @Max(180) timeLimitMinutes?: number | null;
   @IsBoolean() showScoreImmediately!: boolean;
   @IsOptional() @IsBoolean() showAnswersAfterSubmit?: boolean;
+  @IsOptional() @IsBoolean() showLeaderboard?: boolean;
 }
 
 export class UpdateAssignmentDto {
@@ -24,8 +26,10 @@ export class UpdateAssignmentDto {
   @IsOptional() @ValidateIf((_, value) => value !== null) @IsISO8601() dueAt?: string | null;
   @IsOptional() @IsBoolean() allowLateSubmission?: boolean;
   @IsOptional() @IsInt() @Min(1) @Max(20) maxAttempts?: number;
+  @IsOptional() @ValidateIf((_, value) => value !== null) @Transform(({ value }) => Number(value)) @IsInt() @Min(1) @Max(180) timeLimitMinutes?: number | null;
   @IsOptional() @IsBoolean() showScoreImmediately?: boolean;
   @IsOptional() @IsBoolean() showAnswersAfterSubmit?: boolean;
+  @IsOptional() @IsBoolean() showLeaderboard?: boolean;
 }
 
 export class AssignmentListQueryDto {
@@ -58,4 +62,3 @@ export class ReorderDto {
 }
 
 export class AnswerDto { @IsDefined() answer!: unknown; }
-

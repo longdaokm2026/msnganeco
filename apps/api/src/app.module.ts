@@ -10,9 +10,10 @@ import { AdminModule } from "./admin/admin.module";
 import { TeacherApprovalAccessModule } from "./access/teacher-approval-access";
 import { LessonModule } from "./lessons/lesson.module";
 import { AssignmentModule } from "./assignments/assignment.module";
+import { QuizGenerationModule } from "./quiz-generation/quiz-generation.module";
 
 @Module({
-  imports: [TeacherApprovalAccessModule, AdminModule, AssignmentModule, AuthModule, ClassroomModule, DashboardModule, GuardianModule, LessonModule, SessionModule],
+  imports: [TeacherApprovalAccessModule, AdminModule, AssignmentModule, AuthModule, ClassroomModule, DashboardModule, GuardianModule, LessonModule, QuizGenerationModule, SessionModule],
   controllers: [HealthController],
 })
 export class AppModule {}

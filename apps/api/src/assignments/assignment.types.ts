@@ -3,7 +3,7 @@ import type { AssignmentQuestionType, AssignmentSection, AssignmentStatus, Assig
 export type AssignmentInput = {
   classroomId: string; lessonId?: string | null; title: string; description?: string | null;
   type: AssignmentType; dueAt?: string | null; allowLateSubmission: boolean; maxAttempts: number;
-  showScoreImmediately: boolean; showAnswersAfterSubmit?: boolean;
+  timeLimitMinutes?: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit?: boolean; showLeaderboard?: boolean;
 };
 export type AssignmentPatch = Partial<Omit<AssignmentInput, "classroomId">> & { classroomId?: string };
 export type AssignmentListQuery = { classroomId?: string; lessonId?: string; type?: AssignmentType; status?: AssignmentStatus; page: number; pageSize: number };

@@ -20,7 +20,7 @@ test("server-renders the Ms Ngân English authentication page", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="vi">/i);
-  assert.match(html, /<title>Đăng nhập \| Ms Ngân English<\/title>/i);
+  assert.match(html, /<title>Ms Ngân English<\/title>/i);
   assert.match(html, /Chào mừng bạn trở lại/);
   assert.match(html, /Đăng nhập/);
   assert.match(html, /Đăng ký/);

@@ -21,6 +21,8 @@ Giai đoạn 2 — Quản lý lớp học:
 - [x] Step 2E: quản trị tài khoản, duyệt giáo viên, lớp học và audit log.
 - [x] Step 2F: quản lý bài học theo buổi và tài liệu đính kèm.
 - [x] Step 2G.1: bài tập từ vựng, ngữ pháp, đọc hiểu, autosave và chấm điểm tự động.
+- [x] Step 2G.1b: ghi âm đọc thành tiếng, chấm riêng thang 10 và giao diện quản lý bài tập.
+- [x] Step 2G.5a: Quick Vocabulary Quiz với OpenAI tùy chọn, fallback nội bộ và bảng xếp hạng.
 
 Giai đoạn 3 — Triển khai:
 
@@ -162,10 +164,40 @@ Các bảng hiện có:
 - `lessons`, `lesson_attachments`
 - `assignments`, `assignment_passages`, `assignment_questions`
 - `assignment_attempts`, `assignment_answers`
+- `assignment_read_aloud_tasks`, `assignment_read_aloud_submissions`, `assignment_audio_attachments`
 - `audit_logs`
 
 Prisma ORM 7 dùng PostgreSQL driver adapter tại `server/database/client.ts`.
 Email dùng kiểu `CITEXT`, nên uniqueness không phân biệt chữ hoa/chữ thường.
+
+## Quick Vocabulary Quiz
+
+Giáo viên mở **Quản lý bài tập → Tạo Quick Quiz**, chọn lớp, nguồn 1/3/5 buổi gần nhất hoặc một buổi cụ thể, số câu, số lượt và giới hạn thời gian. Quiz được lưu dưới dạng Assignment `QUIZ` ở trạng thái `DRAFT`; giáo viên phải kiểm tra, có thể sửa/xóa/sắp xếp câu hỏi rồi mới xuất bản.
+
+Lesson hiện lưu từ vựng dưới dạng văn bản. Quick Quiz chỉ đọc các dòng có cấu trúc an toàn sau, không suy đoán văn bản tự do:
+
+```text
+sunny | có nắng | It is sunny today.
+rainy => có mưa => It is rainy today.
+windy<TAB>có gió<TAB>It is windy today.
+```
+
+API:
+
+- `POST /quick-quizzes`: tạo bản nháp Quick Quiz cho giáo viên đã được duyệt.
+- `POST /quick-quizzes/:assignmentId/regenerate`: thay câu hỏi của bản nháp chưa có lượt làm.
+- `GET /assignments/:assignmentId/leaderboard`: bảng xếp hạng theo lần tốt nhất; đúng nhiều hơn trước, thời gian ngắn hơn sau.
+
+Tích hợp OpenAI là tùy chọn và chỉ chạy ở backend khi tạo câu hỏi. Hệ thống dùng một request Responses API với Structured Output, kiểm tra lại dữ liệu trên máy chủ rồi mới lưu. Thiếu key, tắt tính năng, timeout, lỗi mạng/quota/model hoặc output không hợp lệ đều tự chuyển sang bộ tạo nội bộ xác định; việc làm bài, chấm điểm và xếp hạng không gọi AI.
+
+```dotenv
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.6
+AI_QUIZ_ENABLED=false
+AI_QUIZ_TIMEOUT_MS=15000
+```
+
+Không dùng tiền tố `NEXT_PUBLIC_` và không đưa key vào frontend. Ứng dụng khởi động bình thường khi không có `OPENAI_API_KEY`.
 
 ## Kiểm tra
 
