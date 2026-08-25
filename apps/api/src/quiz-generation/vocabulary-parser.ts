@@ -1,21 +1,8 @@
 import type { SourceLesson, VocabularyRecord } from "./quiz-generation.types";
-
-const clean = (value: string) => value.trim().replace(/^[\s*•\-\d.)]+/, "").trim();
-
-function parts(line: string) {
-  if (line.includes("|")) return line.split("|").map(clean);
-  if (line.includes("\t")) return line.split("\t").map(clean);
-  if (line.includes("=>")) return line.split("=>").map(clean);
-  return [];
-}
+import { parseVocabularyEntries } from "../../../shared/vocabulary-parser";
 
 export function parseLessonVocabulary(lesson: SourceLesson): VocabularyRecord[] {
-  return lesson.vocabulary.split(/\r?\n/).flatMap((line) => {
-    const [word, meaning, ...exampleParts] = parts(line);
-    if (!word || !meaning) return [];
-    const example = exampleParts.join(" | ").trim();
-    return [{ word, meaning, example: example || null, lessonId: lesson.id, lessonTitle: lesson.title }];
-  });
+  return parseVocabularyEntries(lesson.vocabulary).map(({ word, meaning, example }) => ({ word, meaning, example, lessonId: lesson.id, lessonTitle: lesson.title }));
 }
 
 export function uniqueVocabulary(lessons: SourceLesson[]) {
@@ -27,4 +14,3 @@ export function uniqueVocabulary(lessons: SourceLesson[]) {
     return true;
   });
 }
-
