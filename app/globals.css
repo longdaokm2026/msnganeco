@@ -532,6 +532,10 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .assignment-form-grid .check-row input { width: auto; min-height: auto; }
 .passage-editor article { padding: 12px; border-left: 3px solid var(--coral); border-radius: 5px; background: #f6f3ed; }
 .passage-editor article p { margin: 5px 0 0; color: #46506a; font-size: 9px; line-height: 1.6; white-space: pre-wrap; }
+.passage-editor .passage-label { display: block; margin-bottom: 4px; color: var(--coral); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.passage-editor article footer { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 6px; }
+.passage-editor article footer button { padding: 6px 9px; border: 1px solid #d3d6e1; border-radius: 6px; background: #fff; color: var(--indigo); cursor: pointer; font-size: 8px; font-weight: 700; }
+.passage-editor article footer .danger-link { color: #9c3f2d; }
 .inline-actions { display: flex; gap: 7px; }
 .inline-actions button + button { background: transparent; color: var(--indigo); }
 .question-list article { padding: 11px 0; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; border-bottom: 1px solid #ebe8e0; }
@@ -580,7 +584,13 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .student-attempt { display: grid; gap: 14px; }
 .student-attempt > header { padding: 11px 14px; display: flex; gap: 16px; border-radius: 9px; background: #eff0f7; color: var(--muted); font-size: 8px; }
 .student-attempt > header b { margin-left: auto; color: #257346; }
-.student-passage { padding: 22px; border-left: 4px solid var(--coral); border-radius: 8px; background: var(--paper); }
+.assignment-question-sections, .assignment-question-part, .reading-passage-group { display: grid; gap: 14px; min-width: 0; }
+.assignment-part-heading { padding-bottom: 9px; border-bottom: 1px solid #dedbd2; }
+.assignment-part-heading span { color: var(--coral); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.assignment-part-heading h2 { margin: 3px 0 0; color: var(--indigo); font-family: var(--font-serif), serif; font-size: 20px; }
+.reading-passage-group + .reading-passage-group { margin-top: 6px; }
+.student-passage { max-width: 880px; padding: 22px; border: 1px solid #dedbd2; border-left: 4px solid var(--coral); border-radius: 10px; background: #f7f5ef; }
+.student-passage > span { display: block; margin-bottom: 5px; color: var(--coral); font-size: 8px; font-weight: 800; letter-spacing: .08em; }
 .student-passage h2 { margin: 0 0 10px; font-family: var(--font-serif), serif; }
 .student-passage p { margin: 0; color: #46506a; font-size: 10px; line-height: 1.9; white-space: pre-wrap; }
 .student-question-list { display: grid; gap: 11px; }
@@ -609,6 +619,9 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .student-question-list footer { min-height: 18px; color: #257346; font-size: 8px; }
 .student-question-list footer b { float: right; }
 .student-question-list footer p { clear: both; color: var(--muted); }
+.attempt-detail .assignment-question-sections { margin-top: 4px; }
+.attempt-detail .student-passage { padding: 18px; }
+.attempt-detail .student-question-list > article { background: #f7f5ef; }
 .student-submit-bar { position: sticky; bottom: 0; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #dedbd2; border-radius: 9px; background: rgba(255,253,248,.97); font-size: 8px; }
 .student-result-summary { padding: 22px; display: flex; align-items: center; gap: 18px; border-radius: 12px; background: var(--indigo); color: #fff; }
 .student-result-summary h2 { margin: 0; font-family: var(--font-serif), serif; }
@@ -739,6 +752,9 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .assignment-create, .quick-quiz-form, .assignment-filters, .assignment-grid, .student-assignment-list, .assignment-form-grid, .student-assignment-intro dl, .matching-answers { grid-template-columns: 1fr; }
   .question-list article { grid-template-columns: 34px 1fr; }
   .question-list footer { grid-column: 2; }
+  .assignment-part-heading h2 { font-size: 18px; }
+  .student-passage { max-width: 100%; padding: 17px; }
+  .student-passage p { line-height: 1.75; overflow-wrap: anywhere; }
   .assignment-sticky-actions, .student-submit-bar { align-items: stretch; flex-direction: column; }
   .result-metrics { grid-template-columns: 1fr 1fr; }
 }
