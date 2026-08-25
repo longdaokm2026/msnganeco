@@ -13,24 +13,14 @@ const schema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["type", "pattern", "sourceWord", "prompt", "options", "correctAnswer", "pairs"],
+        required: ["type", "pattern", "sourceWord", "prompt", "options", "correctAnswer"],
         properties: {
-          type: { type: "string", enum: ["MULTIPLE_CHOICE", "MATCHING", "FILL_BLANK", "TRUE_FALSE"] },
-          pattern: { type: "string", enum: ["EN_TO_VI", "VI_TO_EN", "SENTENCE_COMPLETION", "SITUATION", "ODD_ONE_OUT", "MEANING_IN_CONTEXT", "MATCHING", "TRUE_FALSE"] },
-          sourceWord: { type: ["string", "null"] },
-          prompt: { type: "string" },
-          options: { type: ["array", "null"], items: { type: "string" }, minItems: 2, maxItems: 4 },
-          correctAnswer: { type: ["string", "null"] },
-          pairs: {
-            type: ["array", "null"],
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: ["left", "right"],
-              properties: { left: { type: "string" }, right: { type: "string" } },
-            },
-            minItems: 2,
-          },
+          type: { type: "string", enum: ["MULTIPLE_CHOICE"] },
+          pattern: { type: "string", enum: ["EN_TO_VI", "VI_TO_EN", "SENTENCE_COMPLETION", "SITUATION", "ODD_ONE_OUT", "MEANING_IN_CONTEXT"] },
+          sourceWord: { type: "string", minLength: 1 },
+          prompt: { type: "string", minLength: 1 },
+          options: { type: "array", items: { type: "string", minLength: 1 }, minItems: 2, maxItems: 4 },
+          correctAnswer: { type: "string", minLength: 1 },
         },
       },
     },
@@ -52,7 +42,7 @@ For situation questions, use simple everyday contexts and select the best suppli
 For category or odd-one-out, generate a question only when at least four supplied words clearly form a comparable set with one grounded odd item.
 For meaning-in-context, keep the target word visible in a short context and test only its supplied meaning.
 
-Use MULTIPLE_CHOICE for all six preferred patterns. Set pattern accurately. Options and the correct answer must be exact supplied words or meanings. Use null for fields that do not apply. Return only the required structured output.`;
+Use MULTIPLE_CHOICE for every question and set one of the six requested patterns accurately. sourceWord, prompt, options, and correctAnswer are mandatory and must never be null or blank. Options and the correct answer must be exact supplied words or meanings. Return only the required structured output.`;
 
 @Injectable()
 export class OpenAIQuizGenerator {

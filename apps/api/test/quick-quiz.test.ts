@@ -107,8 +107,8 @@ describe("Quick Quiz AI validation and automatic fallback", () => {
     process.env.AI_QUIZ_ENABLED = "true"; process.env.OPENAI_API_KEY = "test-only"; process.env.OPENAI_MODEL = "test-model";
     let request: Record<string, unknown> | undefined;
     const structuredQuestions = [
-      { type: "MULTIPLE_CHOICE", pattern: "EN_TO_VI", sourceWord: "sunny", prompt: "‘sunny’ có nghĩa là gì?", options: ["có mưa", "có nắng", "có gió"], correctAnswer: "có nắng", pairs: null },
-      { type: "MULTIPLE_CHOICE", pattern: "VI_TO_EN", sourceWord: "rainy", prompt: "Từ nào có nghĩa là ‘có mưa’?", options: ["sunny", "rainy", "windy"], correctAnswer: "rainy", pairs: null },
+      { type: "MULTIPLE_CHOICE", pattern: "EN_TO_VI", sourceWord: "sunny", prompt: "‘sunny’ có nghĩa là gì?", options: ["có mưa", "có nắng", "có gió"], correctAnswer: "có nắng" },
+      { type: "MULTIPLE_CHOICE", pattern: "VI_TO_EN", sourceWord: "rainy", prompt: "Từ nào có nghĩa là ‘có mưa’?", options: ["sunny", "rainy", "windy"], correctAnswer: "rainy" },
     ];
     const raw = await generateQuizWithResponses(async (input) => {
       request = input as unknown as Record<string, unknown>;
@@ -118,6 +118,10 @@ describe("Quick Quiz AI validation and automatic fallback", () => {
     assert.equal(request?.model, "test-model");
     assert.equal("response_format" in (request ?? {}), false);
     assert.equal(((request?.text as { format?: { type?: string } })?.format?.type), "json_schema");
+    const questionSchema = (((request?.text as { format?: { schema?: { properties?: { questions?: { items?: { properties?: Record<string, { type?: unknown }> } } } } } })?.format?.schema?.properties?.questions?.items?.properties) ?? {});
+    assert.equal(questionSchema.sourceWord?.type, "string");
+    assert.equal(questionSchema.correctAnswer?.type, "string");
+    assert.equal(questionSchema.options?.type, "array");
     assert.equal(result.mode, "AI"); assert.equal(result.model, "test-model"); assert.equal(result.questions.length, 2);
   });
 
