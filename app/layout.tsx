@@ -15,7 +15,7 @@ const serif = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "Đăng nhập | Ms Ngân English",
+  title: "Ms Ngân English",
   description: "Không gian quản lý lớp học và hành trình học tiếng Anh.",
   icons: {
     icon: "/favicon.svg",
