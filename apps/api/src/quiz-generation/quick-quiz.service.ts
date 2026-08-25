@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { Role } from "../../../../generated/prisma/client";
 import { validateQuestion } from "../assignments/grading";
 import { QuickQuizRepository } from "./quick-quiz.repository";
@@ -10,7 +10,7 @@ import { uniqueVocabulary } from "./vocabulary-parser";
 
 @Injectable()
 export class QuickQuizService {
-  constructor(private readonly repository: QuickQuizRepository, private readonly generation: QuizGenerationService) {}
+  constructor(@Inject(QuickQuizRepository) private readonly repository: QuickQuizRepository, @Inject(QuizGenerationService) private readonly generation: QuizGenerationService) {}
   private value<T>(result: QuickQuizRepositoryResult<T>) {
     if (result.status === "OK") return result.value;
     if (result.status === "NOT_FOUND") throw new NotFoundException(result.message ?? "Không tìm thấy lớp học hoặc Quick Quiz.");

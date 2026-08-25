@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards, ValidationPipe } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Post, Req, UseGuards, ValidationPipe } from "@nestjs/common";
 import { ApprovedTeacherGuard } from "../access/teacher-approval-access";
 import { StrictRoles } from "../access/roles.decorator";
 import { RolesGuard } from "../access/roles.guard";
@@ -11,7 +11,7 @@ const validate = new ValidationPipe({ expectedType: QuickQuizDto, whitelist: tru
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class QuickQuizController {
-  constructor(private readonly quizzes: QuickQuizService) {}
+  constructor(@Inject(QuickQuizService) private readonly quizzes: QuickQuizService) {}
   @Post("quick-quizzes") @StrictRoles("TEACHER") @UseGuards(ApprovedTeacherGuard)
   create(@Req() request: AuthenticatedRequest, @Body(validate) body: QuickQuizDto) { return this.quizzes.create(request.user.sub, body); }
   @Post("quick-quizzes/:assignmentId/regenerate") @StrictRoles("TEACHER") @UseGuards(ApprovedTeacherGuard)
@@ -19,4 +19,3 @@ export class QuickQuizController {
   @Get("assignments/:assignmentId/leaderboard") @StrictRoles("TEACHER", "STUDENT")
   leaderboard(@Req() request: AuthenticatedRequest, @Param("assignmentId", ParseUUIDPipe) assignmentId: string) { return this.quizzes.leaderboard(request.user.sub, request.user.roles, assignmentId); }
 }
-

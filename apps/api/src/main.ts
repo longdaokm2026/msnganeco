@@ -15,6 +15,10 @@ async function bootstrap() {
   const port = Number(process.env.API_PORT ?? 4000);
   const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
 
+  // Production traffic reaches Express through exactly one trusted Caddy hop.
+  // This lets express-rate-limit use Caddy's X-Forwarded-For value safely.
+  app.getHttpAdapter().getInstance().set("trust proxy", process.env.NODE_ENV === "production" ? 1 : false);
+
   app.use(helmet());
   app.use(cookieParser());
   app.use(

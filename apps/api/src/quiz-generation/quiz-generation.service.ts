@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { aiQuizConfig } from "../config/env";
 import { LocalQuizGenerator } from "./local-quiz-generator.service";
 import { OpenAIQuizGenerator } from "./openai-quiz-generator.service";
@@ -8,7 +8,7 @@ import { validateGeneratedQuestions } from "./quiz-generation.validator";
 @Injectable()
 export class QuizGenerationService {
   private readonly logger = new Logger(QuizGenerationService.name);
-  constructor(private readonly openai: OpenAIQuizGenerator, private readonly local: LocalQuizGenerator) {}
+  constructor(@Inject(OpenAIQuizGenerator) private readonly openai: OpenAIQuizGenerator, @Inject(LocalQuizGenerator) private readonly local: LocalQuizGenerator) {}
 
   async generate(vocabulary: VocabularyRecord[], count: number): Promise<GenerationResult> {
     const target = Math.min(count, vocabulary.length);
@@ -29,4 +29,3 @@ export class QuizGenerationService {
     return { mode: "LOCAL", model: null, questions };
   }
 }
-

@@ -1,10 +1,14 @@
+import "dotenv/config";
 import assert from "node:assert/strict";
 import { afterEach, describe, test } from "node:test";
 import { AssignmentQuestionType } from "../../../generated/prisma/client";
 import { attemptDurationMs, attemptExpired } from "../src/assignments/attempt-timing";
 import { gradeQuestion } from "../src/assignments/grading";
 import { LocalQuizGenerator } from "../src/quiz-generation/local-quiz-generator.service";
-import type { OpenAIQuizGenerator } from "../src/quiz-generation/openai-quiz-generator.service";
+import { OpenAIQuizGenerator } from "../src/quiz-generation/openai-quiz-generator.service";
+import { QuickQuizController } from "../src/quiz-generation/quick-quiz.controller";
+import { QuickQuizRepository } from "../src/quiz-generation/quick-quiz.repository";
+import { QuickQuizService } from "../src/quiz-generation/quick-quiz.service";
 import { rankLeaderboard } from "../src/quiz-generation/leaderboard";
 import { QuizGenerationService } from "../src/quiz-generation/quiz-generation.service";
 import type { GeneratedQuizQuestion, VocabularyRecord } from "../src/quiz-generation/quiz-generation.types";
@@ -35,6 +39,15 @@ const validAi = (): GeneratedQuizQuestion[] => [
 ];
 
 describe("Quick Quiz deterministic local generation", () => {
+  test("declares every production dependency token explicitly for the tsx runtime", () => {
+    const tokenAt = (target: object, index: number) => (Reflect.getMetadata("self:paramtypes", target) as { index: number; param: unknown }[] | undefined)?.find((item) => item.index === index)?.param;
+    assert.equal(tokenAt(QuickQuizController, 0), QuickQuizService);
+    assert.equal(tokenAt(QuickQuizService, 0), QuickQuizRepository);
+    assert.equal(tokenAt(QuickQuizService, 1), QuizGenerationService);
+    assert.equal(tokenAt(QuizGenerationService, 0), OpenAIQuizGenerator);
+    assert.equal(tokenAt(QuizGenerationService, 1), LocalQuizGenerator);
+  });
+
   test("parses only safe teacher vocabulary formats", () => {
     const parsed = parseLessonVocabulary({ id: "l1", title: "Lesson", scheduledStart: new Date(), vocabulary: "sunny | có nắng | It is sunny.\nrainy => có mưa => It is rainy.\nunsafe free text" });
     assert.deepEqual(parsed.map(({ word, meaning, example }) => ({ word, meaning, example })), [{ word: "sunny", meaning: "có nắng", example: "It is sunny." }, { word: "rainy", meaning: "có mưa", example: "It is rainy." }]);
