@@ -26,7 +26,7 @@ const dashboardByRole = {
       { label: "Buổi học hôm nay", value: "0", hint: "Chưa có lịch học" },
       { label: "Đơn xin vắng", value: "0", hint: "Không có đơn chờ duyệt" },
     ],
-    actions: ["Quản lý lớp học", "Quản lý bài học", "Tạo bài tập"],
+    actions: ["Quản lý lớp học", "Quản lý bài học", "Quản lý bài tập"],
   },
   STUDENT: {
     roleLabel: "Học sinh",
@@ -37,7 +37,7 @@ const dashboardByRole = {
       { label: "Buổi học hôm nay", value: "0", hint: "Chưa có lịch học" },
       { label: "Chuyên cần", value: "—", hint: "Chưa có dữ liệu điểm danh" },
     ],
-    actions: ["Buổi học & chuyên cần", "Bài học", "Quản lý phụ huynh", "Làm bài tập"],
+    actions: ["Buổi học & chuyên cần", "Bài học", "Bài tập", "Quản lý phụ huynh"],
   },
   GUARDIAN: {
     roleLabel: "Phụ huynh",

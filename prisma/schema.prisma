@@ -86,6 +86,47 @@ enum LessonAttachmentCategory {
   OTHER
 }
 
+enum AssignmentType {
+  PRACTICE
+  HOMEWORK
+  QUIZ
+  TEST
+}
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum AssignmentSection {
+  VOCABULARY
+  GRAMMAR
+  READING
+}
+
+enum AssignmentQuestionType {
+  VOCAB_MULTIPLE_CHOICE
+  VOCAB_MATCHING
+  VOCAB_FILL_BLANK
+  GRAMMAR_MULTIPLE_CHOICE
+  GRAMMAR_FILL_BLANK
+  GRAMMAR_SENTENCE_ORDER
+  GRAMMAR_ERROR_CORRECTION
+  READING_MULTIPLE_CHOICE
+  READING_TRUE_FALSE_NOT_GIVEN
+  READING_SHORT_ANSWER
+}
+
+enum AssignmentAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  AUTO_GRADED
+  PENDING_MANUAL_GRADE
+  FULLY_GRADED
+}
+
 model User {
   id                String              @id @default(uuid()) @db.Uuid
   email             String              @unique @db.Citext
@@ -109,6 +150,9 @@ model User {
   lessonsCreated    Lesson[]            @relation("LessonCreatedBy")
   lessonsUpdated    Lesson[]            @relation("LessonUpdatedBy")
   lessonUploads     LessonAttachment[]
+  assignmentsCreated Assignment[]       @relation("AssignmentCreatedBy")
+  assignmentAudioUploads AssignmentAudioAttachment[] @relation("AssignmentAudioUploadedBy")
+  readAloudGrades    AssignmentReadAloudSubmission[] @relation("ReadAloudGrader")
 
   @@index([status])
   @@index([createdAt])
@@ -138,6 +182,8 @@ model StudentProfile {
   enrollments   ClassEnrollment[]
   attendances   AttendanceRecord[]
   absenceRequests AbsenceRequest[]
+  assignmentAttempts AssignmentAttempt[]
+  readAloudSubmissions AssignmentReadAloudSubmission[]
 
   @@map("student_profiles")
 }
@@ -178,6 +224,7 @@ model Classroom {
   teacher      TeacherProfile  @relation(fields: [teacherId], references: [userId], onDelete: Restrict)
   enrollments  ClassEnrollment[]
   sessions     ClassSession[]
+  assignments  Assignment[]
 
   @@index([teacherId, status])
   @@index([name])
@@ -243,6 +290,7 @@ model Lesson {
   createdBy     User         @relation("LessonCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy     User         @relation("LessonUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
   attachments   LessonAttachment[]
+  assignments   Assignment[]
 
   @@index([status, updatedAt])
   @@map("lessons")
@@ -263,6 +311,185 @@ model LessonAttachment {
 
   @@index([lessonId])
   @@map("lesson_attachments")
+}
+
+model Assignment {
+  id                   String           @id @default(uuid()) @db.Uuid
+  classroomId          String           @map("classroom_id") @db.Uuid
+  lessonId             String?          @map("lesson_id") @db.Uuid
+  createdById          String           @map("created_by_id") @db.Uuid
+  title                String           @db.VarChar(200)
+  description          String?
+  type                 AssignmentType   @default(HOMEWORK)
+  status               AssignmentStatus @default(DRAFT)
+  dueAt                DateTime?        @map("due_at") @db.Timestamptz(3)
+  allowLateSubmission  Boolean          @default(false) @map("allow_late_submission")
+  maxAttempts          Int              @default(1) @map("max_attempts")
+  timeLimitMinutes     Int?             @map("time_limit_minutes")
+  shuffleQuestions     Boolean          @default(false) @map("shuffle_questions")
+  shuffleOptions       Boolean          @default(false) @map("shuffle_options")
+  showScoreImmediately Boolean          @default(true) @map("show_score_immediately")
+  showAnswersAfterSubmit Boolean        @default(false) @map("show_answers_after_submit")
+  publishedAt          DateTime?        @map("published_at") @db.Timestamptz(3)
+  closedAt             DateTime?        @map("closed_at") @db.Timestamptz(3)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  classroom            Classroom        @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+  lesson               Lesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  createdBy            User             @relation("AssignmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  passages             AssignmentPassage[]
+  questions            AssignmentQuestion[]
+  attempts             AssignmentAttempt[]
+  readAloudTask        AssignmentReadAloudTask?
+  readAloudSubmissions AssignmentReadAloudSubmission[]
+
+  @@index([classroomId])
+  @@index([lessonId])
+  @@index([status])
+  @@index([dueAt])
+  @@map("assignments")
+}
+
+model AssignmentPassage {
+  id           String               @id @default(uuid()) @db.Uuid
+  assignmentId String               @map("assignment_id") @db.Uuid
+  title        String?              @db.VarChar(200)
+  content      String
+  position     Int
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assignment   Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  questions    AssignmentQuestion[]
+
+  @@unique([assignmentId, position])
+  @@index([assignmentId, position])
+  @@map("assignment_passages")
+}
+
+model AssignmentQuestion {
+  id           String                 @id @default(uuid()) @db.Uuid
+  assignmentId String                 @map("assignment_id") @db.Uuid
+  passageId    String?                @map("passage_id") @db.Uuid
+  type         AssignmentQuestionType
+  section      AssignmentSection
+  position     Int
+  prompt       String
+  explanation  String?
+  points       Decimal                @default(1) @db.Decimal(8, 2)
+  required     Boolean                @default(true)
+  config       Json
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assignment   Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  passage      AssignmentPassage?     @relation(fields: [passageId], references: [id], onDelete: SetNull)
+  answers      AssignmentAnswer[]
+
+  @@unique([assignmentId, position])
+  @@index([assignmentId, position])
+  @@index([passageId])
+  @@map("assignment_questions")
+}
+
+model AssignmentAttempt {
+  id            String                  @id @default(uuid()) @db.Uuid
+  assignmentId  String                  @map("assignment_id") @db.Uuid
+  studentId     String                  @map("student_id") @db.Uuid
+  attemptNumber Int                     @map("attempt_number")
+  status        AssignmentAttemptStatus @default(IN_PROGRESS)
+  startedAt     DateTime                @default(now()) @map("started_at") @db.Timestamptz(3)
+  submittedAt   DateTime?               @map("submitted_at") @db.Timestamptz(3)
+  score         Decimal?                @db.Decimal(10, 2)
+  maxScore      Decimal                 @default(0) @map("max_score") @db.Decimal(10, 2)
+  percentage    Decimal?                @db.Decimal(6, 2)
+  isLate        Boolean                 @default(false) @map("is_late")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assignment    Assignment              @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  student       StudentProfile          @relation(fields: [studentId], references: [userId], onDelete: Restrict)
+  answers       AssignmentAnswer[]
+  readAloudSubmission AssignmentReadAloudSubmission?
+
+  @@unique([assignmentId, studentId, attemptNumber])
+  @@index([assignmentId, studentId])
+  @@index([studentId, status])
+  @@map("assignment_attempts")
+}
+
+model AssignmentReadAloudTask {
+  id                 String       @id @default(uuid()) @db.Uuid
+  assignmentId       String       @unique @map("assignment_id") @db.Uuid
+  title              String?      @db.VarChar(200)
+  readingText        String       @map("reading_text")
+  instructions       String?
+  maxScore           Decimal      @default(10) @map("max_score") @db.Decimal(8, 2)
+  maxDurationSeconds Int?         @default(300) @map("max_duration_seconds")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assignment         Assignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  submissions        AssignmentReadAloudSubmission[]
+
+  @@map("assignment_read_aloud_tasks")
+}
+
+model AssignmentAudioAttachment {
+  id           String       @id @default(uuid()) @db.Uuid
+  fileName     String       @map("file_name") @db.VarChar(255)
+  fileType     String       @map("file_type") @db.VarChar(100)
+  fileSize     Int          @map("file_size")
+  storageKey   String       @unique @map("storage_key") @db.VarChar(500)
+  uploadedById String       @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  uploadedBy   User         @relation("AssignmentAudioUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  submission   AssignmentReadAloudSubmission?
+
+  @@index([uploadedById])
+  @@map("assignment_audio_attachments")
+}
+
+model AssignmentReadAloudSubmission {
+  id                String                    @id @default(uuid()) @db.Uuid
+  assignmentId      String                    @map("assignment_id") @db.Uuid
+  readAloudTaskId   String                    @map("read_aloud_task_id") @db.Uuid
+  attemptId         String                    @unique @map("attempt_id") @db.Uuid
+  studentId         String                    @map("student_id") @db.Uuid
+  audioAttachmentId String                    @unique @map("audio_attachment_id") @db.Uuid
+  durationSeconds   Int?                      @map("duration_seconds")
+  submittedAt       DateTime?                 @map("submitted_at") @db.Timestamptz(3)
+  score             Decimal?                  @db.Decimal(8, 2)
+  feedback          String?
+  gradedById        String?                   @map("graded_by_id") @db.Uuid
+  gradedAt          DateTime?                 @map("graded_at") @db.Timestamptz(3)
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assignment        Assignment                @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  readAloudTask     AssignmentReadAloudTask   @relation(fields: [readAloudTaskId], references: [id], onDelete: Restrict)
+  attempt           AssignmentAttempt         @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  student           StudentProfile            @relation(fields: [studentId], references: [userId], onDelete: Restrict)
+  audioAttachment   AssignmentAudioAttachment @relation(fields: [audioAttachmentId], references: [id], onDelete: Restrict)
+  gradedBy          User?                     @relation("ReadAloudGrader", fields: [gradedById], references: [id], onDelete: SetNull)
+
+  @@index([assignmentId, studentId])
+  @@index([readAloudTaskId])
+  @@index([gradedById])
+  @@map("assignment_read_aloud_submissions")
+}
+
+model AssignmentAnswer {
+  id            String             @id @default(uuid()) @db.Uuid
+  attemptId     String             @map("attempt_id") @db.Uuid
+  questionId    String             @map("question_id") @db.Uuid
+  answer        Json
+  normalized    Json?
+  isCorrect     Boolean?           @map("is_correct")
+  awardedPoints Decimal?           @map("awarded_points") @db.Decimal(8, 2)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  attempt       AssignmentAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question      AssignmentQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@map("assignment_answers")
 }
 
 model AttendanceRecord {

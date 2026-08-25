@@ -18,6 +18,9 @@ Giai đoạn 2 — Quản lý lớp học:
 - [x] Step 2B: lịch học, buổi học, điểm danh và xin vắng mặt.
 - [x] Step 2C: liên kết phụ huynh với học sinh và quyền xem dữ liệu.
 - [x] Step 2D: Student dashboard, lịch học, deadline xin vắng và thống kê chuyên cần theo tháng.
+- [x] Step 2E: quản trị tài khoản, duyệt giáo viên, lớp học và audit log.
+- [x] Step 2F: quản lý bài học theo buổi và tài liệu đính kèm.
+- [x] Step 2G.1: bài tập từ vựng, ngữ pháp, đọc hiểu, autosave và chấm điểm tự động.
 
 Giai đoạn 3 — Triển khai:
 
@@ -156,6 +159,9 @@ Các bảng hiện có:
 - `refresh_tokens`, `verification_tokens`
 - `classrooms`, `class_enrollments`
 - `class_sessions`, `attendance_records`, `absence_requests`
+- `lessons`, `lesson_attachments`
+- `assignments`, `assignment_passages`, `assignment_questions`
+- `assignment_attempts`, `assignment_answers`
 - `audit_logs`
 
 Prisma ORM 7 dùng PostgreSQL driver adapter tại `server/database/client.ts`.
@@ -175,24 +181,47 @@ Không commit file `.env`, mật khẩu, token hoặc thông tin kết nối pro
 
 ## Production trên Ubuntu
 
-### Sao lưu tài liệu bài học
+### Sao lưu dữ liệu và tệp tải lên
 
-Tệp bài học được lưu trong Docker named volume `lesson_uploads`, không nằm trong PostgreSQL. Vì vậy một bản `pg_dump` không phải là bản sao lưu đầy đủ. Khi sao lưu production cần giữ cả:
+Tệp bài học và bản ghi đọc thành tiếng được lưu trong các Docker named volume, không nằm trong PostgreSQL. Vì vậy một bản `pg_dump` không phải là bản sao lưu đầy đủ. Khi sao lưu production cần giữ cả:
 
 1. PostgreSQL dump.
 2. Bản archive của volume `lesson_uploads`.
+3. Bản archive của volume `assignment_uploads`.
 
 Ví dụ khái niệm (thay tên volume thực tế và thư mục backup theo Compose project trên máy chủ):
 
 ```bash
 docker run --rm \
-  -v <compose_volume_name>:/source:ro \
+  -v <lesson_volume_name>:/source:ro \
   -v <backup_directory>:/backup \
   alpine \
   tar czf /backup/lesson_uploads_<timestamp>.tar.gz -C /source .
+
+docker run --rm \
+  -v <assignment_volume_name>:/source:ro \
+  -v <backup_directory>:/backup \
+  alpine \
+  tar czf /backup/assignment_uploads_<timestamp>.tar.gz -C /source .
 ```
 
-Khi restore, phục hồi PostgreSQL và volume tài liệu cùng một mốc thời gian. Không giải nén volume vào thư mục public và không phục vụ trực tiếp volume qua Caddy; download luôn đi qua API đã xác thực.
+Khi restore, phục hồi PostgreSQL và cả hai volume cùng một mốc thời gian. Không giải nén volume vào thư mục public và không phục vụ trực tiếp volume qua Caddy; tải xuống/phát audio luôn đi qua API đã xác thực.
+
+Ví dụ restore volume vào volume trống (thay đúng tên volume và tệp backup):
+
+```bash
+docker run --rm \
+  -v <lesson_volume_name>:/target \
+  -v <backup_directory>:/backup:ro \
+  alpine \
+  sh -c 'cd /target && tar xzf /backup/lesson_uploads_<timestamp>.tar.gz'
+
+docker run --rm \
+  -v <assignment_volume_name>:/target \
+  -v <backup_directory>:/backup:ro \
+  alpine \
+  sh -c 'cd /target && tar xzf /backup/assignment_uploads_<timestamp>.tar.gz'
+```
 
 Production dùng hai Docker image độc lập cho Web và API, Caddy làm HTTPS reverse
 proxy, còn PostgreSQL chạy ngoài application server. `main` luôn là nguồn code

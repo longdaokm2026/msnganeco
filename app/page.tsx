@@ -11,11 +11,13 @@ import type { AdminSection } from "./admin/types";
 import ForgotPassword from "./ForgotPassword";
 import TeacherLessonManager from "./TeacherLessonManager";
 import StudentLessonViewer from "./StudentLessonViewer";
+import TeacherAssignmentManager from "./TeacherAssignmentManager";
+import StudentAssignmentManager from "./StudentAssignmentManager";
 
 type AuthMode = "login" | "register" | "forgot";
 type Role = "student" | "teacher" | "guardian";
 type ApiRole = "ADMIN" | "TEACHER" | "STUDENT" | "GUARDIAN";
-type DashboardView = "overview" | "classes" | "lessons" | "student-lessons" | "student-schedule" | "student-guardians" | "guardian-portal" | "admin-users" | "admin-teachers" | "admin-classrooms" | "admin-audit";
+type DashboardView = "overview" | "classes" | "lessons" | "assignments" | "student-lessons" | "student-assignments" | "student-schedule" | "student-guardians" | "guardian-portal" | "admin-users" | "admin-teachers" | "admin-classrooms" | "admin-audit";
 
 type SessionUser = {
   id: string;
@@ -79,7 +81,9 @@ const viewHashes: Record<DashboardView, string> = {
   overview: "overview",
   classes: "classes",
   lessons: "lessons",
+  assignments: "assignments",
   "student-lessons": "student-lessons",
+  "student-assignments": "student-assignments",
   "student-schedule": "schedule",
   "student-guardians": "guardians",
   "guardian-portal": "students",
@@ -97,8 +101,8 @@ function viewFromHash(): DashboardView {
 
 function canOpenView(role: ApiRole, view: DashboardView) {
   if (view === "overview") return true;
-  if (role === "TEACHER") return view === "classes" || view === "lessons";
-  if (role === "STUDENT") return view === "student-schedule" || view === "student-lessons" || view === "student-guardians";
+  if (role === "TEACHER") return view === "classes" || view === "lessons" || view === "assignments";
+  if (role === "STUDENT") return view === "student-schedule" || view === "student-lessons" || view === "student-assignments" || view === "student-guardians";
   if (role === "GUARDIAN") return view === "guardian-portal";
   if (role === "ADMIN") return view === "admin-users" || view === "admin-teachers" || view === "admin-classrooms" || view === "admin-audit";
   return false;
@@ -121,6 +125,7 @@ export default function Home() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [accessToken, setAccessToken] = useState("");
   const [dashboardView, setDashboardView] = useState<DashboardView>("overview");
+  const [assignmentPrefill, setAssignmentPrefill] = useState<{ classroomId: string; lessonId: string; title: string } | null>(null);
 
   const navigateDashboard = useCallback((view: DashboardView, replace = false) => {
     setDashboardView(view);
@@ -305,10 +310,14 @@ export default function Home() {
                 <button className={currentView === "classes" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("classes")}>{action}</button>
               ) : dashboard.primaryRole === "TEACHER" && action === "Quản lý bài học" ? (
                 <button className={currentView === "lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("lessons")}>{action}</button>
+              ) : dashboard.primaryRole === "TEACHER" && action === "Quản lý bài tập" ? (
+                <button className={currentView === "assignments" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("assignments")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần" ? (
                 <button className={currentView === "student-schedule" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-schedule")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Bài học" ? (
                 <button className={currentView === "student-lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-lessons")}>{action}</button>
+              ) : dashboard.primaryRole === "STUDENT" && action === "Bài tập" ? (
+                <button className={currentView === "student-assignments" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-assignments")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh" ? (
                 <button className={currentView === "student-guardians" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-guardians")}>{action}</button>
               ) : dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh" ? (
@@ -333,9 +342,13 @@ export default function Home() {
                 onBack={() => { void returnToOverview(); }}
               />
             ) : currentView === "lessons" && accessToken ? (
-              <TeacherLessonManager accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
+              <TeacherLessonManager accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} onCreateAssignment={(prefill) => { setAssignmentPrefill(prefill); navigateDashboard("assignments"); }} />
+            ) : currentView === "assignments" && accessToken ? (
+              <TeacherAssignmentManager accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} initialPrefill={assignmentPrefill} onPrefillConsumed={() => setAssignmentPrefill(null)} />
             ) : currentView === "student-lessons" && accessToken ? (
               <StudentLessonViewer accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
+            ) : currentView === "student-assignments" && accessToken ? (
+              <StudentAssignmentManager accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
             ) : currentView === "student-schedule" && accessToken ? (
               <StudentSchedule accessToken={accessToken} apiUrl={apiUrl} onBack={() => { void returnToOverview(); }} />
             ) : currentView === "student-guardians" && accessToken ? (

@@ -58,8 +58,10 @@ services:
       NODE_ENV: production
       API_PORT: 4000
       LESSON_UPLOAD_DIR: /app/uploads/lessons
+      ASSIGNMENT_UPLOAD_DIR: /app/uploads/assignments/audio
     volumes:
       - lesson_uploads:/app/uploads/lessons
+      - assignment_uploads:/app/uploads/assignments
     expose:
       - "4000"
     healthcheck:
@@ -107,5 +109,6 @@ networks:
 volumes:
   postgres_data:
   lesson_uploads:
+  assignment_uploads:
   caddy_data:
   caddy_config:

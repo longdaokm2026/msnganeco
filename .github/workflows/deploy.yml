@@ -24,7 +24,8 @@ jobs:
       DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
       JWT_ACCESS_SECRET: ci-only-secret-at-least-32-characters-long
       COOKIE_SECURE: "false"
-      AUTH_EXPOSE_DEV_TOKENS: "false"
+      # Validation runs in test mode and needs development-only verification tokens.
+      AUTH_EXPOSE_DEV_TOKENS: "true"
       NEXT_PUBLIC_API_URL: ${{ vars.PROD_API_URL }}
     steps:
       - name: Require production URL

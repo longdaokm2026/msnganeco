@@ -1,0 +1,199 @@
+import { Injectable } from "@nestjs/common";
+import { AssignmentAttemptStatus, AssignmentStatus, EnrollmentStatus, Prisma } from "../../../../generated/prisma/client";
+import { prisma } from "../../../../server/database/client";
+import { gradeQuestion, studentConfig } from "./grading";
+import { assignmentPublishError, calculateAssignmentOutcome, missingRequiredReadAloud } from "./manual-grading";
+import { AssignmentRepository } from "./assignment.repository";
+import type { AssignmentInput, AssignmentListQuery, AssignmentPatch, AnswerInput, PassageInput, QuestionInput, ReorderInput, RepositoryResult } from "./assignment.types";
+
+const classroomSelect = { id: true, code: true, name: true, _count: { select: { enrollments: { where: { status: EnrollmentStatus.ACTIVE } } } } } satisfies Prisma.ClassroomSelect;
+const lessonSelect = { id: true, title: true, session: { select: { id: true, scheduledStart: true } } } satisfies Prisma.LessonSelect;
+const questionSelect = { id: true, passageId: true, type: true, section: true, position: true, prompt: true, explanation: true, points: true, required: true, config: true, createdAt: true, updatedAt: true } satisfies Prisma.AssignmentQuestionSelect;
+const passageSelect = { id: true, title: true, content: true, position: true, createdAt: true, updatedAt: true } satisfies Prisma.AssignmentPassageSelect;
+const readAloudTaskSelect = { id: true, title: true, readingText: true, instructions: true, maxScore: true, maxDurationSeconds: true, createdAt: true, updatedAt: true } satisfies Prisma.AssignmentReadAloudTaskSelect;
+const submissionAttemptSelect = { id: true, durationSeconds: true, submittedAt: true, score: true, feedback: true, gradedAt: true, audioAttachment: { select: { fileName: true, fileType: true, fileSize: true } } } satisfies Prisma.AssignmentReadAloudSubmissionSelect;
+const assignmentSelect = {
+  id: true, classroomId: true, lessonId: true, title: true, description: true, type: true, status: true, dueAt: true,
+  allowLateSubmission: true, maxAttempts: true, timeLimitMinutes: true, shuffleQuestions: true, shuffleOptions: true,
+  showScoreImmediately: true, showAnswersAfterSubmit: true, publishedAt: true, closedAt: true, createdAt: true, updatedAt: true,
+  classroom: { select: classroomSelect }, lesson: { select: lessonSelect },
+  readAloudTask: { select: readAloudTaskSelect },
+  passages: { select: passageSelect, orderBy: { position: "asc" as const } }, questions: { select: questionSelect, orderBy: { position: "asc" as const } },
+  _count: { select: { attempts: true } },
+} satisfies Prisma.AssignmentSelect;
+
+type TeacherAssignment = Prisma.AssignmentGetPayload<{ select: typeof assignmentSelect }>;
+const decimal = (value: { toNumber(): number } | number | null) => value === null ? null : typeof value === "number" ? value : value.toNumber();
+const teacherQuestion = (item: TeacherAssignment["questions"][number]) => ({ ...item, points: decimal(item.points) });
+const teacherAssignment = (item: TeacherAssignment) => ({ ...item, classroom: { id: item.classroom.id, code: item.classroom.code, name: item.classroom.name }, questions: item.questions.map(teacherQuestion), readAloudTask: item.readAloudTask ? { ...item.readAloudTask, maxScore: decimal(item.readAloudTask.maxScore) } : null, attemptCount: item._count.attempts, assignedStudentCount: item.classroom._count.enrollments, _count: undefined });
+const studentQuestion = (item: TeacherAssignment["questions"][number], reveal = false) => ({ id: item.id, passageId: item.passageId, type: item.type, section: item.section, position: item.position, prompt: item.prompt, points: decimal(item.points), required: item.required, config: reveal ? item.config : studentConfig(item.type, item.config), ...(reveal ? { explanation: item.explanation } : {}) });
+const studentAssignment = (item: TeacherAssignment, reveal = false) => ({ id: item.id, classroomId: item.classroomId, lessonId: item.lessonId, title: item.title, description: item.description, type: item.type, status: item.status, dueAt: item.dueAt, allowLateSubmission: item.allowLateSubmission, maxAttempts: item.maxAttempts, showScoreImmediately: item.showScoreImmediately, showAnswersAfterSubmit: item.showAnswersAfterSubmit, publishedAt: item.publishedAt, classroom: { id: item.classroom.id, code: item.classroom.code, name: item.classroom.name }, lesson: item.lesson, readAloudTask: item.readAloudTask ? { ...item.readAloudTask, maxScore: decimal(item.readAloudTask.maxScore) } : null, passages: item.passages, questions: item.questions.map((question) => studentQuestion(question, reveal)) });
+const submittedStatuses = [AssignmentAttemptStatus.SUBMITTED, AssignmentAttemptStatus.AUTO_GRADED, AssignmentAttemptStatus.PENDING_MANUAL_GRADE, AssignmentAttemptStatus.FULLY_GRADED];
+const page = (items: unknown[], total: number, query: AssignmentListQuery) => ({ items, total, page: query.page, pageSize: query.pageSize, totalPages: Math.ceil(total / query.pageSize) });
+const assignmentData = (input: AssignmentInput | AssignmentPatch) => ({ ...input, title: input.title?.trim(), description: input.description?.trim() || null, dueAt: input.dueAt === undefined ? undefined : input.dueAt ? new Date(input.dueAt) : null });
+
+@Injectable()
+export class PrismaAssignmentRepository extends AssignmentRepository {
+  async listTeacher(teacherId: string, query: AssignmentListQuery) {
+    const where: Prisma.AssignmentWhereInput = { classroom: { teacherId }, ...(query.classroomId ? { classroomId: query.classroomId } : {}), ...(query.lessonId ? { lessonId: query.lessonId } : {}), ...(query.type ? { type: query.type } : {}), ...(query.status ? { status: query.status } : {}) };
+    const [rows, total] = await prisma.$transaction([
+      prisma.assignment.findMany({ where, select: assignmentSelect, orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
+      prisma.assignment.count({ where }),
+    ]);
+    const submitted = rows.length ? await prisma.assignmentAttempt.findMany({ where: { assignmentId: { in: rows.map((row) => row.id) }, status: { in: submittedStatuses } }, distinct: ["assignmentId", "studentId"], select: { assignmentId: true, studentId: true } }) : [];
+    const counts = new Map<string, number>(); for (const item of submitted) counts.set(item.assignmentId, (counts.get(item.assignmentId) ?? 0) + 1);
+    return page(rows.map((row) => ({ ...teacherAssignment(row), submittedCount: counts.get(row.id) ?? 0 })), total, query);
+  }
+
+  async create(teacherId: string, input: AssignmentInput): Promise<RepositoryResult> {
+    return prisma.$transaction(async (tx) => {
+      const classroom = await tx.classroom.findFirst({ where: { id: input.classroomId, teacherId, status: "ACTIVE" }, select: { id: true } });
+      if (!classroom) return { status: "NOT_FOUND" };
+      if (input.lessonId && !await tx.lesson.findFirst({ where: { id: input.lessonId, session: { classroomId: input.classroomId } }, select: { id: true } })) return { status: "INVALID", message: "Bài học không thuộc lớp đã chọn." };
+      const created = await tx.assignment.create({ data: { classroomId: input.classroomId, lessonId: input.lessonId ?? null, createdById: teacherId, title: input.title.trim(), description: input.description?.trim() || null, type: input.type, dueAt: input.dueAt ? new Date(input.dueAt) : null, allowLateSubmission: input.allowLateSubmission, maxAttempts: input.maxAttempts, showScoreImmediately: input.showScoreImmediately, showAnswersAfterSubmit: input.showAnswersAfterSubmit ?? false }, select: assignmentSelect });
+      await tx.auditLog.create({ data: { actorId: teacherId, action: "ASSIGNMENT_CREATED", entityType: "Assignment", entityId: created.id, metadata: { classroomId: created.classroomId, lessonId: created.lessonId } } });
+      return { status: "OK", value: teacherAssignment(created) };
+    });
+  }
+
+  async teacherDetail(teacherId: string, assignmentId: string): Promise<RepositoryResult> {
+    const item = await prisma.assignment.findFirst({ where: { id: assignmentId, classroom: { teacherId } }, select: assignmentSelect });
+    return item ? { status: "OK", value: teacherAssignment(item) } : { status: "NOT_FOUND" };
+  }
+
+  async update(teacherId: string, assignmentId: string, input: AssignmentPatch): Promise<RepositoryResult> {
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.assignment.findFirst({ where: { id: assignmentId, classroom: { teacherId } }, select: { id: true, classroomId: true, lessonId: true, status: true } });
+      if (!current) return { status: "NOT_FOUND" }; if (current.status !== AssignmentStatus.DRAFT) return { status: "INVALID_STATE", message: "Chỉ có thể chỉnh sửa bài tập đang ở trạng thái bản nháp." };
+      const classroomId = input.classroomId ?? current.classroomId;
+      if (input.classroomId && !await tx.classroom.findFirst({ where: { id: input.classroomId, teacherId, status: "ACTIVE" }, select: { id: true } })) return { status: "NOT_FOUND" };
+      if (input.classroomId && input.classroomId !== current.classroomId && current.lessonId && input.lessonId === undefined) return { status: "INVALID", message: "Hãy bỏ liên kết bài học hoặc chọn bài học thuộc lớp mới." };
+      if (input.lessonId && !await tx.lesson.findFirst({ where: { id: input.lessonId, session: { classroomId } }, select: { id: true } })) return { status: "INVALID", message: "Bài học không thuộc lớp đã chọn." };
+      const updated = await tx.assignment.update({ where: { id: assignmentId }, data: assignmentData(input), select: assignmentSelect });
+      return { status: "OK", value: teacherAssignment(updated) };
+    });
+  }
+
+  async transition(teacherId: string, assignmentId: string, action: "publish" | "close" | "archive"): Promise<RepositoryResult> {
+    return prisma.$transaction(async (tx) => {
+      const item = await tx.assignment.findFirst({ where: { id: assignmentId, classroom: { teacherId } }, select: assignmentSelect }); if (!item) return { status: "NOT_FOUND" };
+      const expected = action === "publish" ? AssignmentStatus.DRAFT : action === "close" ? AssignmentStatus.PUBLISHED : AssignmentStatus.CLOSED;
+      if (item.status !== expected) return { status: "INVALID_STATE", message: "Trạng thái bài tập không phù hợp với thao tác này." };
+      const publishError = action === "publish" ? assignmentPublishError({ title: item.title, questionCount: item.questions.length, readAloudTask: item.readAloudTask ? { readingText: item.readAloudTask.readingText, maxScore: Number(item.readAloudTask.maxScore) } : null }) : null;
+      if (publishError) return { status: "INVALID", message: publishError };
+      const now = new Date(); const status = action === "publish" ? AssignmentStatus.PUBLISHED : action === "close" ? AssignmentStatus.CLOSED : AssignmentStatus.ARCHIVED;
+      const updated = await tx.assignment.update({ where: { id: assignmentId }, data: { status, ...(action === "publish" ? { publishedAt: item.publishedAt ?? now } : {}), ...(action === "close" ? { closedAt: now } : {}) }, select: assignmentSelect });
+      await tx.auditLog.create({ data: { actorId: teacherId, action: `ASSIGNMENT_${action.toUpperCase()}${action === "publish" ? "ED" : action === "close" ? "D" : "D"}`, entityType: "Assignment", entityId: assignmentId, metadata: { classroomId: item.classroomId } } });
+      return { status: "OK", value: teacherAssignment(updated) };
+    });
+  }
+
+  async delete(teacherId: string, assignmentId: string): Promise<RepositoryResult> {
+    return prisma.$transaction(async (tx) => {
+      const item = await tx.assignment.findFirst({ where: { id: assignmentId, classroom: { teacherId } }, select: { id: true, status: true, classroomId: true, _count: { select: { attempts: true } } } });
+      if (!item) return { status: "NOT_FOUND" }; if (item.status !== AssignmentStatus.DRAFT || item._count.attempts > 0) return { status: "INVALID_STATE", message: "Chỉ có thể xóa bản nháp chưa có lượt làm bài." };
+      await tx.assignment.delete({ where: { id: assignmentId } }); await tx.auditLog.create({ data: { actorId: teacherId, action: "ASSIGNMENT_DELETED", entityType: "Assignment", entityId: assignmentId, metadata: { classroomId: item.classroomId } } });
+      return { status: "OK", value: { success: true } };
+    });
+  }
+
+  private async draft(tx: Prisma.TransactionClient, teacherId: string, assignmentId: string) { return tx.assignment.findFirst({ where: { id: assignmentId, status: AssignmentStatus.DRAFT, classroom: { teacherId } }, select: { id: true } }); }
+  async addQuestion(teacherId: string, assignmentId: string, input: QuestionInput): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; if (input.passageId && !await tx.assignmentPassage.findFirst({ where: { id: input.passageId, assignmentId }, select: { id: true } })) return { status: "INVALID", message: "Đoạn đọc không thuộc bài tập." }; const aggregate = await tx.assignmentQuestion.aggregate({ where: { assignmentId }, _max: { position: true } }); const item = await tx.assignmentQuestion.create({ data: { assignmentId, passageId: input.passageId ?? null, type: input.type, section: input.section, prompt: input.prompt, explanation: input.explanation ?? null, points: input.points, required: input.required, config: input.config as Prisma.InputJsonValue, position: (aggregate._max.position ?? -1) + 1 }, select: questionSelect }); return { status: "OK", value: teacherQuestion(item) }; }); }
+  async updateQuestion(teacherId: string, assignmentId: string, questionId: string, input: QuestionInput): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const existing = await tx.assignmentQuestion.findFirst({ where: { id: questionId, assignmentId }, select: { id: true } }); if (!existing) return { status: "NOT_FOUND" }; if (input.passageId && !await tx.assignmentPassage.findFirst({ where: { id: input.passageId, assignmentId }, select: { id: true } })) return { status: "INVALID" }; const item = await tx.assignmentQuestion.update({ where: { id: questionId }, data: { passageId: input.passageId ?? null, type: input.type, section: input.section, prompt: input.prompt, explanation: input.explanation ?? null, points: input.points, required: input.required, config: input.config as Prisma.InputJsonValue }, select: questionSelect }); return { status: "OK", value: teacherQuestion(item) }; }); }
+  async deleteQuestion(teacherId: string, assignmentId: string, questionId: string): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const deleted = await tx.assignmentQuestion.deleteMany({ where: { id: questionId, assignmentId } }); return deleted.count ? { status: "OK", value: { success: true } } : { status: "NOT_FOUND" }; }); }
+  async reorderQuestions(teacherId: string, assignmentId: string, input: ReorderInput): Promise<RepositoryResult> { return this.reorder(teacherId, assignmentId, input, "question"); }
+  async addPassage(teacherId: string, assignmentId: string, input: PassageInput): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const aggregate = await tx.assignmentPassage.aggregate({ where: { assignmentId }, _max: { position: true } }); const item = await tx.assignmentPassage.create({ data: { assignmentId, title: input.title?.trim() || null, content: input.content.trim(), position: (aggregate._max.position ?? -1) + 1 }, select: passageSelect }); return { status: "OK", value: item }; }); }
+  async updatePassage(teacherId: string, assignmentId: string, passageId: string, input: PassageInput): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const updated = await tx.assignmentPassage.updateMany({ where: { id: passageId, assignmentId }, data: { title: input.title?.trim() || null, content: input.content.trim() } }); if (!updated.count) return { status: "NOT_FOUND" }; return { status: "OK", value: await tx.assignmentPassage.findUnique({ where: { id: passageId }, select: passageSelect }) }; }); }
+  async deletePassage(teacherId: string, assignmentId: string, passageId: string): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const deleted = await tx.assignmentPassage.deleteMany({ where: { id: passageId, assignmentId } }); return deleted.count ? { status: "OK", value: { success: true } } : { status: "NOT_FOUND" }; }); }
+  async reorderPassages(teacherId: string, assignmentId: string, input: ReorderInput): Promise<RepositoryResult> { return this.reorder(teacherId, assignmentId, input, "passage"); }
+  private async reorder(teacherId: string, assignmentId: string, input: ReorderInput, kind: "question" | "passage"): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const model = kind === "question" ? tx.assignmentQuestion : tx.assignmentPassage; const current = await (model as typeof tx.assignmentQuestion).findMany({ where: { assignmentId }, select: { id: true } }); if (current.length !== input.ids.length || input.ids.some((id) => !current.some((item) => item.id === id))) return { status: "INVALID", message: "Danh sách sắp xếp không đầy đủ." }; for (const [index, id] of input.ids.entries()) await (model as typeof tx.assignmentQuestion).update({ where: { id }, data: { position: -1000 - index } }); for (const [index, id] of input.ids.entries()) await (model as typeof tx.assignmentQuestion).update({ where: { id }, data: { position: index } }); return { status: "OK", value: { success: true } }; }); }
+
+  async listStudent(studentId: string, query: AssignmentListQuery) {
+    const where: Prisma.AssignmentWhereInput = { status: { in: [AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED, AssignmentStatus.ARCHIVED] }, classroom: { enrollments: { some: { studentId, status: EnrollmentStatus.ACTIVE } } }, ...(query.classroomId ? { classroomId: query.classroomId } : {}), ...(query.lessonId ? { lessonId: query.lessonId } : {}), ...(query.type ? { type: query.type } : {}), ...(query.status && query.status !== AssignmentStatus.DRAFT ? { status: query.status } : {}) };
+    const [rows, total] = await prisma.$transaction([prisma.assignment.findMany({ where, select: assignmentSelect, orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }), prisma.assignment.count({ where })]);
+    const attempts = rows.length ? await prisma.assignmentAttempt.findMany({ where: { studentId, assignmentId: { in: rows.map((row) => row.id) } }, orderBy: { attemptNumber: "desc" } }) : [];
+    return page(rows.map((row) => { const own = attempts.filter((attempt) => attempt.assignmentId === row.id); const latest = own[0]; return { ...studentAssignment(row), questions: undefined, passages: undefined, attemptCount: own.length, attemptsRemaining: Math.max(0, row.maxAttempts - own.length), latestAttempt: latest ? this.studentAttemptSummary(latest, row) : null }; }), total, query);
+  }
+  async studentDetail(studentId: string, assignmentId: string): Promise<RepositoryResult> { const item = await prisma.assignment.findFirst({ where: { id: assignmentId, status: { in: [AssignmentStatus.PUBLISHED, AssignmentStatus.CLOSED, AssignmentStatus.ARCHIVED] }, classroom: { enrollments: { some: { studentId, status: EnrollmentStatus.ACTIVE } } } }, select: assignmentSelect }); if (!item) return { status: "NOT_FOUND" }; const attempts = await prisma.assignmentAttempt.findMany({ where: { assignmentId, studentId }, orderBy: { attemptNumber: "desc" } }); return { status: "OK", value: { ...studentAssignment(item), questions: undefined, attempts: attempts.map((attempt) => this.studentAttemptSummary(attempt, item)), attemptsRemaining: Math.max(0, item.maxAttempts - attempts.length) } }; }
+  async startAttempt(studentId: string, assignmentId: string): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { const item = await tx.assignment.findFirst({ where: { id: assignmentId, status: AssignmentStatus.PUBLISHED, classroom: { enrollments: { some: { studentId, status: EnrollmentStatus.ACTIVE } } } }, select: assignmentSelect }); if (!item) return { status: "NOT_FOUND" }; const active = await tx.assignmentAttempt.findFirst({ where: { assignmentId, studentId, status: AssignmentAttemptStatus.IN_PROGRESS }, orderBy: { attemptNumber: "desc" } }); if (active) return { status: "OK", value: await this.attemptView(tx, active.id, studentId) }; const count = await tx.assignmentAttempt.count({ where: { assignmentId, studentId } }); if (count >= item.maxAttempts) return { status: "LIMIT", message: "Bạn đã sử dụng hết số lần làm bài." }; const now = new Date(); if (item.dueAt && now > item.dueAt && !item.allowLateSubmission) return { status: "DUE", message: "Bài tập đã quá hạn nộp." }; const maxScore = item.questions.reduce((sum, question) => sum + Number(question.points), 0) + Number(item.readAloudTask?.maxScore ?? 0); const created = await tx.assignmentAttempt.create({ data: { assignmentId, studentId, attemptNumber: count + 1, maxScore }, select: { id: true } }); return { status: "OK", value: await this.attemptView(tx, created.id, studentId) }; }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+  async studentAttempt(studentId: string, attemptId: string, resultOnly = false): Promise<RepositoryResult> { const value = await this.attemptView(prisma, attemptId, studentId, resultOnly); return value ? { status: "OK", value } : { status: "NOT_FOUND" }; }
+  async saveAnswer(studentId: string, attemptId: string, questionId: string, input: AnswerInput): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { const attempt = await tx.assignmentAttempt.findFirst({ where: { id: attemptId, studentId, status: AssignmentAttemptStatus.IN_PROGRESS }, select: { id: true, assignmentId: true } }); if (!attempt) return { status: "NOT_FOUND" }; if (!await tx.assignmentQuestion.findFirst({ where: { id: questionId, assignmentId: attempt.assignmentId }, select: { id: true } })) return { status: "NOT_FOUND" }; const answer = await tx.assignmentAnswer.upsert({ where: { attemptId_questionId: { attemptId, questionId } }, create: { attemptId, questionId, answer: input.answer as Prisma.InputJsonValue }, update: { answer: input.answer as Prisma.InputJsonValue, normalized: Prisma.JsonNull, isCorrect: null, awardedPoints: null }, select: { id: true, questionId: true, answer: true, updatedAt: true } }); return { status: "OK", value: answer }; }); }
+  async submit(studentId: string, attemptId: string): Promise<RepositoryResult> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const attempt = await tx.assignmentAttempt.findFirst({ where: { id: attemptId, studentId }, include: { assignment: { include: { questions: { orderBy: { position: "asc" } }, readAloudTask: true } }, answers: true, readAloudSubmission: true } });
+        if (!attempt) return { status: "NOT_FOUND" };
+        if (attempt.status !== AssignmentAttemptStatus.IN_PROGRESS) return { status: "OK", value: await this.attemptView(tx, attemptId, studentId, true) };
+        if (missingRequiredReadAloud(attempt.assignment.readAloudTask, attempt.readAloudSubmission)) return { status: "INVALID", message: "Bạn cần hoàn thành bài đọc ghi âm trước khi nộp bài." };
+        const submittedAt = new Date();
+        const late = Boolean(attempt.assignment.dueAt && submittedAt > attempt.assignment.dueAt);
+        if (late && !attempt.assignment.allowLateSubmission) return { status: "DUE", message: "Bài tập đã quá hạn và không cho phép nộp muộn." };
+        const answers = new Map(attempt.answers.map((answer) => [answer.questionId, answer.answer]));
+        let score = 0;
+        const automaticMaxScore = attempt.assignment.questions.reduce((sum, question) => sum + Number(question.points), 0);
+        const manualMaxScore = Number(attempt.assignment.readAloudTask?.maxScore ?? 0);
+        for (const question of attempt.assignment.questions) {
+          const result = gradeQuestion({ type: question.type, points: Number(question.points), config: question.config }, answers.get(question.id));
+          score += result.awardedPoints;
+          await tx.assignmentAnswer.upsert({ where: { attemptId_questionId: { attemptId, questionId: question.id } }, create: { attemptId, questionId: question.id, answer: (answers.get(question.id) ?? {}) as Prisma.InputJsonValue, normalized: result.normalized as Prisma.InputJsonValue, isCorrect: result.isCorrect, awardedPoints: result.awardedPoints }, update: { normalized: result.normalized as Prisma.InputJsonValue, isCorrect: result.isCorrect, awardedPoints: result.awardedPoints } });
+        }
+        const outcome = calculateAssignmentOutcome({ automaticScore: score, automaticMaxScore, manualMaxScore });
+        if (attempt.readAloudSubmission) await tx.assignmentReadAloudSubmission.update({ where: { id: attempt.readAloudSubmission.id }, data: { submittedAt } });
+        await tx.assignmentAttempt.update({ where: { id: attemptId }, data: { ...outcome, submittedAt, isLate: late } });
+        return { status: "OK", value: await this.attemptView(tx, attemptId, studentId, true) };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return this.studentAttempt(studentId, attemptId, true);
+      throw error;
+    }
+  }
+
+  private studentAttemptSummary(attempt: { id: string; attemptNumber: number; status: AssignmentAttemptStatus; submittedAt: Date | null; score: Prisma.Decimal | null; maxScore: Prisma.Decimal; percentage: Prisma.Decimal | null; isLate: boolean }, assignment: { showScoreImmediately: boolean }) {
+    const final = attempt.status === AssignmentAttemptStatus.AUTO_GRADED || attempt.status === AssignmentAttemptStatus.FULLY_GRADED;
+    const provisional = attempt.status === AssignmentAttemptStatus.PENDING_MANUAL_GRADE;
+    return { id: attempt.id, attemptNumber: attempt.attemptNumber, status: attempt.status, submittedAt: attempt.submittedAt, isLate: attempt.isLate, pendingManualGrade: provisional, ...(assignment.showScoreImmediately && final ? { score: decimal(attempt.score), maxScore: decimal(attempt.maxScore), percentage: decimal(attempt.percentage) } : {}), ...(assignment.showScoreImmediately && provisional ? { provisionalScore: decimal(attempt.score) } : {}) };
+  }
+  private async attemptView(client: Prisma.TransactionClient | typeof prisma, attemptId: string, studentId: string, resultOnly = false) {
+    const attempt = await client.assignmentAttempt.findFirst({ where: { id: attemptId, studentId }, include: { assignment: { select: assignmentSelect }, answers: { orderBy: { question: { position: "asc" } } }, readAloudSubmission: { select: submissionAttemptSelect } } });
+    if (!attempt) return null;
+    const final = attempt.status === AssignmentAttemptStatus.AUTO_GRADED || attempt.status === AssignmentAttemptStatus.FULLY_GRADED;
+    const pendingManual = attempt.status === AssignmentAttemptStatus.PENDING_MANUAL_GRADE;
+    const showGrade = attempt.assignment.showScoreImmediately && final;
+    const reveal = final && attempt.assignment.showAnswersAfterSubmit;
+    const autoMaxScore = attempt.assignment.questions.reduce((sum, question) => sum + Number(question.points), 0);
+    return { id: attempt.id, assignmentId: attempt.assignmentId, attemptNumber: attempt.attemptNumber, status: attempt.status, startedAt: attempt.startedAt, submittedAt: attempt.submittedAt, isLate: attempt.isLate, pendingManualGrade: pendingManual, assignment: studentAssignment(attempt.assignment, reveal), answers: attempt.answers.map((answer) => ({ questionId: answer.questionId, answer: answer.answer, updatedAt: answer.updatedAt, ...(showGrade || pendingManual && attempt.assignment.showScoreImmediately ? { isCorrect: answer.isCorrect, awardedPoints: decimal(answer.awardedPoints) } : {}) })), readAloudSubmission: attempt.readAloudSubmission ? { ...attempt.readAloudSubmission, score: decimal(attempt.readAloudSubmission.score), audioUrl: `/assignment-read-aloud-submissions/${attempt.readAloudSubmission.id}/audio` } : null, ...(showGrade ? { score: decimal(attempt.score), maxScore: decimal(attempt.maxScore), percentage: decimal(attempt.percentage) } : {}), ...(pendingManual && attempt.assignment.showScoreImmediately ? { provisionalScore: decimal(attempt.score), automaticMaxScore: autoMaxScore, gradingMessage: "Phần đọc ghi âm đang chờ giáo viên chấm." } : {}), resultOnly };
+  }
+
+  async results(teacherId: string, assignmentId: string): Promise<RepositoryResult> {
+    const assignment = await prisma.assignment.findFirst({
+      where: { id: assignmentId, classroom: { teacherId } },
+      select: {
+        id: true,
+        classroom: {
+          select: {
+            enrollments: {
+              where: { status: EnrollmentStatus.ACTIVE },
+              select: { student: { select: { user: { select: { id: true, fullName: true, email: true } } } } },
+            },
+          },
+        },
+      },
+    });
+    if (!assignment) return { status: "NOT_FOUND" };
+    const attempts = await prisma.assignmentAttempt.findMany({ where: { assignmentId, status: { in: submittedStatuses } }, orderBy: [{ studentId: "asc" }, { attemptNumber: "desc" }] });
+    const latest = new Map<string, typeof attempts[number]>();
+    for (const attempt of attempts) if (!latest.has(attempt.studentId)) latest.set(attempt.studentId, attempt);
+    const enrolled = assignment.classroom.enrollments.map((item) => item.student.user); const submitted = [...latest.values()]; const finalized = submitted.filter((item) => item.status === AssignmentAttemptStatus.AUTO_GRADED || item.status === AssignmentAttemptStatus.FULLY_GRADED); const scores = finalized.map((item) => Number(item.score ?? 0));
+    return { status: "OK", value: { summary: { enrolled: enrolled.length, submitted: latest.size, notSubmitted: enrolled.length - latest.size, averageScore: scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null, highestScore: scores.length ? Math.max(...scores) : null, lowestScore: scores.length ? Math.min(...scores) : null, lateSubmissions: submitted.filter((item) => item.isLate).length }, students: enrolled.map((student) => { const attempt = latest.get(student.id); return { student, status: attempt ? "SUBMITTED" : "NOT_SUBMITTED", ...(attempt ? this.studentAttemptSummary(attempt, { showScoreImmediately: true }) : {}) }; }) } };
+  }
+  async studentResults(teacherId: string, assignmentId: string, studentId: string): Promise<RepositoryResult> {
+    const allowed = await prisma.assignment.findFirst({ where: { id: assignmentId, classroom: { teacherId } }, select: { id: true } }); if (!allowed) return { status: "NOT_FOUND" };
+    const attempts = await prisma.assignmentAttempt.findMany({ where: { assignmentId, studentId }, orderBy: { attemptNumber: "desc" } });
+    return { status: "OK", value: attempts.map((attempt) => this.studentAttemptSummary(attempt, { showScoreImmediately: true })) };
+  }
+  async teacherAttempt(teacherId: string, assignmentId: string, attemptId: string): Promise<RepositoryResult> {
+    const attempt = await prisma.assignmentAttempt.findFirst({ where: { id: attemptId, assignmentId, assignment: { classroom: { teacherId } } }, include: { student: { select: { user: { select: { id: true, fullName: true, email: true } } } }, assignment: { select: assignmentSelect }, answers: true, readAloudSubmission: { select: submissionAttemptSelect } } }); if (!attempt) return { status: "NOT_FOUND" };
+    const answers = new Map(attempt.answers.map((answer) => [answer.questionId, answer]));
+    return { status: "OK", value: { id: attempt.id, student: attempt.student.user, attemptNumber: attempt.attemptNumber, status: attempt.status, submittedAt: attempt.submittedAt, isLate: attempt.isLate, score: decimal(attempt.score), maxScore: decimal(attempt.maxScore), percentage: decimal(attempt.percentage), questions: attempt.assignment.questions.map((question) => { const answer = answers.get(question.id); return { ...teacherQuestion(question), studentAnswer: answer?.answer ?? null, isCorrect: answer?.isCorrect ?? null, awardedPoints: decimal(answer?.awardedPoints ?? null) }; }), readAloudTask: attempt.assignment.readAloudTask ? { ...attempt.assignment.readAloudTask, maxScore: decimal(attempt.assignment.readAloudTask.maxScore) } : null, readAloudSubmission: attempt.readAloudSubmission ? { ...attempt.readAloudSubmission, score: decimal(attempt.readAloudSubmission.score), audioUrl: `/assignment-read-aloud-submissions/${attempt.readAloudSubmission.id}/audio` } : null } };
+  }
+}
