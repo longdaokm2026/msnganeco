@@ -529,6 +529,20 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .assignment-grid article > div, .student-assignment-list article > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .assignment-grid h2, .student-assignment-list h2 { margin: 6px 0 0; font-family: var(--font-serif), serif; font-size: 17px; }
 .assignment-grid p, .assignment-grid small, .student-assignment-list p, .student-assignment-list small { margin: 0; color: var(--muted); font-size: 9px; }
+.student-assignment-list {
+  align-items: stretch;
+}
+
+.student-assignment-list > article {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.student-assignment-list article > button {
+  width: 100%;
+  margin-top: auto;
+}
 .assignment-grid footer { margin-top: 8px; display: flex; gap: 6px; }
 .assignment-grid footer button, .admin-table button { padding: 6px 9px; border: 1px solid #d3d6e1; border-radius: 6px; background: #fff; color: var(--indigo); cursor: pointer; font-size: 8px; font-weight: 700; }
 .assignment-grid footer .danger-link { color: #9c3f2d; }
