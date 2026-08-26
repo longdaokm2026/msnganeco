@@ -133,6 +133,12 @@ enum AssignmentAttemptStatus {
   FULLY_GRADED
 }
 
+enum WritingTaskType {
+  ESSAY
+  TRANSLATION_VI_EN
+  TRANSLATION_EN_VI
+}
+
 model User {
   id                String              @id @default(uuid()) @db.Uuid
   email             String              @unique @db.Citext
@@ -159,6 +165,7 @@ model User {
   assignmentsCreated Assignment[]       @relation("AssignmentCreatedBy")
   assignmentAudioUploads AssignmentAudioAttachment[] @relation("AssignmentAudioUploadedBy")
   readAloudGrades    AssignmentReadAloudSubmission[] @relation("ReadAloudGrader")
+  writingGrades      WritingSubmission[] @relation("WritingGrader")
 
   @@index([status])
   @@index([createdAt])
@@ -190,6 +197,7 @@ model StudentProfile {
   absenceRequests AbsenceRequest[]
   assignmentAttempts AssignmentAttempt[]
   readAloudSubmissions AssignmentReadAloudSubmission[]
+  writingSubmissions WritingSubmission[]
 
   @@map("student_profiles")
 }
@@ -352,6 +360,7 @@ model Assignment {
   attempts             AssignmentAttempt[]
   readAloudTask        AssignmentReadAloudTask?
   readAloudSubmissions AssignmentReadAloudSubmission[]
+  writingTask          AssignmentWritingTask?
 
   @@index([classroomId])
   @@index([lessonId])
@@ -419,6 +428,7 @@ model AssignmentAttempt {
   student       StudentProfile          @relation(fields: [studentId], references: [userId], onDelete: Restrict)
   answers       AssignmentAnswer[]
   readAloudSubmission AssignmentReadAloudSubmission?
+  writingSubmission WritingSubmission?
 
   @@unique([assignmentId, studentId, attemptNumber])
   @@index([assignmentId, studentId])
@@ -483,6 +493,86 @@ model AssignmentReadAloudSubmission {
   @@index([readAloudTaskId])
   @@index([gradedById])
   @@map("assignment_read_aloud_submissions")
+}
+
+model AssignmentWritingTask {
+  id           String          @id @default(uuid()) @db.Uuid
+  assignmentId String          @unique @map("assignment_id") @db.Uuid
+  type         WritingTaskType
+  title        String?         @db.VarChar(200)
+  prompt       String?
+  instructions String?
+  minWords     Int?            @map("min_words")
+  maxWords     Int?            @map("max_words")
+  maxScore     Decimal         @default(10) @map("max_score") @db.Decimal(8, 2)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assignment   Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  translationItems WritingTranslationItem[]
+  submissions  WritingSubmission[]
+
+  @@map("assignment_writing_tasks")
+}
+
+model WritingTranslationItem {
+  id              String                @id @default(uuid()) @db.Uuid
+  writingTaskId   String                @map("writing_task_id") @db.Uuid
+  position        Int
+  sourceText      String                @map("source_text")
+  referenceAnswer String?               @map("reference_answer")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  writingTask     AssignmentWritingTask @relation(fields: [writingTaskId], references: [id], onDelete: Cascade)
+  answers         WritingTranslationAnswer[]
+
+  @@unique([writingTaskId, position])
+  @@index([writingTaskId, position])
+  @@map("writing_translation_items")
+}
+
+model WritingSubmission {
+  id              String                @id @default(uuid()) @db.Uuid
+  writingTaskId   String                @map("writing_task_id") @db.Uuid
+  attemptId       String                @unique @map("attempt_id") @db.Uuid
+  studentId       String                @map("student_id") @db.Uuid
+  essayContent    String?               @map("essay_content")
+  wordCount       Int?                  @map("word_count")
+  submittedAt     DateTime?             @map("submitted_at") @db.Timestamptz(3)
+  essayScore      Decimal?              @map("essay_score") @db.Decimal(8, 2)
+  teacherFeedback String?               @map("teacher_feedback")
+  gradedById      String?               @map("graded_by_id") @db.Uuid
+  gradedAt        DateTime?             @map("graded_at") @db.Timestamptz(3)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  writingTask     AssignmentWritingTask @relation(fields: [writingTaskId], references: [id], onDelete: Restrict)
+  attempt         AssignmentAttempt     @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  student         StudentProfile        @relation(fields: [studentId], references: [userId], onDelete: Restrict)
+  gradedBy        User?                 @relation("WritingGrader", fields: [gradedById], references: [id], onDelete: SetNull)
+  translationAnswers WritingTranslationAnswer[]
+
+  @@unique([writingTaskId, attemptId])
+  @@index([writingTaskId])
+  @@index([studentId])
+  @@index([gradedById])
+  @@map("writing_submissions")
+}
+
+model WritingTranslationAnswer {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  writingSubmissionId String                 @map("writing_submission_id") @db.Uuid
+  translationItemId   String                 @map("translation_item_id") @db.Uuid
+  answerText          String                 @map("answer_text")
+  isCorrect           Boolean?               @map("is_correct")
+  teacherComment      String?                @map("teacher_comment")
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  writingSubmission   WritingSubmission      @relation(fields: [writingSubmissionId], references: [id], onDelete: Cascade)
+  translationItem     WritingTranslationItem @relation(fields: [translationItemId], references: [id], onDelete: Restrict)
+
+  @@unique([writingSubmissionId, translationItemId])
+  @@index([writingSubmissionId])
+  @@index([translationItemId])
+  @@map("writing_translation_answers")
 }
 
 model AssignmentAnswer {

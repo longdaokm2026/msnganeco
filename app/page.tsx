@@ -126,7 +126,7 @@ function quickActionTarget(role: ApiRole, action: string): DashboardView | null 
       "Buổi học & chuyên cần": "student-schedule",
       "Bài học": "student-lessons",
       "Bài tập": "student-assignments",
-      "Quản lý phụ huynh": "student-guardians",
+      "Phụ huynh": "student-guardians",
     },
     GUARDIAN: {
       "Liên kết học sinh": "guardian-portal",
@@ -354,25 +354,14 @@ export default function Home() {
               <button className={currentView === "admin-teachers" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-teachers")}>Duyệt giáo viên</button>
               <button className={currentView === "admin-classrooms" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-classrooms")}>Quản lý lớp học</button>
               <button className={currentView === "admin-audit" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-audit")}>Xem nhật ký hệ thống</button>
-            </> : dashboard.actions.map((action) =>
-              dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học" ? (
-                <button className={currentView === "classes" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("classes")}>{action}</button>
-              ) : dashboard.primaryRole === "TEACHER" && action === "Quản lý bài học" ? (
-                <button className={currentView === "lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("lessons")}>{action}</button>
-              ) : dashboard.primaryRole === "TEACHER" && action === "Quản lý bài tập" ? (
-                <button className={currentView === "assignments" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("assignments")}>{action}</button>
-              ) : dashboard.primaryRole === "STUDENT" && (action === "Chuyên cần" || action === "Buổi học & chuyên cần") ? (
-                <button className={currentView === "student-schedule" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-schedule")}>{action}</button>
-              ) : dashboard.primaryRole === "STUDENT" && action === "Bài học" ? (
-                <button className={currentView === "student-lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-lessons")}>{action}</button>
-              ) : dashboard.primaryRole === "STUDENT" && action === "Bài tập" ? (
-                <button className={currentView === "student-assignments" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-assignments")}>{action}</button>
-              ) : dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh" ? (
-                <button className={currentView === "student-guardians" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-guardians")}>{action}</button>
-              ) : dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh" ? (
-                <button className={currentView === "guardian-portal" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("guardian-portal")}>{action}</button>
-              ) : <button type="button" key={action} disabled title="Chức năng sẽ được phát triển ở giai đoạn tiếp theo">{action}</button>,
-            )}
+            </> : dashboard.actions.map((action) => {
+              const target = quickActionTarget(dashboard.primaryRole, action);
+              return target ? (
+                <button className={currentView === target ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard(target)}>{action}</button>
+              ) : (
+                <button type="button" key={action} disabled title="Chức năng sẽ được phát triển ở giai đoạn tiếp theo">{action}</button>
+              );
+            })}
             <div className="nav-profile">
               <span>Tài khoản</span>
               <strong>{user.fullName}</strong>

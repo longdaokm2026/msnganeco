@@ -4,98 +4,1225 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
 import { groupAssignmentQuestions } from "./assignment-question-groups";
+import StudentWritingSection from "./StudentWritingSection";
+import type { WritingSubmission, WritingTask } from "./writing-types";
 import WorkspacePageActions from "./WorkspacePageActions";
 
-type Question = { id: string; passageId: string | null; type: string; section: string; position: number; prompt: string; points: number; required: boolean; config: Record<string, unknown>; explanation?: string | null };
-type ReadAloudTask = { id: string; title: string | null; readingText: string; instructions: string | null; maxScore: number; maxDurationSeconds: number | null };
-type ReadAloudSubmission = { id: string; durationSeconds: number | null; submittedAt: string | null; score: number | null; feedback: string | null; gradedAt: string | null; audioUrl: string };
-type ObjectiveResult = { correctCount: number; totalQuestions: number; percentage: number };
-type QuestionResult = { isCorrect: boolean; studentAnswer: string; correctAnswer?: string; matching?: { correctPairs: number; totalPairs: number } };
-type Assignment = { id: string; title: string; description: string | null; type: string; status: string; dueAt: string | null; allowLateSubmission: boolean; maxAttempts: number; timeLimitMinutes: number | null; showScoreImmediately: boolean; showAnswersAfterSubmit: boolean; showLeaderboard: boolean; generationMode: "MANUAL" | "AI" | "LOCAL"; questionCount?: number; classroom: { id: string; name: string }; lesson: { id: string; title: string } | null; readAloudTask: ReadAloudTask | null; passages?: { id: string; title: string | null; content: string; position: number }[]; questions?: Question[]; attemptsRemaining?: number; attemptCount?: number; latestAttempt?: AttemptSummary | null; attempts?: AttemptSummary[] };
-type AttemptSummary = { id: string; attemptNumber: number; status: string; startedAt: string; submittedAt: string | null; durationMs: number | null; isLate: boolean; objectiveResult?: ObjectiveResult };
-type Attempt = AttemptSummary & { assignmentId: string; expiresAt: string | null; assignment: Assignment & { questions: Question[]; passages: { id: string; title: string | null; content: string; position: number }[] }; answers: { questionId: string; answer: unknown; result?: QuestionResult }[]; readAloudSubmission: ReadAloudSubmission | null };
-type Leaderboard = { assignmentId: string; entries: { rank: number; student: { id: string; fullName: string }; correctCount: number; totalQuestions: number; percentage: number; durationMs: number; attemptNumber: number; submittedAt: string }[] };
-const assignmentTypes: Record<string, string> = { PRACTICE: "Luyện tập", HOMEWORK: "Bài tập về nhà", QUIZ: "Bài kiểm tra ngắn", TEST: "Bài kiểm tra" };
-const questionLabels: Record<string, string> = { VOCAB_MULTIPLE_CHOICE: "Từ vựng · Trắc nghiệm", VOCAB_MATCHING: "Từ vựng · Nối cặp", VOCAB_FILL_BLANK: "Từ vựng · Điền từ", GRAMMAR_MULTIPLE_CHOICE: "Ngữ pháp · Trắc nghiệm", GRAMMAR_FILL_BLANK: "Ngữ pháp · Điền từ", GRAMMAR_SENTENCE_ORDER: "Ngữ pháp · Sắp xếp câu", GRAMMAR_ERROR_CORRECTION: "Ngữ pháp · Sửa lỗi", READING_MULTIPLE_CHOICE: "Reading · Trắc nghiệm", READING_TRUE_FALSE_NOT_GIVEN: "Reading · Đúng/Sai/Không có thông tin", READING_SHORT_ANSWER: "Reading · Trả lời ngắn" };
-const date = (value: string | null) => value ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "Không giới hạn";
-const duration = (value: number | null | undefined) => { if (value === null || value === undefined) return "—"; const seconds = Math.max(0, Math.floor(value / 1000)); return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`; };
-const answerRecord = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-const submittedStatuses = new Set(["SUBMITTED", "AUTO_GRADED", "PENDING_MANUAL_GRADE", "FULLY_GRADED"]);
-const audioUploadError = (message: string) => /file too large|payload too large/i.test(message) ? "File vượt quá giới hạn 10 MB." : message || "Không thể tải bản ghi.";
+type Question = {
+  id: string;
+  passageId: string | null;
+  type: string;
+  section: string;
+  position: number;
+  prompt: string;
+  points: number;
+  required: boolean;
+  config: Record<string, unknown>;
+  explanation?: string | null;
+};
+type ReadAloudTask = {
+  id: string;
+  title: string | null;
+  readingText: string;
+  instructions: string | null;
+  maxScore: number;
+  maxDurationSeconds: number | null;
+};
+type ReadAloudSubmission = {
+  id: string;
+  durationSeconds: number | null;
+  submittedAt: string | null;
+  score: number | null;
+  feedback: string | null;
+  gradedAt: string | null;
+  audioUrl: string;
+};
+type ObjectiveResult = {
+  correctCount: number;
+  totalQuestions: number;
+  percentage: number;
+};
+type QuestionResult = {
+  isCorrect: boolean;
+  studentAnswer: string;
+  correctAnswer?: string;
+  matching?: { correctPairs: number; totalPairs: number };
+};
+type Assignment = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  status: string;
+  dueAt: string | null;
+  allowLateSubmission: boolean;
+  maxAttempts: number;
+  timeLimitMinutes: number | null;
+  showScoreImmediately: boolean;
+  showAnswersAfterSubmit: boolean;
+  showLeaderboard: boolean;
+  generationMode: "MANUAL" | "AI" | "LOCAL";
+  questionCount?: number;
+  classroom: { id: string; name: string };
+  lesson: { id: string; title: string } | null;
+  writingTask: WritingTask | null;
+  readAloudTask: ReadAloudTask | null;
+  passages?: {
+    id: string;
+    title: string | null;
+    content: string;
+    position: number;
+  }[];
+  questions?: Question[];
+  attemptsRemaining?: number;
+  attemptCount?: number;
+  latestAttempt?: AttemptSummary | null;
+  attempts?: AttemptSummary[];
+};
+type AttemptSummary = {
+  id: string;
+  attemptNumber: number;
+  status: string;
+  startedAt: string;
+  submittedAt: string | null;
+  durationMs: number | null;
+  isLate: boolean;
+  objectiveResult?: ObjectiveResult;
+};
+type Attempt = AttemptSummary & {
+  assignmentId: string;
+  expiresAt: string | null;
+  assignment: Assignment & {
+    questions: Question[];
+    passages: {
+      id: string;
+      title: string | null;
+      content: string;
+      position: number;
+    }[];
+  };
+  answers: { questionId: string; answer: unknown; result?: QuestionResult }[];
+  writingSubmission: WritingSubmission | null;
+  readAloudSubmission: ReadAloudSubmission | null;
+};
+type Leaderboard = {
+  assignmentId: string;
+  entries: {
+    rank: number;
+    student: { id: string; fullName: string };
+    correctCount: number;
+    totalQuestions: number;
+    percentage: number;
+    durationMs: number;
+    attemptNumber: number;
+    submittedAt: string;
+  }[];
+};
+const assignmentTypes: Record<string, string> = {
+  PRACTICE: "Luyện tập",
+  HOMEWORK: "Bài tập về nhà",
+  QUIZ: "Bài kiểm tra ngắn",
+  TEST: "Bài kiểm tra",
+};
+const questionLabels: Record<string, string> = {
+  VOCAB_MULTIPLE_CHOICE: "Từ vựng · Trắc nghiệm",
+  VOCAB_MATCHING: "Từ vựng · Nối cặp",
+  VOCAB_FILL_BLANK: "Từ vựng · Điền từ",
+  GRAMMAR_MULTIPLE_CHOICE: "Ngữ pháp · Trắc nghiệm",
+  GRAMMAR_FILL_BLANK: "Ngữ pháp · Điền từ",
+  GRAMMAR_SENTENCE_ORDER: "Ngữ pháp · Sắp xếp câu",
+  GRAMMAR_ERROR_CORRECTION: "Ngữ pháp · Sửa lỗi",
+  READING_MULTIPLE_CHOICE: "Reading · Trắc nghiệm",
+  READING_TRUE_FALSE_NOT_GIVEN: "Reading · Đúng/Sai/Không có thông tin",
+  READING_SHORT_ANSWER: "Reading · Trả lời ngắn",
+};
+const date = (value: string | null) =>
+  value
+    ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+    : "Không giới hạn";
+const duration = (value: number | null | undefined) => {
+  if (value === null || value === undefined) return "—";
+  const seconds = Math.max(0, Math.floor(value / 1000));
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+};
+const answerRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+const submittedStatuses = new Set([
+  "SUBMITTED",
+  "AUTO_GRADED",
+  "PENDING_MANUAL_GRADE",
+  "FULLY_GRADED",
+]);
+const audioUploadError = (message: string) =>
+  /file too large|payload too large/i.test(message)
+    ? "File vượt quá giới hạn 10 MB."
+    : message || "Không thể tải bản ghi.";
 
-function AuthenticatedAudio({ apiUrl, accessToken, path }: { apiUrl: string; accessToken: string; path: string }) {
-  const [source, setSource] = useState(""); const [message, setMessage] = useState("Đang tải bản ghi...");
-  useEffect(() => { let url = ""; let active = true; fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${accessToken}` } }).then(async (response) => { if (!response.ok) throw new Error(); url = URL.createObjectURL(await response.blob()); if (active) { setSource(url); setMessage(""); } }).catch(() => active && setMessage("Không thể tải bản ghi.")); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [apiUrl, accessToken, path]);
-  return source ? <audio controls preload="metadata" src={source}>Trình duyệt không hỗ trợ phát âm thanh.</audio> : <p className="audio-state">{message}</p>;
+function AuthenticatedAudio({
+  apiUrl,
+  accessToken,
+  path,
+}: {
+  apiUrl: string;
+  accessToken: string;
+  path: string;
+}) {
+  const [source, setSource] = useState("");
+  const [message, setMessage] = useState("Đang tải bản ghi...");
+  useEffect(() => {
+    let url = "";
+    let active = true;
+    fetch(`${apiUrl}${path}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        url = URL.createObjectURL(await response.blob());
+        if (active) {
+          setSource(url);
+          setMessage("");
+        }
+      })
+      .catch(() => active && setMessage("Không thể tải bản ghi."));
+    return () => {
+      active = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [apiUrl, accessToken, path]);
+  return source ? (
+    <audio controls preload="metadata" src={source}>
+      Trình duyệt không hỗ trợ phát âm thanh.
+    </audio>
+  ) : (
+    <p className="audio-state">{message}</p>
+  );
 }
 
-export default function StudentAssignmentManager({ apiUrl, accessToken, onBack }: { apiUrl: string; accessToken: string; onBack: () => void }) {
-  const [items, setItems] = useState<Assignment[]>([]); const [detail, setDetail] = useState<Assignment | null>(null); const [attempt, setAttempt] = useState<Attempt | null>(null); const [answers, setAnswers] = useState<Record<string, unknown>>({}); const [saveState, setSaveState] = useState<Record<string, string>>({}); const [busy, setBusy] = useState(""); const [error, setError] = useState(""); const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null); const [now, setNow] = useState(0); const timers = useRef(new Map<string, number>()); const autoSubmitted = useRef(""); const autoSubmitRef = useRef<() => void>(() => undefined);
-  const [recording, setRecording] = useState(false); const [elapsed, setElapsed] = useState(0); const [recorded, setRecorded] = useState<{ blob: Blob; url: string; mime: string; duration: number } | null>(null); const [recordingState, setRecordingState] = useState(""); const recorderRef = useRef<MediaRecorder | null>(null); const recordingTimer = useRef<number | null>(null);
-  const api = useCallback(async <T,>(path: string, init?: RequestInit) => { const response = await fetch(`${apiUrl}${path}`, { ...init, headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...init?.headers } }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(Array.isArray(body?.message) ? body.message.join(" ") : body?.message ?? "Không thể xử lý bài tập."); return body as T; }, [apiUrl, accessToken]);
-  const load = useCallback(async () => { const value = await api<{ items: Assignment[] }>("/student/assignments?pageSize=100"); setItems(value.items); }, [api]);
-  useEffect(() => { const activeTimers = timers.current; api<{ items: Assignment[] }>("/student/assignments?pageSize=100").then((value) => setItems(value.items)).catch((reason: Error) => setError(reason.message)); return () => { activeTimers.forEach((timer) => window.clearTimeout(timer)); if (recordingTimer.current) window.clearInterval(recordingTimer.current); }; }, [api]);
-  useEffect(() => () => { if (recorded?.url) URL.revokeObjectURL(recorded.url); }, [recorded]);
-  useEffect(() => { if (!attempt?.expiresAt || attempt.status !== "IN_PROGRESS") return; const tick = () => { setNow(Date.now()); if (Date.now() >= new Date(attempt.expiresAt!).getTime() && autoSubmitted.current !== attempt.id) { autoSubmitted.current = attempt.id; autoSubmitRef.current(); } }; tick(); const timer = window.setInterval(tick, 1000); return () => window.clearInterval(timer); }, [attempt?.expiresAt, attempt?.id, attempt?.status]);
-  async function open(id: string) { setBusy("open"); try { setDetail(await api(`/student/assignments/${id}`)); setAttempt(null); setLeaderboard(null); setError(""); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  function acceptAttempt(value: Attempt) { setAttempt(value); setDetail(value.assignment); setAnswers(Object.fromEntries(value.answers.map((item) => [item.questionId, item.answer]))); setRecorded(null); setRecordingState(""); }
-  async function start() { if (!detail) return; setBusy("start"); try { acceptAttempt(await api(`/student/assignments/${detail.id}/attempts`, { method: "POST" })); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function resume(id: string) { setBusy("resume"); try { acceptAttempt(await api(`/student/assignment-attempts/${id}`)); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function persist(questionId: string, answer: unknown) { if (!attempt || attempt.status !== "IN_PROGRESS") return; setSaveState((state) => ({ ...state, [questionId]: "Đang lưu..." })); try { await api(`/student/assignment-attempts/${attempt.id}/answers/${questionId}`, { method: "PUT", body: JSON.stringify({ answer }) }); setSaveState((state) => ({ ...state, [questionId]: "✓ Đã lưu" })); } catch (reason) { setSaveState((state) => ({ ...state, [questionId]: "Lưu thất bại" })); setError((reason as Error).message); } }
-  function updateAnswer(questionId: string, answer: unknown) { setAnswers((current) => ({ ...current, [questionId]: answer })); const existing = timers.current.get(questionId); if (existing) window.clearTimeout(existing); timers.current.set(questionId, window.setTimeout(() => { timers.current.delete(questionId); void persist(questionId, answer); }, 450)); }
-  async function loadLeaderboard(assignment: Assignment) { if (assignment.generationMode === "MANUAL" || !assignment.showLeaderboard) return; try { setLeaderboard(await api(`/assignments/${assignment.id}/leaderboard`)); } catch { setLeaderboard(null); } }
-  async function submit(timeExpired = false) { if (!attempt || busy === "submit") return; if (!timeExpired && attempt.assignment.readAloudTask && !attempt.readAloudSubmission) { setError("Bạn cần hoàn thành bài đọc ghi âm trước khi nộp bài."); return; } if (!timeExpired && !confirm("Bạn có chắc muốn nộp bài? Sau khi nộp, bạn không thể sửa câu trả lời hoặc bản ghi của lần làm này.")) return; setBusy("submit"); try { timers.current.forEach((timer) => window.clearTimeout(timer)); timers.current.clear(); if (!timeExpired) await Promise.all(Object.entries(answers).map(([questionId, answer]) => api(`/student/assignment-attempts/${attempt.id}/answers/${questionId}`, { method: "PUT", body: JSON.stringify({ answer }) }))); const submitted = await api<Attempt>(`/student/assignment-attempts/${attempt.id}/submit`, { method: "POST" }); acceptAttempt(submitted); if (timeExpired) setError("Đã hết thời gian. Hệ thống đã tự động nộp bài."); await Promise.all([load(), loadLeaderboard(submitted.assignment)]); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  useEffect(() => { autoSubmitRef.current = () => { void submit(true); }; });
-  const remainingMs = attempt?.expiresAt && attempt.status === "IN_PROGRESS" ? Math.max(0, new Date(attempt.expiresAt).getTime() - now) : null;
-  const status = (item: Assignment) => item.latestAttempt?.status === "PENDING_MANUAL_GRADE" ? "Chờ chấm" : item.latestAttempt && submittedStatuses.has(item.latestAttempt.status) ? item.latestAttempt.isLate ? "Nộp muộn" : "Đã nộp" : item.latestAttempt?.status === "IN_PROGRESS" ? "Đang làm" : "Chưa làm";
+export default function StudentAssignmentManager({
+  apiUrl,
+  accessToken,
+  onBack,
+}: {
+  apiUrl: string;
+  accessToken: string;
+  onBack: () => void;
+}) {
+  const [items, setItems] = useState<Assignment[]>([]);
+  const [detail, setDetail] = useState<Assignment | null>(null);
+  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [saveState, setSaveState] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null);
+  const [now, setNow] = useState(0);
+  const timers = useRef(new Map<string, number>());
+  const autoSubmitted = useRef("");
+  const autoSubmitRef = useRef<() => void>(() => undefined);
+  const [recording, setRecording] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [recorded, setRecorded] = useState<{
+    blob: Blob;
+    url: string;
+    mime: string;
+    duration: number;
+  } | null>(null);
+  const [recordingState, setRecordingState] = useState("");
+  const [writingSaving, setWritingSaving] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimer = useRef<number | null>(null);
+  const api = useCallback(
+    async <T,>(path: string, init?: RequestInit) => {
+      const response = await fetch(`${apiUrl}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          ...init?.headers,
+        },
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok)
+        throw new Error(
+          Array.isArray(body?.message)
+            ? body.message.join(" ")
+            : (body?.message ?? "Không thể xử lý bài tập."),
+        );
+      return body as T;
+    },
+    [apiUrl, accessToken],
+  );
+  const load = useCallback(async () => {
+    const value = await api<{ items: Assignment[] }>(
+      "/student/assignments?pageSize=100",
+    );
+    setItems(value.items);
+  }, [api]);
+  useEffect(() => {
+    const activeTimers = timers.current;
+    api<{ items: Assignment[] }>("/student/assignments?pageSize=100")
+      .then((value) => setItems(value.items))
+      .catch((reason: Error) => setError(reason.message));
+    return () => {
+      activeTimers.forEach((timer) => window.clearTimeout(timer));
+      if (recordingTimer.current) window.clearInterval(recordingTimer.current);
+    };
+  }, [api]);
+  useEffect(
+    () => () => {
+      if (recorded?.url) URL.revokeObjectURL(recorded.url);
+    },
+    [recorded],
+  );
+  useEffect(() => {
+    if (!attempt?.expiresAt || attempt.status !== "IN_PROGRESS") return;
+    const tick = () => {
+      setNow(Date.now());
+      if (
+        Date.now() >= new Date(attempt.expiresAt!).getTime() &&
+        autoSubmitted.current !== attempt.id
+      ) {
+        autoSubmitted.current = attempt.id;
+        autoSubmitRef.current();
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [attempt?.expiresAt, attempt?.id, attempt?.status]);
+  async function open(id: string) {
+    setBusy("open");
+    try {
+      setDetail(await api(`/student/assignments/${id}`));
+      setAttempt(null);
+      setLeaderboard(null);
+      setError("");
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  function acceptAttempt(value: Attempt) {
+    setAttempt(value);
+    setDetail(value.assignment);
+    setAnswers(
+      Object.fromEntries(
+        value.answers.map((item) => [item.questionId, item.answer]),
+      ),
+    );
+    setRecorded(null);
+    setRecordingState("");
+  }
+  async function start() {
+    if (!detail) return;
+    setBusy("start");
+    try {
+      acceptAttempt(
+        await api(`/student/assignments/${detail.id}/attempts`, {
+          method: "POST",
+        }),
+      );
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function resume(id: string) {
+    setBusy("resume");
+    try {
+      acceptAttempt(await api(`/student/assignment-attempts/${id}`));
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function persist(questionId: string, answer: unknown) {
+    if (!attempt || attempt.status !== "IN_PROGRESS") return;
+    setSaveState((state) => ({ ...state, [questionId]: "Đang lưu..." }));
+    try {
+      await api(
+        `/student/assignment-attempts/${attempt.id}/answers/${questionId}`,
+        { method: "PUT", body: JSON.stringify({ answer }) },
+      );
+      setSaveState((state) => ({ ...state, [questionId]: "✓ Đã lưu" }));
+    } catch (reason) {
+      setSaveState((state) => ({ ...state, [questionId]: "Lưu thất bại" }));
+      setError((reason as Error).message);
+    }
+  }
+  function updateAnswer(questionId: string, answer: unknown) {
+    setAnswers((current) => ({ ...current, [questionId]: answer }));
+    const existing = timers.current.get(questionId);
+    if (existing) window.clearTimeout(existing);
+    timers.current.set(
+      questionId,
+      window.setTimeout(() => {
+        timers.current.delete(questionId);
+        void persist(questionId, answer);
+      }, 450),
+    );
+  }
+  async function loadLeaderboard(assignment: Assignment) {
+    if (assignment.generationMode === "MANUAL" || !assignment.showLeaderboard)
+      return;
+    try {
+      setLeaderboard(await api(`/assignments/${assignment.id}/leaderboard`));
+    } catch {
+      setLeaderboard(null);
+    }
+  }
+  async function submit(timeExpired = false) {
+    if (!attempt || busy === "submit") return;
+    if (
+      !timeExpired &&
+      attempt.assignment.readAloudTask &&
+      !attempt.readAloudSubmission
+    ) {
+      setError("Bạn cần hoàn thành bài đọc ghi âm trước khi nộp bài.");
+      return;
+    }
+    if (
+      !timeExpired &&
+      !confirm(
+        "Bạn có chắc muốn nộp bài? Sau khi nộp, bạn không thể sửa câu trả lời hoặc bản ghi của lần làm này.",
+      )
+    )
+      return;
+    setBusy("submit");
+    try {
+      timers.current.forEach((timer) => window.clearTimeout(timer));
+      timers.current.clear();
+      if (!timeExpired)
+        await Promise.all(
+          Object.entries(answers).map(([questionId, answer]) =>
+            api(
+              `/student/assignment-attempts/${attempt.id}/answers/${questionId}`,
+              { method: "PUT", body: JSON.stringify({ answer }) },
+            ),
+          ),
+        );
+      const submitted = await api<Attempt>(
+        `/student/assignment-attempts/${attempt.id}/submit`,
+        { method: "POST" },
+      );
+      acceptAttempt(submitted);
+      if (timeExpired)
+        setError("Đã hết thời gian. Hệ thống đã tự động nộp bài.");
+      await Promise.all([load(), loadLeaderboard(submitted.assignment)]);
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  useEffect(() => {
+    autoSubmitRef.current = () => {
+      void submit(true);
+    };
+  });
+  const remainingMs =
+    attempt?.expiresAt && attempt.status === "IN_PROGRESS"
+      ? Math.max(0, new Date(attempt.expiresAt).getTime() - now)
+      : null;
+  const status = (item: Assignment) =>
+    item.latestAttempt?.status === "PENDING_MANUAL_GRADE"
+      ? "Chờ chấm"
+      : item.latestAttempt && submittedStatuses.has(item.latestAttempt.status)
+        ? item.latestAttempt.isLate
+          ? "Nộp muộn"
+          : "Đã nộp"
+        : item.latestAttempt?.status === "IN_PROGRESS"
+          ? "Đang làm"
+          : "Chưa làm";
 
   async function startRecording() {
     if (!attempt?.assignment.readAloudTask) return;
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError("Trình duyệt này chưa hỗ trợ ghi âm trực tiếp. Vui lòng tải file ghi âm lên."); return; }
+    if (
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === "undefined"
+    ) {
+      setError(
+        "Trình duyệt này chưa hỗ trợ ghi âm trực tiếp. Vui lòng tải file ghi âm lên.",
+      );
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (attempt.readAloudSubmission) setAttempt({ ...attempt, readAloudSubmission: null });
-      const candidates = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus"];
-      const mime = candidates.find((item) => MediaRecorder.isTypeSupported(item)) ?? "";
-      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); const chunks: BlobPart[] = []; const started = Date.now();
-      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-      recorder.onstop = () => { stream.getTracks().forEach((track) => track.stop()); const duration = Math.max(1, Math.round((Date.now() - started) / 1000)); const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" }); const url = URL.createObjectURL(blob); setRecorded({ blob, url, mime: blob.type, duration }); setRecording(false); setRecordingState("Bản ghi đã sẵn sàng. Hãy nghe lại trước khi sử dụng."); if (recordingTimer.current) window.clearInterval(recordingTimer.current); recordingTimer.current = null; };
-      recorderRef.current = recorder; setElapsed(0); setRecording(true); setRecordingState(""); recorder.start(1000); recordingTimer.current = window.setInterval(() => { const seconds = Math.round((Date.now() - started) / 1000); setElapsed(seconds); if (attempt.assignment.readAloudTask?.maxDurationSeconds && seconds >= attempt.assignment.readAloudTask.maxDurationSeconds) recorder.stop(); }, 500);
-    } catch (reason) { const denied = reason instanceof DOMException && (reason.name === "NotAllowedError" || reason.name === "SecurityError"); setError(denied ? "Trình duyệt chưa được cấp quyền sử dụng micro." : "Không thể bắt đầu ghi âm. Vui lòng thử lại."); }
+      if (attempt.readAloudSubmission)
+        setAttempt({ ...attempt, readAloudSubmission: null });
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/mp4",
+        "audio/ogg;codecs=opus",
+      ];
+      const mime =
+        candidates.find((item) => MediaRecorder.isTypeSupported(item)) ?? "";
+      const recorder = new MediaRecorder(
+        stream,
+        mime ? { mimeType: mime } : undefined,
+      );
+      const chunks: BlobPart[] = [];
+      const started = Date.now();
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.push(event.data);
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const duration = Math.max(1, Math.round((Date.now() - started) / 1000));
+        const blob = new Blob(chunks, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        const url = URL.createObjectURL(blob);
+        setRecorded({ blob, url, mime: blob.type, duration });
+        setRecording(false);
+        setRecordingState(
+          "Bản ghi đã sẵn sàng. Hãy nghe lại trước khi sử dụng.",
+        );
+        if (recordingTimer.current)
+          window.clearInterval(recordingTimer.current);
+        recordingTimer.current = null;
+      };
+      recorderRef.current = recorder;
+      setElapsed(0);
+      setRecording(true);
+      setRecordingState("");
+      recorder.start(1000);
+      recordingTimer.current = window.setInterval(() => {
+        const seconds = Math.round((Date.now() - started) / 1000);
+        setElapsed(seconds);
+        if (
+          attempt.assignment.readAloudTask?.maxDurationSeconds &&
+          seconds >= attempt.assignment.readAloudTask.maxDurationSeconds
+        )
+          recorder.stop();
+      }, 500);
+    } catch (reason) {
+      const denied =
+        reason instanceof DOMException &&
+        (reason.name === "NotAllowedError" || reason.name === "SecurityError");
+      setError(
+        denied
+          ? "Trình duyệt chưa được cấp quyền sử dụng micro."
+          : "Không thể bắt đầu ghi âm. Vui lòng thử lại.",
+      );
+    }
   }
-  function stopRecording() { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); }
+  function stopRecording() {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+  }
   async function uploadAudio(file: Blob, fileName: string, duration?: number) {
-    if (!attempt || busy) return; setBusy("upload-audio"); setError(""); setRecordingState("Đang tải bản ghi...");
-    const form = new FormData(); form.append("file", file, fileName); if (duration) form.append("durationSeconds", String(duration));
-    try { const response = await fetch(`${apiUrl}/student/assignment-attempts/${attempt.id}/read-aloud/upload`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: form }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(audioUploadError(Array.isArray(body?.message) ? body.message.join(" ") : body?.message ?? "")); acceptAttempt(await api(`/student/assignment-attempts/${attempt.id}`)); setRecordingState("✓ Đã lưu bản ghi."); } catch (reason) { setError(audioUploadError((reason as Error).message)); setRecordingState("Không thể tải bản ghi."); } finally { setBusy(""); }
+    if (!attempt || busy) return;
+    setBusy("upload-audio");
+    setError("");
+    setRecordingState("Đang tải bản ghi...");
+    const form = new FormData();
+    form.append("file", file, fileName);
+    if (duration) form.append("durationSeconds", String(duration));
+    try {
+      const response = await fetch(
+        `${apiUrl}/student/assignment-attempts/${attempt.id}/read-aloud/upload`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: form,
+        },
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok)
+        throw new Error(
+          audioUploadError(
+            Array.isArray(body?.message)
+              ? body.message.join(" ")
+              : (body?.message ?? ""),
+          ),
+        );
+      acceptAttempt(await api(`/student/assignment-attempts/${attempt.id}`));
+      setRecordingState("✓ Đã lưu bản ghi.");
+    } catch (reason) {
+      setError(audioUploadError((reason as Error).message));
+      setRecordingState("Không thể tải bản ghi.");
+    } finally {
+      setBusy("");
+    }
   }
   async function uploadRecording() {
-    if (!recorded) return; const baseMime = recorded.mime.split(";", 1)[0] ?? "audio/webm"; const extension = baseMime.includes("mp4") ? "m4a" : baseMime.includes("ogg") ? "ogg" : baseMime.includes("mpeg") ? "mp3" : baseMime.includes("wav") ? "wav" : "webm";
-    await uploadAudio(recorded.blob, `read-aloud.${extension}`, recorded.duration);
+    if (!recorded) return;
+    const baseMime = recorded.mime.split(";", 1)[0] ?? "audio/webm";
+    const extension = baseMime.includes("mp4")
+      ? "m4a"
+      : baseMime.includes("ogg")
+        ? "ogg"
+        : baseMime.includes("mpeg")
+          ? "mp3"
+          : baseMime.includes("wav")
+            ? "wav"
+            : "webm";
+    await uploadAudio(
+      recorded.blob,
+      `read-aloud.${extension}`,
+      recorded.duration,
+    );
   }
 
   function questionControl(question: Question) {
-    const answer = answerRecord(answers[question.id]); const disabled = attempt?.status !== "IN_PROGRESS"; const config = question.config;
-    if (question.type.includes("MULTIPLE_CHOICE")) return <div className="answer-options">{(Array.isArray(config.options) ? config.options : []).map((raw) => { const item = raw as { id: string; text: string }; return <label key={item.id}><input disabled={disabled} type="radio" name={question.id} checked={answer.selectedOptionId === item.id} onChange={() => updateAnswer(question.id, { selectedOptionId: item.id })} />{item.text}</label>; })}</div>;
-    if (question.type === "READING_TRUE_FALSE_NOT_GIVEN") { const choices = question.section === "VOCABULARY" ? [["TRUE", "Đúng"], ["FALSE", "Sai"]] : [["TRUE", "Đúng"], ["FALSE", "Sai"], ["NOT_GIVEN", "Không có thông tin"]]; return <div className="answer-options">{choices.map(([value, label]) => <label key={value}><input disabled={disabled} type="radio" name={question.id} checked={answer.value === value} onChange={() => updateAnswer(question.id, { value })} />{label}</label>)}</div>; }
-    if (question.type === "VOCAB_MATCHING") { const mappings = Array.isArray(answer.mappings) ? answer.mappings as { leftId: string; rightId: string }[] : []; const left = Array.isArray(config.left) ? config.left as { id: string; text: string }[] : []; const right = Array.isArray(config.right) ? config.right as { id: string; text: string }[] : []; return <div className="matching-answers">{left.map((item) => <label key={item.id}>{item.text}<select disabled={disabled} value={mappings.find((mapping) => mapping.leftId === item.id)?.rightId ?? ""} onChange={(event) => updateAnswer(question.id, { mappings: [...mappings.filter((mapping) => mapping.leftId !== item.id), { leftId: item.id, rightId: event.target.value }] })}><option value="">Chọn đáp án</option>{right.map((option) => <option key={option.id} value={option.id}>{option.text}</option>)}</select></label>)}</div>; }
-    if (question.type === "GRAMMAR_SENTENCE_ORDER") { const orderedIds = Array.isArray(answer.orderedIds) ? answer.orderedIds as string[] : []; const tokens = Array.isArray(config.tokens) ? config.tokens as { id: string; text: string }[] : []; return <div className="ordering-answer"><div>{orderedIds.map((id, index) => <button disabled={disabled} type="button" key={`${id}-${index}`} onClick={() => updateAnswer(question.id, { orderedIds: orderedIds.filter((_, position) => position !== index) })}>{tokens.find((token) => token.id === id)?.text}</button>)}</div><div>{tokens.filter((token) => !orderedIds.includes(token.id)).map((token) => <button disabled={disabled} type="button" key={token.id} onClick={() => updateAnswer(question.id, { orderedIds: [...orderedIds, token.id] })}>{token.text}</button>)}</div></div>; }
-    return <input disabled={disabled} value={String(answer.text ?? "")} placeholder="Nhập câu trả lời" onChange={(event) => updateAnswer(question.id, { text: event.target.value })} />;
+    const answer = answerRecord(answers[question.id]);
+    const disabled = attempt?.status !== "IN_PROGRESS";
+    const config = question.config;
+    if (question.type.includes("MULTIPLE_CHOICE"))
+      return (
+        <div className="answer-options">
+          {(Array.isArray(config.options) ? config.options : []).map((raw) => {
+            const item = raw as { id: string; text: string };
+            return (
+              <label key={item.id}>
+                <input
+                  disabled={disabled}
+                  type="radio"
+                  name={question.id}
+                  checked={answer.selectedOptionId === item.id}
+                  onChange={() =>
+                    updateAnswer(question.id, { selectedOptionId: item.id })
+                  }
+                />
+                {item.text}
+              </label>
+            );
+          })}
+        </div>
+      );
+    if (question.type === "READING_TRUE_FALSE_NOT_GIVEN") {
+      const choices =
+        question.section === "VOCABULARY"
+          ? [
+              ["TRUE", "Đúng"],
+              ["FALSE", "Sai"],
+            ]
+          : [
+              ["TRUE", "Đúng"],
+              ["FALSE", "Sai"],
+              ["NOT_GIVEN", "Không có thông tin"],
+            ];
+      return (
+        <div className="answer-options">
+          {choices.map(([value, label]) => (
+            <label key={value}>
+              <input
+                disabled={disabled}
+                type="radio"
+                name={question.id}
+                checked={answer.value === value}
+                onChange={() => updateAnswer(question.id, { value })}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      );
+    }
+    if (question.type === "VOCAB_MATCHING") {
+      const mappings = Array.isArray(answer.mappings)
+        ? (answer.mappings as { leftId: string; rightId: string }[])
+        : [];
+      const left = Array.isArray(config.left)
+        ? (config.left as { id: string; text: string }[])
+        : [];
+      const right = Array.isArray(config.right)
+        ? (config.right as { id: string; text: string }[])
+        : [];
+      return (
+        <div className="matching-answers">
+          {left.map((item) => (
+            <label key={item.id}>
+              {item.text}
+              <select
+                disabled={disabled}
+                value={
+                  mappings.find((mapping) => mapping.leftId === item.id)
+                    ?.rightId ?? ""
+                }
+                onChange={(event) =>
+                  updateAnswer(question.id, {
+                    mappings: [
+                      ...mappings.filter(
+                        (mapping) => mapping.leftId !== item.id,
+                      ),
+                      { leftId: item.id, rightId: event.target.value },
+                    ],
+                  })
+                }
+              >
+                <option value="">Chọn đáp án</option>
+                {right.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.text}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      );
+    }
+    if (question.type === "GRAMMAR_SENTENCE_ORDER") {
+      const orderedIds = Array.isArray(answer.orderedIds)
+        ? (answer.orderedIds as string[])
+        : [];
+      const tokens = Array.isArray(config.tokens)
+        ? (config.tokens as { id: string; text: string }[])
+        : [];
+      return (
+        <div className="ordering-answer">
+          <div>
+            {orderedIds.map((id, index) => (
+              <button
+                disabled={disabled}
+                type="button"
+                key={`${id}-${index}`}
+                onClick={() =>
+                  updateAnswer(question.id, {
+                    orderedIds: orderedIds.filter(
+                      (_, position) => position !== index,
+                    ),
+                  })
+                }
+              >
+                {tokens.find((token) => token.id === id)?.text}
+              </button>
+            ))}
+          </div>
+          <div>
+            {tokens
+              .filter((token) => !orderedIds.includes(token.id))
+              .map((token) => (
+                <button
+                  disabled={disabled}
+                  type="button"
+                  key={token.id}
+                  onClick={() =>
+                    updateAnswer(question.id, {
+                      orderedIds: [...orderedIds, token.id],
+                    })
+                  }
+                >
+                  {token.text}
+                </button>
+              ))}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <input
+        disabled={disabled}
+        value={String(answer.text ?? "")}
+        placeholder="Nhập câu trả lời"
+        onChange={(event) =>
+          updateAnswer(question.id, { text: event.target.value })
+        }
+      />
+    );
   }
 
-  const objectivePartCount = attempt ? groupAssignmentQuestions(attempt.assignment.questions, attempt.assignment.passages).parts.length : 0;
+  const objectivePartCount = attempt
+    ? groupAssignmentQuestions(
+        attempt.assignment.questions,
+        attempt.assignment.passages,
+      ).parts.length
+    : 0;
 
-  return <div className="student-assignment-manager"><div className="manager-heading"><div><WorkspacePageActions onBack={detail ? () => { setDetail(null); setAttempt(null); } : onBack} /><h1 className="manager-title-path"><span>Bài tập</span><i aria-hidden="true">›</i><strong>{attempt ? attempt.assignment.title : detail ? detail.title : "Bài tập của tôi"}</strong></h1><p>Theo dõi bài được giao, hạn nộp và kết quả học tập.</p></div></div>{error && <p className="admin-error">{error}</p>}
-    {!detail && <div className="student-assignment-list">{items.map((item) => <article key={item.id}><div><span>{assignmentTypes[item.type]}</span><em className={`student-work-status ${status(item).replaceAll(" ", "-")}`}>{status(item)}</em></div><h2>{item.title}</h2><p>{item.classroom.name}{item.lesson ? ` · ${item.lesson.title}` : ""}</p><small>Hạn nộp: {date(item.dueAt)}</small>{item.latestAttempt?.objectiveResult && <b>{item.latestAttempt.objectiveResult.correctCount}/{item.latestAttempt.objectiveResult.totalQuestions} · {item.latestAttempt.objectiveResult.percentage.toFixed(1)}%</b>}<button disabled={Boolean(busy)} onClick={() => void open(item.id)}>Mở bài tập</button></article>)}{!items.length && <p className="report-empty">Chưa có bài tập được giao.</p>}</div>}
-    {detail && !attempt && <section className="student-assignment-intro"><span>{detail.generationMode === "MANUAL" ? assignmentTypes[detail.type] : "⚡ Quick Quiz · Ôn tập từ vựng"}</span><h2>{detail.title}</h2><p>{detail.description || "Không có hướng dẫn bổ sung."}</p><dl><div><dt>Lớp</dt><dd>{detail.classroom.name}</dd></div>{detail.generationMode !== "MANUAL" && <div><dt>Số câu</dt><dd>{detail.questionCount ?? "—"} câu</dd></div>}<div><dt>Số lần còn lại</dt><dd>{detail.attemptsRemaining ?? 0}/{detail.maxAttempts}</dd></div><div><dt>Thời gian</dt><dd>{detail.timeLimitMinutes ? `${detail.timeLimitMinutes} phút` : "Không giới hạn"}</dd></div><div><dt>Hạn nộp</dt><dd>{date(detail.dueAt)}</dd></div></dl>{detail.attempts?.map((item) => <article className="attempt-history" key={item.id}><span>Lần {item.attemptNumber} · {item.status === "IN_PROGRESS" ? "Đang làm" : item.status === "PENDING_MANUAL_GRADE" ? "Đang chờ giáo viên chấm bài đọc" : "Đã nộp"}</span>{item.objectiveResult && <b>{item.objectiveResult.correctCount}/{item.objectiveResult.totalQuestions} · {item.objectiveResult.percentage.toFixed(1)}% · {duration(item.durationMs)}</b>}{item.status === "IN_PROGRESS" && <button onClick={() => void resume(item.id)}>Tiếp tục làm</button>}{submittedStatuses.has(item.status) && <button onClick={() => void resume(item.id)}>Xem kết quả</button>}</article>)}{detail.status === "PUBLISHED" && (detail.attemptsRemaining ?? 0) > 0 && !detail.attempts?.some((item) => item.status === "IN_PROGRESS") && <button className="primary-button" disabled={Boolean(busy)} onClick={() => void start()}>{busy === "start" ? "Đang mở bài..." : detail.attemptCount ? "Làm lại" : "Bắt đầu"}</button>}{detail.status !== "PUBLISHED" && <p className="assignment-closed-note">Bài tập đã đóng. Bạn chỉ có thể xem các lần đã nộp.</p>}</section>}
-    {attempt && <section className="student-attempt">
-      <header><span>Lần làm {attempt.attemptNumber}/{attempt.assignment.maxAttempts}</span>{remainingMs !== null && <strong className={remainingMs < 60_000 ? "timer-warning" : ""}>Còn lại {duration(remainingMs)}</strong>}<span>Hạn nộp: {date(attempt.assignment.dueAt)}</span>{submittedStatuses.has(attempt.status) && <b>{attempt.status === "PENDING_MANUAL_GRADE" ? "Chờ chấm bài đọc" : attempt.isLate ? "Nộp muộn" : "Đã nộp"}</b>}</header>
-      <AssignmentQuestionSections questions={attempt.assignment.questions} passages={attempt.assignment.passages} renderQuestion={(question, questionNumber) => { const stored = attempt.answers.find((item) => item.questionId === question.id); return <article className={stored?.result?.isCorrect === false ? "incorrect" : ""} key={question.id}><header><span>Câu {questionNumber}</span><small>{question.type === "READING_TRUE_FALSE_NOT_GIVEN" && question.section === "VOCABULARY" ? "Từ vựng · Đúng/Sai" : questionLabels[question.type]}</small></header><h3>{question.prompt}</h3>{questionControl(question)}<footer><span>{saveState[question.id]}</span>{stored?.result && <><b>{stored.result.isCorrect ? "✓ Đúng" : "✕ Chưa đúng"}</b><p><strong>Câu trả lời:</strong> {stored.result.studentAnswer}</p>{stored.result.correctAnswer !== undefined && <p><strong>Đáp án đúng:</strong> {stored.result.correctAnswer}</p>}{stored.result.matching && <p><strong>Số cặp đúng:</strong> {stored.result.matching.correctPairs}/{stored.result.matching.totalPairs}</p>}</>}{question.explanation && <p>{question.explanation}</p>}</footer></article>; }} />
-      {attempt.assignment.readAloudTask && <section className="assignment-question-part speaking-part"><header className="assignment-part-heading"><span>PHẦN {objectivePartCount + 1}</span><h2>Speaking</h2></header><div className="student-read-aloud"><h2>{attempt.assignment.readAloudTask.title || "Speaking"}</h2>{attempt.assignment.readAloudTask.instructions && <p className="read-aloud-instructions">{attempt.assignment.readAloudTask.instructions}</p>}<blockquote>{attempt.assignment.readAloudTask.readingText}</blockquote><small>Thời lượng tối đa: {attempt.assignment.readAloudTask.maxDurationSeconds ?? 300} giây · Chấm riêng theo thang 10</small>
-        {attempt.readAloudSubmission ? <div className="saved-recording"><b>✓ Đã lưu bản ghi.</b><span>Nghe lại</span><AuthenticatedAudio apiUrl={apiUrl} accessToken={accessToken} path={attempt.readAloudSubmission.audioUrl} />{attempt.status === "IN_PROGRESS" && <button type="button" disabled={Boolean(busy)} onClick={() => void startRecording()}>Ghi lại</button>}{attempt.status !== "IN_PROGRESS" && !attempt.readAloudSubmission.gradedAt && <p>Đang chờ giáo viên chấm Speaking.</p>}{attempt.readAloudSubmission.gradedAt && attempt.assignment.showScoreImmediately && <div className="read-aloud-result"><strong>{attempt.readAloudSubmission.score}/10 điểm</strong>{attempt.readAloudSubmission.feedback && <p>{attempt.readAloudSubmission.feedback}</p>}</div>}</div> : attempt.status === "IN_PROGRESS" && <div className="recording-controls">{!recording && !recorded && <button type="button" onClick={() => void startRecording()}>Bắt đầu ghi âm</button>}{recording && <><b className="recording-indicator">● Đang ghi {Math.floor(elapsed / 60).toString().padStart(2, "0")}:{(elapsed % 60).toString().padStart(2, "0")}</b><button type="button" onClick={stopRecording}>Dừng ghi âm</button></>}{recorded && <><span>Nghe lại</span><audio controls src={recorded.url}>Trình duyệt không hỗ trợ phát âm thanh.</audio><span>Thời lượng: {recorded.duration} giây</span><div><button type="button" disabled={Boolean(busy)} onClick={() => { setRecorded(null); void startRecording(); }}>Ghi lại</button><button type="button" disabled={Boolean(busy)} onClick={() => void uploadRecording()}>{busy === "upload-audio" ? "Đang tải bản ghi..." : "Dùng bản ghi này"}</button></div></>}{recordingState && <p>{recordingState}</p>}</div>}
-        {attempt.status === "IN_PROGRESS" && <label className="audio-file-fallback">Hoặc tải file ghi âm lên<input type="file" accept="audio/webm,audio/ogg,audio/mp4,audio/mpeg,audio/wav,.webm,.ogg,.m4a,.mp3,.wav" disabled={Boolean(busy)} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAudio(file, file.name); event.target.value = ""; }} /></label>}{busy === "upload-audio" && <p>Đang tải bản ghi...</p>}
-      </div></section>}
-      {attempt.status === "IN_PROGRESS" ? <div className="student-submit-bar"><span>{attempt.assignment.readAloudTask && !attempt.readAloudSubmission ? "Bạn cần hoàn thành bài đọc ghi âm trước khi nộp bài." : "Câu trả lời và bản ghi đã được lưu."}</span><button disabled={Boolean(busy) || Boolean(attempt.assignment.readAloudTask && !attempt.readAloudSubmission)} onClick={() => void submit()}>{busy === "submit" ? "Đang nộp bài..." : "Nộp bài"}</button></div> : <><div className="student-result-summary"><h2>{attempt.status === "PENDING_MANUAL_GRADE" ? "Kết quả câu hỏi khách quan" : "Kết quả bài làm"}</h2>{attempt.objectiveResult ? <><strong>{attempt.objectiveResult.correctCount}/{attempt.objectiveResult.totalQuestions}</strong><span>{attempt.objectiveResult.percentage.toFixed(1)}%</span><small>Thời gian {duration(attempt.durationMs)} · Lượt {attempt.attemptNumber}/{attempt.assignment.maxAttempts}</small>{attempt.status === "PENDING_MANUAL_GRADE" && <p>Bài đọc & nói đang chờ giáo viên chấm riêng theo thang 10.</p>}</> : <p>Kết quả đã được ghi nhận và sẽ hiển thị theo thiết lập của giáo viên.</p>}</div>{attempt.assignment.showLeaderboard && attempt.assignment.generationMode !== "MANUAL" && <button className="leaderboard-toggle" onClick={() => void loadLeaderboard(attempt.assignment)}>Xem xếp hạng</button>}{leaderboard && <section className="quick-leaderboard"><p className="section-kicker">XẾP HẠNG</p><ol>{leaderboard.entries.map((entry) => <li key={entry.student.id}><b>{entry.rank}. {entry.student.fullName}</b><span>{entry.correctCount}/{entry.totalQuestions} · {entry.percentage.toFixed(1)}%</span><small>{duration(entry.durationMs)} · Lượt {entry.attemptNumber}</small></li>)}</ol>{!leaderboard.entries.length && <p>Chưa có kết quả để xếp hạng.</p>}</section>}</>}
-    </section>}
-  </div>;
+  return (
+    <div className="student-assignment-manager">
+      <div className="manager-heading">
+        <div>
+          <WorkspacePageActions
+            onBack={
+              detail
+                ? () => {
+                    setDetail(null);
+                    setAttempt(null);
+                  }
+                : onBack
+            }
+          />
+          <h1 className="manager-title-path">
+            <span>Bài tập</span>
+            <i aria-hidden="true">›</i>
+            <strong>
+              {attempt
+                ? attempt.assignment.title
+                : detail
+                  ? detail.title
+                  : "Bài tập của tôi"}
+            </strong>
+          </h1>
+          <p>Theo dõi bài được giao, hạn nộp và kết quả học tập.</p>
+        </div>
+      </div>
+      {error && <p className="admin-error">{error}</p>}
+      {!detail && (
+        <div className="student-assignment-list">
+          {items.map((item) => (
+            <article key={item.id}>
+              <div>
+                <span>{assignmentTypes[item.type]}</span>
+                <em
+                  className={`student-work-status ${status(item).replaceAll(" ", "-")}`}
+                >
+                  {status(item)}
+                </em>
+              </div>
+              <h2>{item.title}</h2>
+              <p>
+                {item.classroom.name}
+                {item.lesson ? ` · ${item.lesson.title}` : ""}
+              </p>
+              <small>Hạn nộp: {date(item.dueAt)}</small>
+              {item.latestAttempt?.objectiveResult && (
+                <b>
+                  {item.latestAttempt.objectiveResult.correctCount}/
+                  {item.latestAttempt.objectiveResult.totalQuestions} ·{" "}
+                  {item.latestAttempt.objectiveResult.percentage.toFixed(1)}%
+                </b>
+              )}
+              <button
+                disabled={Boolean(busy)}
+                onClick={() => void open(item.id)}
+              >
+                Mở bài tập
+              </button>
+            </article>
+          ))}
+          {!items.length && (
+            <p className="report-empty">Chưa có bài tập được giao.</p>
+          )}
+        </div>
+      )}
+      {detail && !attempt && (
+        <section className="student-assignment-intro">
+          <span>
+            {detail.generationMode === "MANUAL"
+              ? assignmentTypes[detail.type]
+              : "⚡ Quick Quiz · Ôn tập từ vựng"}
+          </span>
+          <h2>{detail.title}</h2>
+          <p>{detail.description || "Không có hướng dẫn bổ sung."}</p>
+          <dl>
+            <div>
+              <dt>Lớp</dt>
+              <dd>{detail.classroom.name}</dd>
+            </div>
+            {detail.generationMode !== "MANUAL" && (
+              <div>
+                <dt>Số câu</dt>
+                <dd>{detail.questionCount ?? "—"} câu</dd>
+              </div>
+            )}
+            <div>
+              <dt>Số lần còn lại</dt>
+              <dd>
+                {detail.attemptsRemaining ?? 0}/{detail.maxAttempts}
+              </dd>
+            </div>
+            <div>
+              <dt>Thời gian</dt>
+              <dd>
+                {detail.timeLimitMinutes
+                  ? `${detail.timeLimitMinutes} phút`
+                  : "Không giới hạn"}
+              </dd>
+            </div>
+            <div>
+              <dt>Hạn nộp</dt>
+              <dd>{date(detail.dueAt)}</dd>
+            </div>
+          </dl>
+          {detail.attempts?.map((item) => (
+            <article className="attempt-history" key={item.id}>
+              <span>
+                Lần {item.attemptNumber} ·{" "}
+                {item.status === "IN_PROGRESS"
+                  ? "Đang làm"
+                  : item.status === "PENDING_MANUAL_GRADE"
+                    ? "Đang chờ giáo viên chấm bài đọc"
+                    : "Đã nộp"}
+              </span>
+              {item.objectiveResult && (
+                <b>
+                  {item.objectiveResult.correctCount}/
+                  {item.objectiveResult.totalQuestions} ·{" "}
+                  {item.objectiveResult.percentage.toFixed(1)}% ·{" "}
+                  {duration(item.durationMs)}
+                </b>
+              )}
+              {item.status === "IN_PROGRESS" && (
+                <button onClick={() => void resume(item.id)}>
+                  Tiếp tục làm
+                </button>
+              )}
+              {submittedStatuses.has(item.status) && (
+                <button onClick={() => void resume(item.id)}>
+                  Xem kết quả
+                </button>
+              )}
+            </article>
+          ))}
+          {detail.status === "PUBLISHED" &&
+            (detail.attemptsRemaining ?? 0) > 0 &&
+            !detail.attempts?.some((item) => item.status === "IN_PROGRESS") && (
+              <button
+                className="primary-button"
+                disabled={Boolean(busy)}
+                onClick={() => void start()}
+              >
+                {busy === "start"
+                  ? "Đang mở bài..."
+                  : detail.attemptCount
+                    ? "Làm lại"
+                    : "Bắt đầu"}
+              </button>
+            )}
+          {detail.status !== "PUBLISHED" && (
+            <p className="assignment-closed-note">
+              Bài tập đã đóng. Bạn chỉ có thể xem các lần đã nộp.
+            </p>
+          )}
+        </section>
+      )}
+      {attempt && (
+        <section className="student-attempt">
+          <header>
+            <span>
+              Lần làm {attempt.attemptNumber}/{attempt.assignment.maxAttempts}
+            </span>
+            {remainingMs !== null && (
+              <strong className={remainingMs < 60_000 ? "timer-warning" : ""}>
+                Còn lại {duration(remainingMs)}
+              </strong>
+            )}
+            <span>Hạn nộp: {date(attempt.assignment.dueAt)}</span>
+            {submittedStatuses.has(attempt.status) && (
+              <b>
+                {attempt.status === "PENDING_MANUAL_GRADE"
+                  ? "Chờ chấm bài đọc"
+                  : attempt.isLate
+                    ? "Nộp muộn"
+                    : "Đã nộp"}
+              </b>
+            )}
+          </header>
+          <AssignmentQuestionSections
+            questions={attempt.assignment.questions}
+            passages={attempt.assignment.passages}
+            renderQuestion={(question, questionNumber) => {
+              const stored = attempt.answers.find(
+                (item) => item.questionId === question.id,
+              );
+              return (
+                <article
+                  className={
+                    stored?.result?.isCorrect === false ? "incorrect" : ""
+                  }
+                  key={question.id}
+                >
+                  <header>
+                    <span>Câu {questionNumber}</span>
+                    <small>
+                      {question.type === "READING_TRUE_FALSE_NOT_GIVEN" &&
+                      question.section === "VOCABULARY"
+                        ? "Từ vựng · Đúng/Sai"
+                        : questionLabels[question.type]}
+                    </small>
+                  </header>
+                  <h3>{question.prompt}</h3>
+                  {questionControl(question)}
+                  <footer>
+                    <span>{saveState[question.id]}</span>
+                    {stored?.result && (
+                      <>
+                        <b>
+                          {stored.result.isCorrect ? "✓ Đúng" : "✕ Chưa đúng"}
+                        </b>
+                        <p>
+                          <strong>Câu trả lời:</strong>{" "}
+                          {stored.result.studentAnswer}
+                        </p>
+                        {stored.result.correctAnswer !== undefined && (
+                          <p>
+                            <strong>Đáp án đúng:</strong>{" "}
+                            {stored.result.correctAnswer}
+                          </p>
+                        )}
+                        {stored.result.matching && (
+                          <p>
+                            <strong>Số cặp đúng:</strong>{" "}
+                            {stored.result.matching.correctPairs}/
+                            {stored.result.matching.totalPairs}
+                          </p>
+                        )}
+                      </>
+                    )}
+                    {question.explanation && <p>{question.explanation}</p>}
+                  </footer>
+                </article>
+              );
+            }}
+          />
+          {attempt.assignment.writingTask && (
+            <StudentWritingSection
+              attemptId={attempt.id}
+              task={attempt.assignment.writingTask}
+              submission={attempt.writingSubmission}
+              editable={attempt.status === "IN_PROGRESS"}
+              apiUrl={apiUrl}
+              accessToken={accessToken}
+              partNumber={objectivePartCount + 1}
+              onSavingChange={setWritingSaving}
+              onChanged={(writingSubmission) =>
+                setAttempt((current) =>
+                  current ? { ...current, writingSubmission } : current,
+                )
+              }
+            />
+          )}
+          {attempt.assignment.readAloudTask && (
+            <section className="assignment-question-part speaking-part">
+              <header className="assignment-part-heading">
+                <span>
+                  PHẦN {objectivePartCount + (attempt.assignment.writingTask ? 2 : 1)}
+                </span>
+                <h2>Speaking</h2>
+              </header>
+              <div className="student-read-aloud">
+                <h2>{attempt.assignment.readAloudTask.title || "Speaking"}</h2>
+                {attempt.assignment.readAloudTask.instructions && (
+                  <p className="read-aloud-instructions">
+                    {attempt.assignment.readAloudTask.instructions}
+                  </p>
+                )}
+                <blockquote>
+                  {attempt.assignment.readAloudTask.readingText}
+                </blockquote>
+                <small>
+                  Thời lượng tối đa:{" "}
+                  {attempt.assignment.readAloudTask.maxDurationSeconds ?? 300}{" "}
+                  giây · Chấm riêng theo thang 10
+                </small>
+                {attempt.readAloudSubmission ? (
+                  <div className="saved-recording">
+                    <b>✓ Đã lưu bản ghi.</b>
+                    <span>Nghe lại</span>
+                    <AuthenticatedAudio
+                      apiUrl={apiUrl}
+                      accessToken={accessToken}
+                      path={attempt.readAloudSubmission.audioUrl}
+                    />
+                    {attempt.status === "IN_PROGRESS" && (
+                      <button
+                        type="button"
+                        disabled={Boolean(busy)}
+                        onClick={() => void startRecording()}
+                      >
+                        Ghi lại
+                      </button>
+                    )}
+                    {attempt.status !== "IN_PROGRESS" &&
+                      !attempt.readAloudSubmission.gradedAt && (
+                        <p>Đang chờ giáo viên chấm Speaking.</p>
+                      )}
+                    {attempt.readAloudSubmission.gradedAt &&
+                      attempt.assignment.showScoreImmediately && (
+                        <div className="read-aloud-result">
+                          <strong>
+                            {attempt.readAloudSubmission.score}/10 điểm
+                          </strong>
+                          {attempt.readAloudSubmission.feedback && (
+                            <p>{attempt.readAloudSubmission.feedback}</p>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                ) : (
+                  attempt.status === "IN_PROGRESS" && (
+                    <div className="recording-controls">
+                      {!recording && !recorded && (
+                        <button
+                          type="button"
+                          onClick={() => void startRecording()}
+                        >
+                          Bắt đầu ghi âm
+                        </button>
+                      )}
+                      {recording && (
+                        <>
+                          <b className="recording-indicator">
+                            ● Đang ghi{" "}
+                            {Math.floor(elapsed / 60)
+                              .toString()
+                              .padStart(2, "0")}
+                            :{(elapsed % 60).toString().padStart(2, "0")}
+                          </b>
+                          <button type="button" onClick={stopRecording}>
+                            Dừng ghi âm
+                          </button>
+                        </>
+                      )}
+                      {recorded && (
+                        <>
+                          <span>Nghe lại</span>
+                          <audio controls src={recorded.url}>
+                            Trình duyệt không hỗ trợ phát âm thanh.
+                          </audio>
+                          <span>Thời lượng: {recorded.duration} giây</span>
+                          <div>
+                            <button
+                              type="button"
+                              disabled={Boolean(busy)}
+                              onClick={() => {
+                                setRecorded(null);
+                                void startRecording();
+                              }}
+                            >
+                              Ghi lại
+                            </button>
+                            <button
+                              type="button"
+                              disabled={Boolean(busy)}
+                              onClick={() => void uploadRecording()}
+                            >
+                              {busy === "upload-audio"
+                                ? "Đang tải bản ghi..."
+                                : "Dùng bản ghi này"}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                      {recordingState && <p>{recordingState}</p>}
+                    </div>
+                  )
+                )}
+                {attempt.status === "IN_PROGRESS" && (
+                  <label className="audio-file-fallback">
+                    Hoặc tải file ghi âm lên
+                    <input
+                      type="file"
+                      accept="audio/webm,audio/ogg,audio/mp4,audio/mpeg,audio/wav,.webm,.ogg,.m4a,.mp3,.wav"
+                      disabled={Boolean(busy)}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void uploadAudio(file, file.name);
+                        event.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+                {busy === "upload-audio" && <p>Đang tải bản ghi...</p>}
+              </div>
+            </section>
+          )}
+          {attempt.status === "IN_PROGRESS" ? (
+            <div className="student-submit-bar">
+              <span>
+                {writingSaving
+                  ? "Đang lưu phần Writing..."
+                  : attempt.assignment.readAloudTask &&
+                      !attempt.readAloudSubmission
+                    ? "Bạn cần hoàn thành Speaking trước khi nộp bài."
+                    : "Nội dung bài làm đã được lưu."}
+              </span>
+              <button
+                disabled={
+                  Boolean(busy) ||
+                  writingSaving ||
+                  Boolean(
+                    attempt.assignment.readAloudTask &&
+                      !attempt.readAloudSubmission,
+                  )
+                }
+                onClick={() => void submit()}
+              >
+                {busy === "submit" ? "Đang nộp bài..." : "Nộp bài"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="student-result-summary">
+                <h2>
+                  {attempt.status === "PENDING_MANUAL_GRADE"
+                    ? "Kết quả câu hỏi khách quan"
+                    : "Kết quả bài làm"}
+                </h2>
+                {attempt.objectiveResult ? (
+                  <>
+                    <strong>
+                      {attempt.objectiveResult.correctCount}/
+                      {attempt.objectiveResult.totalQuestions}
+                    </strong>
+                    <span>
+                      {attempt.objectiveResult.percentage.toFixed(1)}%
+                    </span>
+                    <small>
+                      Thời gian {duration(attempt.durationMs)} · Lượt{" "}
+                      {attempt.attemptNumber}/{attempt.assignment.maxAttempts}
+                    </small>
+                    {attempt.status === "PENDING_MANUAL_GRADE" && (
+                      <p>
+                        Bài đọc & nói đang chờ giáo viên chấm riêng theo thang
+                        10.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p>
+                    Kết quả đã được ghi nhận và sẽ hiển thị theo thiết lập của
+                    giáo viên.
+                  </p>
+                )}
+              </div>
+              {attempt.assignment.showLeaderboard &&
+                attempt.assignment.generationMode !== "MANUAL" && (
+                  <button
+                    className="leaderboard-toggle"
+                    onClick={() => void loadLeaderboard(attempt.assignment)}
+                  >
+                    Xem xếp hạng
+                  </button>
+                )}
+              {leaderboard && (
+                <section className="quick-leaderboard">
+                  <p className="section-kicker">XẾP HẠNG</p>
+                  <ol>
+                    {leaderboard.entries.map((entry) => (
+                      <li key={entry.student.id}>
+                        <b>
+                          {entry.rank}. {entry.student.fullName}
+                        </b>
+                        <span>
+                          {entry.correctCount}/{entry.totalQuestions} ·{" "}
+                          {entry.percentage.toFixed(1)}%
+                        </span>
+                        <small>
+                          {duration(entry.durationMs)} · Lượt{" "}
+                          {entry.attemptNumber}
+                        </small>
+                      </li>
+                    ))}
+                  </ol>
+                  {!leaderboard.entries.length && (
+                    <p>Chưa có kết quả để xếp hạng.</p>
+                  )}
+                </section>
+              )}
+            </>
+          )}
+        </section>
+      )}
+    </div>
+  );
 }

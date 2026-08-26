@@ -3,36 +3,225 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
+import TeacherWritingEditor from "./TeacherWritingEditor";
+import TeacherWritingGrading from "./TeacherWritingGrading";
 import WorkspacePageActions from "./WorkspacePageActions";
+import type { WritingSubmission, WritingTask } from "./writing-types";
 
 type Classroom = { id: string; code: string; name: string };
-type LessonOption = { lesson: { id: string; title: string } | null; classroom: Classroom };
-type Question = { id: string; passageId: string | null; type: string; section: string; position: number; prompt: string; explanation: string | null; points: number; required: boolean; config: Record<string, unknown> };
-type Passage = { id: string; title: string | null; content: string; position: number };
-type ReadAloudTask = { id: string; title: string | null; readingText: string; instructions: string | null; maxScore: number; maxDurationSeconds: number | null };
-type ReadAloudSubmission = { id: string; durationSeconds: number | null; submittedAt: string | null; score: number | null; feedback: string | null; gradedAt: string | null; audioUrl: string };
-type ObjectiveResult = { correctCount: number; totalQuestions: number; percentage: number };
-type QuestionResult = { isCorrect: boolean; studentAnswer: string; correctAnswer?: string; matching?: { correctPairs: number; totalPairs: number } };
-type Assignment = { id: string; classroomId: string; lessonId: string | null; title: string; description: string | null; type: string; status: string; dueAt: string | null; createdAt: string; allowLateSubmission: boolean; maxAttempts: number; timeLimitMinutes: number | null; showScoreImmediately: boolean; showLeaderboard: boolean; generationMode: "MANUAL" | "AI" | "LOCAL"; generationModel: string | null; sourceLessonIds: string[]; classroom: Classroom; lesson: { id: string; title: string } | null; questions: Question[]; passages: Passage[]; readAloudTask: ReadAloudTask | null; attemptCount: number; assignedStudentCount?: number; submittedCount?: number };
-type Results = { summary: { enrolled: number; submitted: number; notSubmitted: number; averagePercentage: number | null; highestPercentage: number | null; lowestPercentage: number | null; lateSubmissions: number }; students: { student: { id: string; fullName: string; email: string }; status: string; id?: string; attemptNumber?: number; submittedAt?: string; isLate?: boolean; objectiveResult?: ObjectiveResult; audioResult?: { status: string; score: number | null; maxScore: number } | null }[] };
-type AttemptDetail = { id: string; student: { fullName: string; email: string }; attemptNumber: number; status: string; submittedAt: string; objectiveResult: ObjectiveResult; passages: Passage[]; questions: ({ id: string; passageId: string | null; type: string; section: string; position: number; prompt: string; explanation: string | null } & QuestionResult)[]; readAloudTask: ReadAloudTask | null; readAloudSubmission: ReadAloudSubmission | null };
+type LessonOption = {
+  lesson: { id: string; title: string } | null;
+  classroom: Classroom;
+};
+type Question = {
+  id: string;
+  passageId: string | null;
+  type: string;
+  section: string;
+  position: number;
+  prompt: string;
+  explanation: string | null;
+  points: number;
+  required: boolean;
+  config: Record<string, unknown>;
+};
+type Passage = {
+  id: string;
+  title: string | null;
+  content: string;
+  position: number;
+};
+type ReadAloudTask = {
+  id: string;
+  title: string | null;
+  readingText: string;
+  instructions: string | null;
+  maxScore: number;
+  maxDurationSeconds: number | null;
+};
+type ReadAloudSubmission = {
+  id: string;
+  durationSeconds: number | null;
+  submittedAt: string | null;
+  score: number | null;
+  feedback: string | null;
+  gradedAt: string | null;
+  audioUrl: string;
+};
+type ObjectiveResult = {
+  correctCount: number;
+  totalQuestions: number;
+  percentage: number;
+};
+type QuestionResult = {
+  isCorrect: boolean;
+  studentAnswer: string;
+  correctAnswer?: string;
+  matching?: { correctPairs: number; totalPairs: number };
+};
+type Assignment = {
+  id: string;
+  classroomId: string;
+  lessonId: string | null;
+  title: string;
+  description: string | null;
+  type: string;
+  status: string;
+  dueAt: string | null;
+  createdAt: string;
+  allowLateSubmission: boolean;
+  maxAttempts: number;
+  timeLimitMinutes: number | null;
+  showScoreImmediately: boolean;
+  showLeaderboard: boolean;
+  generationMode: "MANUAL" | "AI" | "LOCAL";
+  generationModel: string | null;
+  sourceLessonIds: string[];
+  classroom: Classroom;
+  lesson: { id: string; title: string } | null;
+  questions: Question[];
+  passages: Passage[];
+  readAloudTask: ReadAloudTask | null;
+  writingTask: WritingTask | null;
+  attemptCount: number;
+  assignedStudentCount?: number;
+  submittedCount?: number;
+};
+type Results = {
+  summary: {
+    enrolled: number;
+    submitted: number;
+    notSubmitted: number;
+    averagePercentage: number | null;
+    highestPercentage: number | null;
+    lowestPercentage: number | null;
+    lateSubmissions: number;
+  };
+  students: {
+    student: { id: string; fullName: string; email: string };
+    status: string;
+    id?: string;
+    attemptNumber?: number;
+    submittedAt?: string;
+    isLate?: boolean;
+    objectiveResult?: ObjectiveResult;
+    audioResult?: {
+      status: string;
+      score: number | null;
+      maxScore: number;
+    } | null;
+    writingResult?: {
+      type: WritingTask["type"];
+      status: string;
+      essayScore: number | null;
+      translationResult: WritingSubmission["translationResult"];
+    } | null;
+  }[];
+};
+type AttemptDetail = {
+  id: string;
+  student: { fullName: string; email: string };
+  attemptNumber: number;
+  status: string;
+  submittedAt: string;
+  objectiveResult: ObjectiveResult | null;
+  passages: Passage[];
+  questions: ({
+    id: string;
+    passageId: string | null;
+    type: string;
+    section: string;
+    position: number;
+    prompt: string;
+    explanation: string | null;
+  } & QuestionResult)[];
+  readAloudTask: ReadAloudTask | null;
+  readAloudSubmission: ReadAloudSubmission | null;
+  writingTask: WritingTask | null;
+  writingSubmission: WritingSubmission | null;
+};
 type Prefill = { classroomId: string; lessonId: string; title: string } | null;
-type Leaderboard = { entries: { rank: number; student: { id: string; fullName: string }; correctCount: number; totalQuestions: number; percentage: number; durationMs: number; attemptNumber: number; submittedAt: string }[] };
+type Leaderboard = {
+  entries: {
+    rank: number;
+    student: { id: string; fullName: string };
+    correctCount: number;
+    totalQuestions: number;
+    percentage: number;
+    durationMs: number;
+    attemptNumber: number;
+    submittedAt: string;
+  }[];
+};
 type GradeStatus = { kind: "success" | "error"; text: string } | null;
 
-const typeLabels: Record<string, string> = { PRACTICE: "Luyện tập", HOMEWORK: "Bài tập về nhà", QUIZ: "Bài kiểm tra ngắn", TEST: "Bài kiểm tra", VOCAB_MULTIPLE_CHOICE: "Từ vựng · Trắc nghiệm", VOCAB_MATCHING: "Từ vựng · Nối cặp", VOCAB_FILL_BLANK: "Từ vựng · Điền từ", GRAMMAR_MULTIPLE_CHOICE: "Ngữ pháp · Trắc nghiệm", GRAMMAR_FILL_BLANK: "Ngữ pháp · Điền từ", GRAMMAR_SENTENCE_ORDER: "Ngữ pháp · Sắp xếp câu", GRAMMAR_ERROR_CORRECTION: "Ngữ pháp · Sửa lỗi", READING_MULTIPLE_CHOICE: "Reading · Trắc nghiệm", READING_TRUE_FALSE_NOT_GIVEN: "Reading · Đúng/Sai/Không có thông tin", READING_SHORT_ANSWER: "Reading · Trả lời ngắn" };
-const statusLabels: Record<string, string> = { DRAFT: "Bản nháp", PUBLISHED: "Đã xuất bản", CLOSED: "Đã đóng", ARCHIVED: "Đã lưu trữ" };
-const questionTypes = Object.keys(typeLabels).filter((key) => key.includes("_") && !["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].includes(key));
-const readingQuestionTypes = questionTypes.filter((key) => key.startsWith("READING_"));
-const vocabularyGrammarQuestionTypes = questionTypes.filter((key) => !key.startsWith("READING_"));
-const sectionFor = (type: string) => type.startsWith("VOCAB_") ? "VOCABULARY" : type.startsWith("GRAMMAR_") ? "GRAMMAR" : "READING";
-const lines = (value: string) => value.split("\n").map((item) => item.trim()).filter(Boolean);
-const vietnamDate = (value: string | null) => value ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "Không giới hạn";
-const duration = (milliseconds: number) => `${Math.floor(milliseconds / 60_000).toString().padStart(2, "0")}:${Math.floor(milliseconds % 60_000 / 1000).toString().padStart(2, "0")}`;
+const typeLabels: Record<string, string> = {
+  PRACTICE: "Luyện tập",
+  HOMEWORK: "Bài tập về nhà",
+  QUIZ: "Bài kiểm tra ngắn",
+  TEST: "Bài kiểm tra",
+  VOCAB_MULTIPLE_CHOICE: "Từ vựng · Trắc nghiệm",
+  VOCAB_MATCHING: "Từ vựng · Nối cặp",
+  VOCAB_FILL_BLANK: "Từ vựng · Điền từ",
+  GRAMMAR_MULTIPLE_CHOICE: "Ngữ pháp · Trắc nghiệm",
+  GRAMMAR_FILL_BLANK: "Ngữ pháp · Điền từ",
+  GRAMMAR_SENTENCE_ORDER: "Ngữ pháp · Sắp xếp câu",
+  GRAMMAR_ERROR_CORRECTION: "Ngữ pháp · Sửa lỗi",
+  READING_MULTIPLE_CHOICE: "Reading · Trắc nghiệm",
+  READING_TRUE_FALSE_NOT_GIVEN: "Reading · Đúng/Sai/Không có thông tin",
+  READING_SHORT_ANSWER: "Reading · Trả lời ngắn",
+};
+const statusLabels: Record<string, string> = {
+  DRAFT: "Bản nháp",
+  PUBLISHED: "Đã xuất bản",
+  CLOSED: "Đã đóng",
+  ARCHIVED: "Đã lưu trữ",
+};
+const questionTypes = Object.keys(typeLabels).filter(
+  (key) =>
+    key.includes("_") &&
+    !["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].includes(key),
+);
+const readingQuestionTypes = questionTypes.filter((key) =>
+  key.startsWith("READING_"),
+);
+const vocabularyGrammarQuestionTypes = questionTypes.filter(
+  (key) => !key.startsWith("READING_"),
+);
+const sectionFor = (type: string) =>
+  type.startsWith("VOCAB_")
+    ? "VOCABULARY"
+    : type.startsWith("GRAMMAR_")
+      ? "GRAMMAR"
+      : "READING";
+const lines = (value: string) =>
+  value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+const vietnamDate = (value: string | null) =>
+  value
+    ? new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+    : "Không giới hạn";
+const duration = (milliseconds: number) =>
+  `${Math.floor(milliseconds / 60_000)
+    .toString()
+    .padStart(2, "0")}:${Math.floor((milliseconds % 60_000) / 1000)
+    .toString()
+    .padStart(2, "0")}`;
 const localDate = (value: string | null) => {
   if (!value) return "";
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(value));
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 };
 
@@ -46,130 +235,2131 @@ const emptyQuestionDraft = (passageId = "") => ({
   correctIndex: 1,
 });
 
-function AuthenticatedAudio({ apiUrl, accessToken, path }: { apiUrl: string; accessToken: string; path: string }) {
-  const [source, setSource] = useState(""); const [message, setMessage] = useState("Đang tải bản ghi...");
-  useEffect(() => { let url = ""; let active = true; fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${accessToken}` } }).then(async (response) => { if (!response.ok) throw new Error(); url = URL.createObjectURL(await response.blob()); if (active) { setSource(url); setMessage(""); } }).catch(() => active && setMessage("Không thể tải bản ghi âm.")); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [apiUrl, accessToken, path]);
-  // Student recordings do not have a transcript track in this phase.
-  // eslint-disable-next-line jsx-a11y/media-has-caption
-  return source ? <audio controls preload="metadata" src={source}>Trình duyệt không hỗ trợ phát âm thanh.</audio> : <p className="audio-state">{message}</p>;
+function AuthenticatedAudio({
+  apiUrl,
+  accessToken,
+  path,
+}: {
+  apiUrl: string;
+  accessToken: string;
+  path: string;
+}) {
+  const [source, setSource] = useState("");
+  const [message, setMessage] = useState("Đang tải bản ghi...");
+  useEffect(() => {
+    let url = "";
+    let active = true;
+    fetch(`${apiUrl}${path}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        url = URL.createObjectURL(await response.blob());
+        if (active) {
+          setSource(url);
+          setMessage("");
+        }
+      })
+      .catch(() => active && setMessage("Không thể tải bản ghi âm."));
+    return () => {
+      active = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [apiUrl, accessToken, path]);
+  if (!source) return <p className="audio-state">{message}</p>;
+  return (
+    // Student recordings do not have a transcript track in this phase.
+    // eslint-disable-next-line jsx-a11y/media-has-caption
+    <audio controls preload="metadata" src={source}>
+      Trình duyệt không hỗ trợ phát âm thanh.
+    </audio>
+  );
 }
 
 function questionConfig(type: string, text: string, correctIndex: number) {
   const values = lines(text);
-  if (type.includes("MULTIPLE_CHOICE")) { const options = values.map((item) => ({ id: crypto.randomUUID(), text: item })); return { options, correctOptionId: options[Math.max(0, Math.min(correctIndex, options.length - 1))]?.id }; }
-  if (type === "READING_TRUE_FALSE_NOT_GIVEN") return { correctAnswer: text || "TRUE" };
-  if (type === "VOCAB_MATCHING") return { pairs: values.map((item) => { const [leftText, rightText] = item.split("=>").map((part) => part.trim()); return { leftId: crypto.randomUUID(), leftText: leftText ?? "", rightId: crypto.randomUUID(), rightText: rightText ?? "" }; }) };
-  if (type === "GRAMMAR_SENTENCE_ORDER") { const tokens = values.map((item) => ({ id: crypto.randomUUID(), text: item })); return { tokens, correctOrder: tokens.map((item) => item.id) }; }
+  if (type.includes("MULTIPLE_CHOICE")) {
+    const options = values.map((item) => ({
+      id: crypto.randomUUID(),
+      text: item,
+    }));
+    return {
+      options,
+      correctOptionId:
+        options[Math.max(0, Math.min(correctIndex, options.length - 1))]?.id,
+    };
+  }
+  if (type === "READING_TRUE_FALSE_NOT_GIVEN")
+    return { correctAnswer: text || "TRUE" };
+  if (type === "VOCAB_MATCHING")
+    return {
+      pairs: values.map((item) => {
+        const [leftText, rightText] = item
+          .split("=>")
+          .map((part) => part.trim());
+        return {
+          leftId: crypto.randomUUID(),
+          leftText: leftText ?? "",
+          rightId: crypto.randomUUID(),
+          rightText: rightText ?? "",
+        };
+      }),
+    };
+  if (type === "GRAMMAR_SENTENCE_ORDER") {
+    const tokens = values.map((item) => ({
+      id: crypto.randomUUID(),
+      text: item,
+    }));
+    return { tokens, correctOrder: tokens.map((item) => item.id) };
+  }
   return { acceptedAnswers: values, caseSensitive: false };
 }
 
 function configText(question: Question) {
   const config = question.config;
-  if (question.type.includes("MULTIPLE_CHOICE")) return Array.isArray(config.options) ? config.options.map((item) => String((item as { text: string }).text)).join("\n") : "";
-  if (question.type === "READING_TRUE_FALSE_NOT_GIVEN") return String(config.correctAnswer ?? "TRUE");
-  if (question.type === "VOCAB_MATCHING") return Array.isArray(config.pairs) ? config.pairs.map((item) => `${String((item as { leftText: string }).leftText)} => ${String((item as { rightText: string }).rightText)}`).join("\n") : "";
-  if (question.type === "GRAMMAR_SENTENCE_ORDER") return Array.isArray(config.tokens) ? config.tokens.map((item) => String((item as { text: string }).text)).join("\n") : "";
-  return Array.isArray(config.acceptedAnswers) ? config.acceptedAnswers.join("\n") : "";
+  if (question.type.includes("MULTIPLE_CHOICE"))
+    return Array.isArray(config.options)
+      ? config.options
+          .map((item) => String((item as { text: string }).text))
+          .join("\n")
+      : "";
+  if (question.type === "READING_TRUE_FALSE_NOT_GIVEN")
+    return String(config.correctAnswer ?? "TRUE");
+  if (question.type === "VOCAB_MATCHING")
+    return Array.isArray(config.pairs)
+      ? config.pairs
+          .map(
+            (item) =>
+              `${String((item as { leftText: string }).leftText)} => ${String((item as { rightText: string }).rightText)}`,
+          )
+          .join("\n")
+      : "";
+  if (question.type === "GRAMMAR_SENTENCE_ORDER")
+    return Array.isArray(config.tokens)
+      ? config.tokens
+          .map((item) => String((item as { text: string }).text))
+          .join("\n")
+      : "";
+  return Array.isArray(config.acceptedAnswers)
+    ? config.acceptedAnswers.join("\n")
+    : "";
 }
 
 function correctAnswerText(question: Question) {
   const config = question.config;
-  if (question.type.includes("MULTIPLE_CHOICE") && Array.isArray(config.options)) return String((config.options as { id: string; text: string }[]).find((option) => option.id === config.correctOptionId)?.text ?? "—");
-  if (question.type === "READING_TRUE_FALSE_NOT_GIVEN") return config.correctAnswer === "TRUE" ? "Đúng" : config.correctAnswer === "FALSE" ? "Sai" : "Không có thông tin";
-  if (question.type === "VOCAB_MATCHING" && Array.isArray(config.pairs)) return (config.pairs as { leftText: string; rightText: string }[]).map((pair) => `${pair.leftText} → ${pair.rightText}`).join("; ");
-  if (question.type === "GRAMMAR_SENTENCE_ORDER" && Array.isArray(config.tokens) && Array.isArray(config.correctOrder)) { const tokens = config.tokens as { id: string; text: string }[]; return (config.correctOrder as string[]).map((id) => tokens.find((token) => token.id === id)?.text ?? "").filter(Boolean).join(" "); }
-  return Array.isArray(config.acceptedAnswers) ? config.acceptedAnswers.map(String).join(" / ") : "—";
+  if (
+    question.type.includes("MULTIPLE_CHOICE") &&
+    Array.isArray(config.options)
+  )
+    return String(
+      (config.options as { id: string; text: string }[]).find(
+        (option) => option.id === config.correctOptionId,
+      )?.text ?? "—",
+    );
+  if (question.type === "READING_TRUE_FALSE_NOT_GIVEN")
+    return config.correctAnswer === "TRUE"
+      ? "Đúng"
+      : config.correctAnswer === "FALSE"
+        ? "Sai"
+        : "Không có thông tin";
+  if (question.type === "VOCAB_MATCHING" && Array.isArray(config.pairs))
+    return (config.pairs as { leftText: string; rightText: string }[])
+      .map((pair) => `${pair.leftText} → ${pair.rightText}`)
+      .join("; ");
+  if (
+    question.type === "GRAMMAR_SENTENCE_ORDER" &&
+    Array.isArray(config.tokens) &&
+    Array.isArray(config.correctOrder)
+  ) {
+    const tokens = config.tokens as { id: string; text: string }[];
+    return (config.correctOrder as string[])
+      .map((id) => tokens.find((token) => token.id === id)?.text ?? "")
+      .filter(Boolean)
+      .join(" ");
+  }
+  return Array.isArray(config.acceptedAnswers)
+    ? config.acceptedAnswers.map(String).join(" / ")
+    : "—";
 }
 
-export default function TeacherAssignmentManager({ apiUrl, accessToken, onBack, initialPrefill, onPrefillConsumed }: { apiUrl: string; accessToken: string; onBack: () => void; initialPrefill?: Prefill; onPrefillConsumed?: () => void }) {
-  const [items, setItems] = useState<Assignment[]>([]); const [classes, setClasses] = useState<Classroom[]>([]); const [lessons, setLessons] = useState<LessonOption[]>([]);
-  const [current, setCurrent] = useState<Assignment | null>(null); const [results, setResults] = useState<Results | null>(null); const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null); const [attemptDetail, setAttemptDetail] = useState<AttemptDetail | null>(null); const [mode, setMode] = useState<"list" | "quick" | "editor" | "results">("list");
-  const [busy, setBusy] = useState(""); const [feedback, setFeedback] = useState(""); const [error, setError] = useState(""); const [search, setSearch] = useState(""); const [dateRange, setDateRange] = useState<"RECENT" | "ALL">("RECENT"); const [recentThreshold] = useState(() => Date.now() - 14 * 24 * 60 * 60 * 1000); const [filters, setFilters] = useState({ classroomId: "", lessonId: "", type: "", status: "" });
-  const [createForm, setCreateForm] = useState({ classroomId: initialPrefill?.classroomId ?? "", lessonId: initialPrefill?.lessonId ?? "", title: initialPrefill ? `Bài tập: ${initialPrefill.title}` : "", type: "HOMEWORK" });
-  const [quickForm, setQuickForm] = useState({ classroomId: "", sourceMode: "RECENT", recentLessons: 3, lessonId: "", questionCount: 20, maxAttempts: 3, timeLimitMinutes: "", showLeaderboard: true });
+export default function TeacherAssignmentManager({
+  apiUrl,
+  accessToken,
+  onBack,
+  initialPrefill,
+  onPrefillConsumed,
+}: {
+  apiUrl: string;
+  accessToken: string;
+  onBack: () => void;
+  initialPrefill?: Prefill;
+  onPrefillConsumed?: () => void;
+}) {
+  const [items, setItems] = useState<Assignment[]>([]);
+  const [classes, setClasses] = useState<Classroom[]>([]);
+  const [lessons, setLessons] = useState<LessonOption[]>([]);
+  const [current, setCurrent] = useState<Assignment | null>(null);
+  const [results, setResults] = useState<Results | null>(null);
+  const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null);
+  const [attemptDetail, setAttemptDetail] = useState<AttemptDetail | null>(
+    null,
+  );
+  const [mode, setMode] = useState<"list" | "quick" | "editor" | "results">(
+    "list",
+  );
+  const [busy, setBusy] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<"RECENT" | "ALL">("RECENT");
+  const [recentThreshold] = useState(
+    () => Date.now() - 14 * 24 * 60 * 60 * 1000,
+  );
+  const [filters, setFilters] = useState({
+    classroomId: "",
+    lessonId: "",
+    type: "",
+    status: "",
+  });
+  const [createForm, setCreateForm] = useState({
+    classroomId: initialPrefill?.classroomId ?? "",
+    lessonId: initialPrefill?.lessonId ?? "",
+    title: initialPrefill ? `Bài tập: ${initialPrefill.title}` : "",
+    type: "HOMEWORK",
+  });
+  const [quickForm, setQuickForm] = useState({
+    classroomId: "",
+    sourceMode: "RECENT",
+    recentLessons: 3,
+    lessonId: "",
+    questionCount: 20,
+    maxAttempts: 3,
+    timeLimitMinutes: "",
+    showLeaderboard: true,
+  });
   const [questionDraft, setQuestionDraft] = useState(emptyQuestionDraft);
   const [readingEnabled, setReadingEnabled] = useState(false);
-  const [vocabularyGrammarEnabled, setVocabularyGrammarEnabled] = useState(false);
+  const [vocabularyGrammarEnabled, setVocabularyGrammarEnabled] =
+    useState(false);
   const [passageDraft, setPassageDraft] = useState({ title: "", content: "" });
-  const [readAloud, setReadAloud] = useState({ enabled: false, title: "", readingText: "", instructions: "", maxScore: 10, maxDurationSeconds: 300 });
+  const [readAloud, setReadAloud] = useState({
+    enabled: false,
+    title: "",
+    readingText: "",
+    instructions: "",
+    maxScore: 10,
+    maxDurationSeconds: 300,
+  });
   const [gradeDraft, setGradeDraft] = useState({ score: "", feedback: "" });
   const [gradeStatus, setGradeStatus] = useState<GradeStatus>(null);
-  const api = useCallback(async <T,>(path: string, init?: RequestInit) => { const response = await fetch(`${apiUrl}${path}`, { ...init, headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...init?.headers } }); const body = await response.json().catch(() => null); if (!response.ok) throw new Error(Array.isArray(body?.message) ? body.message.join(" ") : body?.message ?? "Không thể xử lý bài tập."); return body as T; }, [apiUrl, accessToken]);
-  const fetchAssignments = useCallback(async () => { const collected: Assignment[] = []; let page = 1; let totalPages = 1; do { const params = new URLSearchParams({ pageSize: "100", page: String(page) }); Object.entries(filters).forEach(([key, value]) => value && params.set(key, value)); const value = await api<{ items: Assignment[]; totalPages: number }>(`/assignments?${params}`); collected.push(...value.items); totalPages = value.totalPages; page += 1; } while (page <= totalPages); return collected; }, [api, filters]);
-  const load = useCallback(async () => { setItems(await fetchAssignments()); }, [fetchAssignments]);
-  useEffect(() => { Promise.all([api<Classroom[]>("/classes"), api<{ items: LessonOption[] }>("/teacher/lessons?pageSize=100")]).then(([classItems, lessonItems]) => { setClasses(classItems); setLessons(lessonItems.items); }).catch((reason: Error) => setError(reason.message)); }, [api]);
-  useEffect(() => { fetchAssignments().then(setItems).catch((reason: Error) => setError(reason.message)); }, [fetchAssignments]);
-  const filteredLessons = useMemo(() => lessons.filter((item) => item.lesson && (!createForm.classroomId || item.classroom.id === createForm.classroomId)), [lessons, createForm.classroomId]);
-  const quickLessons = useMemo(() => lessons.filter((item) => item.lesson && item.classroom.id === quickForm.classroomId), [lessons, quickForm.classroomId]);
-  async function create(event: FormEvent) { event.preventDefault(); setBusy("create"); setError(""); try { const value = await api<Assignment>("/assignments", { method: "POST", body: JSON.stringify({ ...createForm, lessonId: createForm.lessonId || null, description: null, dueAt: null, allowLateSubmission: false, maxAttempts: 1, showScoreImmediately: true }) }); acceptCurrent(value); setMode("editor"); setFeedback("✓ Đã tạo bản nháp."); onPrefillConsumed?.(); await load(); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  function acceptCurrent(value: Assignment) { setCurrent(value); setReadingEnabled(value.passages.length > 0 || value.questions.some((question) => Boolean(question.passageId))); setVocabularyGrammarEnabled(value.questions.some((question) => !question.passageId)); if (value.generationMode !== "MANUAL") setQuickForm((form) => ({ ...form, classroomId: value.classroomId, sourceMode: value.sourceLessonIds.length === 1 ? "SELECTED" : "RECENT", lessonId: value.sourceLessonIds[0] ?? "", maxAttempts: value.maxAttempts, timeLimitMinutes: value.timeLimitMinutes?.toString() ?? "", showLeaderboard: value.showLeaderboard })); const task = value.readAloudTask; setReadAloud(task ? { enabled: true, title: task.title ?? "", readingText: task.readingText, instructions: task.instructions ?? "", maxScore: task.maxScore, maxDurationSeconds: task.maxDurationSeconds ?? 300 } : { enabled: false, title: "", readingText: "", instructions: "", maxScore: 10, maxDurationSeconds: 300 }); }
-  async function open(id: string) { setBusy("open"); try { const value = await api<Assignment>(`/assignments/${id}`); acceptCurrent(value); setMode("editor"); setResults(value.status === "DRAFT" ? null : await api(`/assignments/${id}/results`)); setFeedback(""); setError(""); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function save(event: FormEvent) { event.preventDefault(); if (!current) return; setBusy("save"); try { const value = await api<Assignment>(`/assignments/${current.id}`, { method: "PATCH", body: JSON.stringify({ classroomId: current.classroomId, lessonId: current.lessonId, title: current.title, description: current.description, type: current.type, dueAt: current.dueAt, allowLateSubmission: current.allowLateSubmission, maxAttempts: current.maxAttempts, showScoreImmediately: current.showScoreImmediately }) }); setCurrent(value); setFeedback("✓ Đã lưu bản nháp."); await load(); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function transition(action: "publish" | "close" | "archive") { if (!current) return; setBusy(action); try { const value = await api<Assignment>(`/assignments/${current.id}/${action}`, { method: "POST" }); setCurrent(value); setFeedback(action === "publish" ? "✓ Đã xuất bản." : action === "close" ? "✓ Đã đóng bài tập." : "✓ Đã lưu trữ."); await load(); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function removeAssignment(item: Assignment) { if (!confirm(`Xóa bản nháp “${item.title}”?`)) return; try { await api(`/assignments/${item.id}`, { method: "DELETE" }); if (current?.id === item.id) { setCurrent(null); setMode("list"); } await load(); } catch (reason) { setError((reason as Error).message); } }
-  async function saveQuestion(event: FormEvent) { event.preventDefault(); if (!current) return; setBusy("question"); try { const body = { type: questionDraft.type, section: sectionFor(questionDraft.type), passageId: questionDraft.passageId || null, prompt: questionDraft.prompt, explanation: questionDraft.explanation || null, points: 1, required: true, config: questionConfig(questionDraft.type, questionDraft.configText, questionDraft.correctIndex - 1) }; const path = questionDraft.id ? `/assignments/${current.id}/questions/${questionDraft.id}` : `/assignments/${current.id}/questions`; await api(path, { method: questionDraft.id ? "PATCH" : "POST", body: JSON.stringify(body) }); await open(current.id); setQuestionDraft(emptyQuestionDraft()); setFeedback("✓ Đã lưu câu hỏi."); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  function editQuestion(question: Question) { const options = Array.isArray(question.config.options) ? question.config.options as { id: string }[] : []; setQuestionDraft({ id: question.id, type: question.type, prompt: question.prompt, explanation: question.explanation ?? "", passageId: question.passageId ?? "", configText: configText(question), correctIndex: Math.max(1, options.findIndex((option) => option.id === question.config.correctOptionId) + 1) }); setFeedback(`Đáp án: ${correctAnswerText(question)}`); }
-  async function deleteQuestion(id: string) { if (!current || !confirm("Xóa câu hỏi này?")) return; await api(`/assignments/${current.id}/questions/${id}`, { method: "DELETE" }); await open(current.id); }
-  async function moveQuestion(index: number, direction: number) { if (!current) return; const ids = current.questions.map((item) => item.id); const target = index + direction; if (target < 0 || target >= ids.length) return; [ids[index], ids[target]] = [ids[target]!, ids[index]!]; await api(`/assignments/${current.id}/questions/reorder`, { method: "POST", body: JSON.stringify({ ids }) }); await open(current.id); }
-  async function addPassage(event: FormEvent) { event.preventDefault(); if (!current) return; setBusy("passage"); try { await api(`/assignments/${current.id}/passages`, { method: "POST", body: JSON.stringify(passageDraft) }); await open(current.id); setPassageDraft({ title: "", content: "" }); setFeedback("✓ Đã thêm đoạn đọc."); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  function addQuestionForPassage(passageId: string) { setQuestionDraft(emptyQuestionDraft(passageId)); window.setTimeout(() => document.getElementById("assignment-question-builder")?.scrollIntoView({ behavior: "smooth", block: "start" })); }
-  function toggleReading(enabled: boolean) { if (!current) return; if (!enabled && (current.passages.length > 0 || current.questions.some((question) => Boolean(question.passageId)))) { setError("Reading đang có nội dung. Hãy xóa các đoạn đọc và câu hỏi liên quan trước khi bỏ chọn."); return; } setError(""); setReadingEnabled(enabled); if (!enabled && questionDraft.passageId) setQuestionDraft(emptyQuestionDraft()); }
-  function toggleVocabularyGrammar(enabled: boolean) { if (!current) return; if (!enabled && current.questions.some((question) => !question.passageId)) { setError("Vocabulary - Grammar đang có câu hỏi. Hãy xóa các câu hỏi này trước khi bỏ chọn."); return; } setError(""); setVocabularyGrammarEnabled(enabled); if (!enabled && !questionDraft.passageId) setQuestionDraft(emptyQuestionDraft()); }
-  async function deletePassage(passage: Passage) { if (!current) return; const linkedCount = current.questions.filter((question) => question.passageId === passage.id).length; if (linkedCount) { setError(`Bài đọc đang có ${linkedCount} câu hỏi. Hãy chuyển, tách hoặc xóa các câu hỏi đó trước.`); return; } if (!confirm(`Xóa “${passage.title || "Bài đọc"}”?`)) return; setBusy(`delete-passage-${passage.id}`); try { await api(`/assignments/${current.id}/passages/${passage.id}`, { method: "DELETE" }); await open(current.id); setFeedback("✓ Đã xóa bài đọc."); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function generateQuickQuiz(event?: FormEvent, regenerate = false) { event?.preventDefault(); if (regenerate && (!current || !confirm("Tạo lại sẽ thay thế các câu hỏi hiện tại của bản nháp."))) return; setBusy("quick"); setError(""); try { const body = { classroomId: regenerate ? current!.classroomId : quickForm.classroomId, sourceMode: quickForm.sourceMode, ...(quickForm.sourceMode === "SELECTED" ? { lessonIds: [quickForm.lessonId] } : { recentLessons: Number(quickForm.recentLessons) }), questionCount: Number(quickForm.questionCount), maxAttempts: Number(quickForm.maxAttempts), timeLimitMinutes: quickForm.timeLimitMinutes ? Number(quickForm.timeLimitMinutes) : null, showLeaderboard: quickForm.showLeaderboard }; const path = regenerate ? `/quick-quizzes/${current!.id}/regenerate` : "/quick-quizzes"; const value = await api<{ assignmentId: string; message: string }>(path, { method: "POST", body: JSON.stringify(body) }); await open(value.assignmentId); setFeedback(`✓ ${value.message} Vui lòng kiểm tra trước khi xuất bản.`); await load(); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function showResults(item: Assignment) { setBusy("results"); try { const detail = await api<Assignment>(`/assignments/${item.id}`); acceptCurrent(detail); setResults(await api(`/assignments/${item.id}/results`)); setLeaderboard(detail.generationMode === "MANUAL" ? null : await api(`/assignments/${item.id}/leaderboard`)); setAttemptDetail(null); setMode("results"); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function showAttempt(id: string) { if (!current) return; try { const value = await api<AttemptDetail>(`/assignments/${current.id}/attempts/${id}`); setAttemptDetail(value); if (value.readAloudSubmission) { setGradeDraft({ score: value.readAloudSubmission.score?.toString() ?? "", feedback: value.readAloudSubmission.feedback ?? "" }); setGradeStatus(value.readAloudSubmission.gradedAt ? { kind: "success", text: `Đánh giá đã lưu lúc ${vietnamDate(value.readAloudSubmission.gradedAt)}.` } : null); } else setGradeStatus(null); } catch (reason) { setError((reason as Error).message); } }
-  async function saveReadAloud() { if (!current) return; setBusy("read-aloud"); setError(""); try { if (!readAloud.enabled) { if (current.readAloudTask) await api(`/assignments/${current.id}/read-aloud`, { method: "DELETE" }); } else { await api(`/assignments/${current.id}/read-aloud`, { method: "PUT", body: JSON.stringify({ title: readAloud.title || null, readingText: readAloud.readingText, instructions: readAloud.instructions || null, maxScore: Number(readAloud.maxScore), maxDurationSeconds: Number(readAloud.maxDurationSeconds) }) }); } await open(current.id); setFeedback("✓ Đã lưu cấu hình Speaking."); } catch (reason) { setError((reason as Error).message); } finally { setBusy(""); } }
-  async function saveGrade() { if (!current || !attemptDetail?.readAloudSubmission) return; setBusy("grade"); setError(""); setGradeStatus(null); try { const saved = await api<ReadAloudSubmission>(`/assignments/${current.id}/read-aloud/submissions/${attemptDetail.readAloudSubmission.id}/grade`, { method: "PATCH", body: JSON.stringify({ score: Number(gradeDraft.score), feedback: gradeDraft.feedback || null }) }); setAttemptDetail({ ...attemptDetail, readAloudSubmission: saved }); setGradeDraft({ score: saved.score?.toString() ?? "", feedback: saved.feedback ?? "" }); setGradeStatus({ kind: "success", text: `✓ Đã lưu đánh giá lúc ${vietnamDate(saved.gradedAt)}.` }); setResults(await api(`/assignments/${current.id}/results`)); } catch (reason) { const message = (reason as Error).message; const safeMessage = message && message !== "Không thể xử lý bài tập." ? message : "Không thể lưu đánh giá. Vui lòng thử lại."; setError(safeMessage); setGradeStatus({ kind: "error", text: safeMessage }); } finally { setBusy(""); } }
-  const visibleItems = useMemo(() => items.filter((item) => item.title.toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi")) && (dateRange === "ALL" || new Date(item.createdAt).getTime() >= recentThreshold)), [dateRange, items, recentThreshold, search]);
-  const readAloudComplete = !readAloud.enabled || Boolean(readAloud.readingText.trim() && Number(readAloud.maxScore) > 0);
-  const canPublish = Boolean(current?.title.trim() && (current.questions.length || current.readAloudTask));
-  const publishHint = readAloud.enabled && !current?.readAloudTask ? "Hãy lưu Speaking trước khi xuất bản." : !readAloudComplete ? "Cần nhập nội dung Speaking trước khi xuất bản." : "Cần nhập tiêu đề và ít nhất một câu hỏi hoặc nội dung Speaking trước khi xuất bản.";
+  const api = useCallback(
+    async <T,>(path: string, init?: RequestInit) => {
+      const response = await fetch(`${apiUrl}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          ...init?.headers,
+        },
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok)
+        throw new Error(
+          Array.isArray(body?.message)
+            ? body.message.join(" ")
+            : (body?.message ?? "Không thể xử lý bài tập."),
+        );
+      return body as T;
+    },
+    [apiUrl, accessToken],
+  );
+  const fetchAssignments = useCallback(async () => {
+    const collected: Assignment[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const params = new URLSearchParams({
+        pageSize: "100",
+        page: String(page),
+      });
+      Object.entries(filters).forEach(
+        ([key, value]) => value && params.set(key, value),
+      );
+      const value = await api<{ items: Assignment[]; totalPages: number }>(
+        `/assignments?${params}`,
+      );
+      collected.push(...value.items);
+      totalPages = value.totalPages;
+      page += 1;
+    } while (page <= totalPages);
+    return collected;
+  }, [api, filters]);
+  const load = useCallback(async () => {
+    setItems(await fetchAssignments());
+  }, [fetchAssignments]);
+  useEffect(() => {
+    Promise.all([
+      api<Classroom[]>("/classes"),
+      api<{ items: LessonOption[] }>("/teacher/lessons?pageSize=100"),
+    ])
+      .then(([classItems, lessonItems]) => {
+        setClasses(classItems);
+        setLessons(lessonItems.items);
+      })
+      .catch((reason: Error) => setError(reason.message));
+  }, [api]);
+  useEffect(() => {
+    fetchAssignments()
+      .then(setItems)
+      .catch((reason: Error) => setError(reason.message));
+  }, [fetchAssignments]);
+  const filteredLessons = useMemo(
+    () =>
+      lessons.filter(
+        (item) =>
+          item.lesson &&
+          (!createForm.classroomId ||
+            item.classroom.id === createForm.classroomId),
+      ),
+    [lessons, createForm.classroomId],
+  );
+  const quickLessons = useMemo(
+    () =>
+      lessons.filter(
+        (item) => item.lesson && item.classroom.id === quickForm.classroomId,
+      ),
+    [lessons, quickForm.classroomId],
+  );
+  async function create(event: FormEvent) {
+    event.preventDefault();
+    setBusy("create");
+    setError("");
+    try {
+      const value = await api<Assignment>("/assignments", {
+        method: "POST",
+        body: JSON.stringify({
+          ...createForm,
+          lessonId: createForm.lessonId || null,
+          description: null,
+          dueAt: null,
+          allowLateSubmission: false,
+          maxAttempts: 1,
+          showScoreImmediately: true,
+        }),
+      });
+      acceptCurrent(value);
+      setMode("editor");
+      setFeedback("✓ Đã tạo bản nháp.");
+      onPrefillConsumed?.();
+      await load();
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  function acceptCurrent(value: Assignment) {
+    setCurrent(value);
+    setReadingEnabled(
+      value.passages.length > 0 ||
+        value.questions.some((question) => Boolean(question.passageId)),
+    );
+    setVocabularyGrammarEnabled(
+      value.questions.some((question) => !question.passageId),
+    );
+    if (value.generationMode !== "MANUAL")
+      setQuickForm((form) => ({
+        ...form,
+        classroomId: value.classroomId,
+        sourceMode: value.sourceLessonIds.length === 1 ? "SELECTED" : "RECENT",
+        lessonId: value.sourceLessonIds[0] ?? "",
+        maxAttempts: value.maxAttempts,
+        timeLimitMinutes: value.timeLimitMinutes?.toString() ?? "",
+        showLeaderboard: value.showLeaderboard,
+      }));
+    const task = value.readAloudTask;
+    setReadAloud(
+      task
+        ? {
+            enabled: true,
+            title: task.title ?? "",
+            readingText: task.readingText,
+            instructions: task.instructions ?? "",
+            maxScore: task.maxScore,
+            maxDurationSeconds: task.maxDurationSeconds ?? 300,
+          }
+        : {
+            enabled: false,
+            title: "",
+            readingText: "",
+            instructions: "",
+            maxScore: 10,
+            maxDurationSeconds: 300,
+          },
+    );
+  }
+  async function open(id: string) {
+    setBusy("open");
+    try {
+      const value = await api<Assignment>(`/assignments/${id}`);
+      acceptCurrent(value);
+      setMode("editor");
+      setResults(
+        value.status === "DRAFT"
+          ? null
+          : await api(`/assignments/${id}/results`),
+      );
+      setFeedback("");
+      setError("");
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (!current) return;
+    setBusy("save");
+    try {
+      const value = await api<Assignment>(`/assignments/${current.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          classroomId: current.classroomId,
+          lessonId: current.lessonId,
+          title: current.title,
+          description: current.description,
+          type: current.type,
+          dueAt: current.dueAt,
+          allowLateSubmission: current.allowLateSubmission,
+          maxAttempts: current.maxAttempts,
+          showScoreImmediately: current.showScoreImmediately,
+        }),
+      });
+      setCurrent(value);
+      setFeedback("✓ Đã lưu bản nháp.");
+      await load();
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function transition(action: "publish" | "close" | "archive") {
+    if (!current) return;
+    setBusy(action);
+    try {
+      const value = await api<Assignment>(
+        `/assignments/${current.id}/${action}`,
+        { method: "POST" },
+      );
+      setCurrent(value);
+      setFeedback(
+        action === "publish"
+          ? "✓ Đã xuất bản."
+          : action === "close"
+            ? "✓ Đã đóng bài tập."
+            : "✓ Đã lưu trữ.",
+      );
+      await load();
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function removeAssignment(item: Assignment) {
+    if (!confirm(`Xóa bản nháp “${item.title}”?`)) return;
+    try {
+      await api(`/assignments/${item.id}`, { method: "DELETE" });
+      if (current?.id === item.id) {
+        setCurrent(null);
+        setMode("list");
+      }
+      await load();
+    } catch (reason) {
+      setError((reason as Error).message);
+    }
+  }
+  async function saveQuestion(event: FormEvent) {
+    event.preventDefault();
+    if (!current) return;
+    setBusy("question");
+    try {
+      const body = {
+        type: questionDraft.type,
+        section: sectionFor(questionDraft.type),
+        passageId: questionDraft.passageId || null,
+        prompt: questionDraft.prompt,
+        explanation: questionDraft.explanation || null,
+        points: 1,
+        required: true,
+        config: questionConfig(
+          questionDraft.type,
+          questionDraft.configText,
+          questionDraft.correctIndex - 1,
+        ),
+      };
+      const path = questionDraft.id
+        ? `/assignments/${current.id}/questions/${questionDraft.id}`
+        : `/assignments/${current.id}/questions`;
+      await api(path, {
+        method: questionDraft.id ? "PATCH" : "POST",
+        body: JSON.stringify(body),
+      });
+      await open(current.id);
+      setQuestionDraft(emptyQuestionDraft());
+      setFeedback("✓ Đã lưu câu hỏi.");
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  function editQuestion(question: Question) {
+    const options = Array.isArray(question.config.options)
+      ? (question.config.options as { id: string }[])
+      : [];
+    setQuestionDraft({
+      id: question.id,
+      type: question.type,
+      prompt: question.prompt,
+      explanation: question.explanation ?? "",
+      passageId: question.passageId ?? "",
+      configText: configText(question),
+      correctIndex: Math.max(
+        1,
+        options.findIndex(
+          (option) => option.id === question.config.correctOptionId,
+        ) + 1,
+      ),
+    });
+    setFeedback(`Đáp án: ${correctAnswerText(question)}`);
+  }
+  async function deleteQuestion(id: string) {
+    if (!current || !confirm("Xóa câu hỏi này?")) return;
+    await api(`/assignments/${current.id}/questions/${id}`, {
+      method: "DELETE",
+    });
+    await open(current.id);
+  }
+  async function moveQuestion(index: number, direction: number) {
+    if (!current) return;
+    const ids = current.questions.map((item) => item.id);
+    const target = index + direction;
+    if (target < 0 || target >= ids.length) return;
+    [ids[index], ids[target]] = [ids[target]!, ids[index]!];
+    await api(`/assignments/${current.id}/questions/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
+    await open(current.id);
+  }
+  async function addPassage(event: FormEvent) {
+    event.preventDefault();
+    if (!current) return;
+    setBusy("passage");
+    try {
+      await api(`/assignments/${current.id}/passages`, {
+        method: "POST",
+        body: JSON.stringify(passageDraft),
+      });
+      await open(current.id);
+      setPassageDraft({ title: "", content: "" });
+      setFeedback("✓ Đã thêm đoạn đọc.");
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  function addQuestionForPassage(passageId: string) {
+    setQuestionDraft(emptyQuestionDraft(passageId));
+    window.setTimeout(() =>
+      document
+        .getElementById("assignment-question-builder")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
+  function toggleReading(enabled: boolean) {
+    if (!current) return;
+    if (
+      !enabled &&
+      (current.passages.length > 0 ||
+        current.questions.some((question) => Boolean(question.passageId)))
+    ) {
+      setError(
+        "Reading đang có nội dung. Hãy xóa các đoạn đọc và câu hỏi liên quan trước khi bỏ chọn.",
+      );
+      return;
+    }
+    setError("");
+    setReadingEnabled(enabled);
+    if (!enabled && questionDraft.passageId)
+      setQuestionDraft(emptyQuestionDraft());
+  }
+  function toggleVocabularyGrammar(enabled: boolean) {
+    if (!current) return;
+    if (!enabled && current.questions.some((question) => !question.passageId)) {
+      setError(
+        "Vocabulary - Grammar đang có câu hỏi. Hãy xóa các câu hỏi này trước khi bỏ chọn.",
+      );
+      return;
+    }
+    setError("");
+    setVocabularyGrammarEnabled(enabled);
+    if (!enabled && !questionDraft.passageId)
+      setQuestionDraft(emptyQuestionDraft());
+  }
+  async function deletePassage(passage: Passage) {
+    if (!current) return;
+    const linkedCount = current.questions.filter(
+      (question) => question.passageId === passage.id,
+    ).length;
+    if (linkedCount) {
+      setError(
+        `Bài đọc đang có ${linkedCount} câu hỏi. Hãy chuyển, tách hoặc xóa các câu hỏi đó trước.`,
+      );
+      return;
+    }
+    if (!confirm(`Xóa “${passage.title || "Bài đọc"}”?`)) return;
+    setBusy(`delete-passage-${passage.id}`);
+    try {
+      await api(`/assignments/${current.id}/passages/${passage.id}`, {
+        method: "DELETE",
+      });
+      await open(current.id);
+      setFeedback("✓ Đã xóa bài đọc.");
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function generateQuickQuiz(event?: FormEvent, regenerate = false) {
+    event?.preventDefault();
+    if (
+      regenerate &&
+      (!current ||
+        !confirm("Tạo lại sẽ thay thế các câu hỏi hiện tại của bản nháp."))
+    )
+      return;
+    setBusy("quick");
+    setError("");
+    try {
+      const body = {
+        classroomId: regenerate ? current!.classroomId : quickForm.classroomId,
+        sourceMode: quickForm.sourceMode,
+        ...(quickForm.sourceMode === "SELECTED"
+          ? { lessonIds: [quickForm.lessonId] }
+          : { recentLessons: Number(quickForm.recentLessons) }),
+        questionCount: Number(quickForm.questionCount),
+        maxAttempts: Number(quickForm.maxAttempts),
+        timeLimitMinutes: quickForm.timeLimitMinutes
+          ? Number(quickForm.timeLimitMinutes)
+          : null,
+        showLeaderboard: quickForm.showLeaderboard,
+      };
+      const path = regenerate
+        ? `/quick-quizzes/${current!.id}/regenerate`
+        : "/quick-quizzes";
+      const value = await api<{ assignmentId: string; message: string }>(path, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      await open(value.assignmentId);
+      setFeedback(`✓ ${value.message} Vui lòng kiểm tra trước khi xuất bản.`);
+      await load();
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function showResults(item: Assignment) {
+    setBusy("results");
+    try {
+      const detail = await api<Assignment>(`/assignments/${item.id}`);
+      acceptCurrent(detail);
+      setResults(await api(`/assignments/${item.id}/results`));
+      setLeaderboard(
+        detail.generationMode === "MANUAL"
+          ? null
+          : await api(`/assignments/${item.id}/leaderboard`),
+      );
+      setAttemptDetail(null);
+      setMode("results");
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function showAttempt(id: string) {
+    if (!current) return;
+    try {
+      const value = await api<AttemptDetail>(
+        `/assignments/${current.id}/attempts/${id}`,
+      );
+      setAttemptDetail(value);
+      if (value.readAloudSubmission) {
+        setGradeDraft({
+          score: value.readAloudSubmission.score?.toString() ?? "",
+          feedback: value.readAloudSubmission.feedback ?? "",
+        });
+        setGradeStatus(
+          value.readAloudSubmission.gradedAt
+            ? {
+                kind: "success",
+                text: `Đánh giá đã lưu lúc ${vietnamDate(value.readAloudSubmission.gradedAt)}.`,
+              }
+            : null,
+        );
+      } else setGradeStatus(null);
+    } catch (reason) {
+      setError((reason as Error).message);
+    }
+  }
+  async function saveReadAloud() {
+    if (!current) return;
+    setBusy("read-aloud");
+    setError("");
+    try {
+      if (!readAloud.enabled) {
+        if (current.readAloudTask)
+          await api(`/assignments/${current.id}/read-aloud`, {
+            method: "DELETE",
+          });
+      } else {
+        await api(`/assignments/${current.id}/read-aloud`, {
+          method: "PUT",
+          body: JSON.stringify({
+            title: readAloud.title || null,
+            readingText: readAloud.readingText,
+            instructions: readAloud.instructions || null,
+            maxScore: Number(readAloud.maxScore),
+            maxDurationSeconds: Number(readAloud.maxDurationSeconds),
+          }),
+        });
+      }
+      await open(current.id);
+      setFeedback("✓ Đã lưu cấu hình Speaking.");
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+  async function saveGrade() {
+    if (!current || !attemptDetail?.readAloudSubmission) return;
+    setBusy("grade");
+    setError("");
+    setGradeStatus(null);
+    try {
+      const saved = await api<ReadAloudSubmission>(
+        `/assignments/${current.id}/read-aloud/submissions/${attemptDetail.readAloudSubmission.id}/grade`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            score: Number(gradeDraft.score),
+            feedback: gradeDraft.feedback || null,
+          }),
+        },
+      );
+      setAttemptDetail({ ...attemptDetail, readAloudSubmission: saved });
+      setGradeDraft({
+        score: saved.score?.toString() ?? "",
+        feedback: saved.feedback ?? "",
+      });
+      setGradeStatus({
+        kind: "success",
+        text: `✓ Đã lưu đánh giá lúc ${vietnamDate(saved.gradedAt)}.`,
+      });
+      setResults(await api(`/assignments/${current.id}/results`));
+    } catch (reason) {
+      const message = (reason as Error).message;
+      const safeMessage =
+        message && message !== "Không thể xử lý bài tập."
+          ? message
+          : "Không thể lưu đánh giá. Vui lòng thử lại.";
+      setError(safeMessage);
+      setGradeStatus({ kind: "error", text: safeMessage });
+    } finally {
+      setBusy("");
+    }
+  }
+  const visibleItems = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.title
+            .toLocaleLowerCase("vi")
+            .includes(search.trim().toLocaleLowerCase("vi")) &&
+          (dateRange === "ALL" ||
+            new Date(item.createdAt).getTime() >= recentThreshold),
+      ),
+    [dateRange, items, recentThreshold, search],
+  );
+  const readAloudComplete =
+    !readAloud.enabled ||
+    Boolean(readAloud.readingText.trim() && Number(readAloud.maxScore) > 0);
+  const canPublish = Boolean(
+    current?.title.trim() &&
+      (current.questions.length ||
+        current.readAloudTask ||
+        current.writingTask),
+  );
+  const publishHint =
+    readAloud.enabled && !current?.readAloudTask
+      ? "Hãy lưu Speaking trước khi xuất bản."
+      : !readAloudComplete
+        ? "Cần nhập nội dung Speaking trước khi xuất bản."
+        : "Cần nhập tiêu đề và ít nhất một câu hỏi, nội dung Speaking hoặc Writing trước khi xuất bản.";
   const isReadingQuestion = Boolean(questionDraft.passageId);
   const editorQuestionTypes = isReadingQuestion
     ? readingQuestionTypes
     : questionDraft.type.startsWith("READING_")
       ? [questionDraft.type, ...vocabularyGrammarQuestionTypes]
       : vocabularyGrammarQuestionTypes;
-  const handleBack = () => { if (mode === "results") { setMode("editor"); setAttemptDetail(null); return; } if (mode !== "list") { setMode("list"); return; } onBack(); };
+  const handleBack = () => {
+    if (mode === "results") {
+      setMode("editor");
+      setAttemptDetail(null);
+      return;
+    }
+    if (mode !== "list") {
+      setMode("list");
+      return;
+    }
+    onBack();
+  };
 
-  return <div className="assignment-manager"><div className="manager-heading"><div><WorkspacePageActions onBack={handleBack} /><h1 className="manager-title-path"><span>Quản lý bài tập</span>{mode === "results" && <><i aria-hidden="true">›</i><strong>Kết quả bài tập</strong></>}{mode === "quick" && <><i aria-hidden="true">›</i><strong>Tạo Quick Quiz</strong></>}</h1>{mode !== "results" && <p className="manager-description">Tạo nội dung, giao bài và theo dõi kết quả học tập.</p>}</div>{mode === "list" ? <button className="secondary-action quick-quiz-button" onClick={() => setMode("quick")}>⚡ Tạo Quick Quiz</button> : <button className="secondary-action" onClick={() => setMode("list")}>Danh sách bài tập</button>}</div>{mode === "results" && current && <section className="assignment-result-context"><div><span>Lớp học</span><strong>{current.classroom.name}</strong><small>{current.classroom.code}</small></div><div><span>Tên bài tập</span><strong>{current.title}</strong><small>{typeLabels[current.type]}</small></div><div><span>Bài học</span><strong>{current.lesson?.title ?? "Không liên kết bài học"}</strong><small>{current.lesson ? "Đã liên kết" : "Bài tập độc lập"}</small></div><button type="button" onClick={() => setMode("editor")}>Xem nội dung bài tập</button></section>}{error && <p className="admin-error">{error}</p>}{feedback && <p className="admin-success">{feedback}</p>}
-    {mode === "quick" && <form className="assignment-create quick-quiz-form" onSubmit={(event) => void generateQuickQuiz(event)}><div><p className="section-kicker">Ôn tập nhanh</p><h2>Tạo Quick Quiz từ vựng</h2><p>Hệ thống tự dùng AI khi khả dụng và chuyển sang chế độ nội bộ khi cần.</p></div><label>Lớp học<select required value={quickForm.classroomId} onChange={(event) => setQuickForm({ ...quickForm, classroomId: event.target.value, lessonId: "" })}><option value="">Chọn lớp học</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Nguồn từ vựng<select value={quickForm.sourceMode === "SELECTED" ? "SELECTED" : String(quickForm.recentLessons)} onChange={(event) => setQuickForm({ ...quickForm, sourceMode: event.target.value === "SELECTED" ? "SELECTED" : "RECENT", recentLessons: event.target.value === "SELECTED" ? quickForm.recentLessons : Number(event.target.value), lessonId: "" })}><option value="1">1 buổi gần nhất</option><option value="3">3 buổi gần nhất</option><option value="5">5 buổi gần nhất</option><option value="SELECTED">Chọn buổi học</option></select></label>{quickForm.sourceMode === "SELECTED" && <label>Buổi học<select required value={quickForm.lessonId} onChange={(event) => setQuickForm({ ...quickForm, lessonId: event.target.value })}><option value="">Chọn buổi có từ vựng</option>{quickLessons.map((item) => <option key={item.lesson!.id} value={item.lesson!.id}>{item.lesson!.title}</option>)}</select></label>}<label>Số câu<input type="number" min={1} max={100} value={quickForm.questionCount} onChange={(event) => setQuickForm({ ...quickForm, questionCount: Number(event.target.value) })} /></label><label>Số lần làm<input type="number" min={1} max={20} value={quickForm.maxAttempts} onChange={(event) => setQuickForm({ ...quickForm, maxAttempts: Number(event.target.value) })} /></label><label>Thời gian<select value={quickForm.timeLimitMinutes} onChange={(event) => setQuickForm({ ...quickForm, timeLimitMinutes: event.target.value })}><option value="">Không giới hạn</option><option value="5">5 phút</option><option value="10">10 phút</option></select></label><label className="check-row"><input type="checkbox" checked={quickForm.showLeaderboard} onChange={(event) => setQuickForm({ ...quickForm, showLeaderboard: event.target.checked })} />Hiện bảng xếp hạng cho học sinh</label><button disabled={Boolean(busy)}>{busy === "quick" ? "Đang tạo Quick Quiz..." : "⚡ Tạo Quick Quiz"}</button></form>}
-    {mode === "list" && <>
-      <form className="assignment-create" onSubmit={create}><h2>Tạo bài tập mới</h2><select required value={createForm.classroomId} onChange={(event) => setCreateForm({ ...createForm, classroomId: event.target.value, lessonId: "" })}><option value="">Chọn lớp học</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select value={createForm.lessonId} onChange={(event) => setCreateForm({ ...createForm, lessonId: event.target.value })}><option value="">Không liên kết bài học</option>{filteredLessons.map((item) => <option key={item.lesson!.id} value={item.lesson!.id}>{item.lesson!.title}</option>)}</select><input required maxLength={200} placeholder="Tiêu đề bài tập" value={createForm.title} onChange={(event) => setCreateForm({ ...createForm, title: event.target.value })} /><select value={createForm.type} onChange={(event) => setCreateForm({ ...createForm, type: event.target.value })}>{["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].map((item) => <option key={item} value={item}>{typeLabels[item]}</option>)}</select><button disabled={Boolean(busy)}>{busy === "create" ? "Đang tạo..." : "+ Tạo bản nháp"}</button></form>
-      <div className="assignment-filters" aria-label="Bộ lọc bài tập"><select aria-label="Khoảng thời gian" value={dateRange} onChange={(event) => setDateRange(event.target.value as "RECENT" | "ALL")}><option value="RECENT">2 tuần gần nhất</option><option value="ALL">Tất cả bài tập</option></select><select aria-label="Lọc theo lớp học" value={filters.classroomId} onChange={(event) => setFilters({ ...filters, classroomId: event.target.value })}><option value="">Tất cả lớp</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select aria-label="Lọc theo loại bài tập" value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">Tất cả loại</option>{["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].map((item) => <option key={item} value={item}>{typeLabels[item]}</option>)}</select><select aria-label="Lọc theo trạng thái" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Tất cả trạng thái</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><input aria-label="Tìm kiếm bài tập" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm kiếm bài tập" /></div>
-      <div className="assignment-grid">{visibleItems.map((item) => <article key={item.id}><div><span className={`assignment-status ${item.status}`}>{statusLabels[item.status]}</span><small>{typeLabels[item.type]}</small></div><h2>{item.title}</h2><p>Lớp: {item.classroom.name}</p><p>Bài học: {item.lesson?.title ?? "Không liên kết"}</p><p>Hạn nộp: {vietnamDate(item.dueAt)}</p><small>{item.submittedCount ?? 0}/{item.assignedStudentCount ?? 0} đã nộp · {item.readAloudTask ? "Có Speaking" : `${item.questions.length} câu hỏi`}</small><footer><button onClick={() => void open(item.id)}>Mở</button>{item.status === "DRAFT" && <button onClick={() => void open(item.id)}>Chỉnh sửa</button>}{item.status !== "DRAFT" && <button onClick={() => void showResults(item)}>Kết quả</button>}{item.status === "DRAFT" && <button className="danger-link" onClick={() => void removeAssignment(item)}>Xóa</button>}</footer></article>)}{!visibleItems.length && <p className="report-empty">Chưa có bài tập theo bộ lọc.</p>}</div>
-    </>}
-    {mode === "editor" && current && <div className="assignment-editor">{current.generationMode !== "MANUAL" && <div className="quick-quiz-notice"><div><b>⚡ Quick Quiz · Nguồn tạo: {current.generationMode === "AI" ? "AI" : "Tự động nội bộ"}</b><p>Quiz được tạo tự động. Vui lòng kiểm tra trước khi xuất bản.</p></div>{current.status === "DRAFT" && <button disabled={Boolean(busy)} onClick={() => void generateQuickQuiz(undefined, true)}>{busy === "quick" ? "Đang tạo lại..." : "Tạo lại Quiz"}</button>}</div>}<form className="assignment-info" onSubmit={save}><div className="assignment-section-title"><div><span className={`assignment-status ${current.status}`}>{statusLabels[current.status]}</span><h2>Thông tin bài tập</h2></div></div><div className="assignment-class-context"><span>Lớp học</span><strong>{current.classroom.name}</strong><small>{current.classroom.code}</small></div><label>Tiêu đề<input disabled={current.status !== "DRAFT"} value={current.title} onChange={(event) => setCurrent({ ...current, title: event.target.value })} /></label><label>Mô tả<textarea disabled={current.status !== "DRAFT"} rows={4} value={current.description ?? ""} onChange={(event) => setCurrent({ ...current, description: event.target.value })} /></label><div className="assignment-form-grid assignment-settings-grid"><label>Loại<select disabled={current.status !== "DRAFT"} value={current.type} onChange={(event) => setCurrent({ ...current, type: event.target.value })}>{["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].map((item) => <option key={item} value={item}>{typeLabels[item]}</option>)}</select></label><label>Hạn nộp<input disabled={current.status !== "DRAFT"} type="datetime-local" value={localDate(current.dueAt)} onChange={(event) => setCurrent({ ...current, dueAt: event.target.value ? new Date(event.target.value).toISOString() : null })} /></label><label>Số lần làm tối đa<input disabled={current.status !== "DRAFT"} type="number" min={1} max={20} value={current.maxAttempts} onChange={(event) => setCurrent({ ...current, maxAttempts: Number(event.target.value) })} /></label><div className="assignment-check-settings"><label className="check-row"><input disabled={current.status !== "DRAFT"} type="checkbox" checked={current.allowLateSubmission} onChange={(event) => setCurrent({ ...current, allowLateSubmission: event.target.checked })} />Cho phép nộp muộn</label><label className="check-row"><input disabled={current.status !== "DRAFT"} type="checkbox" checked={current.showScoreImmediately} onChange={(event) => setCurrent({ ...current, showScoreImmediately: event.target.checked })} />Hiện điểm ngay</label></div></div>{current.status === "DRAFT" && <button disabled={Boolean(busy)}>{busy === "save" ? "Đang lưu..." : "Lưu bản nháp"}</button>}</form>
-      {current.status !== "DRAFT" && <section className="assignment-progress-panel"><div className="assignment-section-title"><div><p className="section-kicker">Tiến độ học sinh</p><h2>Trạng thái làm bài</h2></div></div><div className="assignment-progress-metrics"><article><span>Đã làm</span><strong>{results?.summary.submitted ?? current.submittedCount ?? 0}</strong></article><article><span>Chưa làm</span><strong>{results?.summary.notSubmitted ?? Math.max(0, (current.assignedStudentCount ?? 0) - (current.submittedCount ?? 0))}</strong></article></div><p>{results?.summary.submitted ?? current.submittedCount ?? 0}/{results?.summary.enrolled ?? current.assignedStudentCount ?? 0} học sinh đã nộp bài.</p><button type="button" onClick={() => void showResults(current)}>Xem chi tiết</button></section>}
-      {current.status === "DRAFT" && <>
-        <form className="passage-editor" onSubmit={addPassage}>
-          <div className="assignment-section-title"><div><h2>Reading</h2></div></div>
-          <label className="assignment-section-toggle"><input type="checkbox" checked={readingEnabled} onChange={(event) => toggleReading(event.target.checked)} />Có Reading trong bài tập</label>
-          {readingEnabled ? <>
-            {current.passages.map((item, index) => <article key={item.id}><span className="passage-label">Reading {index + 1}</span><b>{item.title || `Reading ${index + 1}`}</b><p>{item.content}</p><footer><button type="button" onClick={() => addQuestionForPassage(item.id)}>+ Thêm câu hỏi Reading</button><button type="button" className="danger-link" onClick={() => void deletePassage(item)} disabled={busy === `delete-passage-${item.id}`}>{busy === `delete-passage-${item.id}` ? "Đang xóa..." : "Xóa Reading"}</button></footer></article>)}
-            <input placeholder="Tiêu đề Reading (không bắt buộc)" value={passageDraft.title} onChange={(event) => setPassageDraft({ ...passageDraft, title: event.target.value })} />
-            <textarea required rows={7} placeholder="Nội dung Reading" value={passageDraft.content} onChange={(event) => setPassageDraft({ ...passageDraft, content: event.target.value })} />
-            <button disabled={Boolean(busy)}>{busy === "passage" ? "Đang thêm..." : "+ Thêm Reading"}</button>
-          </> : <p className="assignment-section-disabled-note">Bỏ chọn: bài tập sẽ không có phần Reading.</p>}
+  return (
+    <div className="assignment-manager">
+      <div className="manager-heading">
+        <div>
+          <WorkspacePageActions onBack={handleBack} />
+          <h1 className="manager-title-path">
+            <span>Quản lý bài tập</span>
+            {mode === "results" && (
+              <>
+                <i aria-hidden="true">›</i>
+                <strong>Kết quả bài tập</strong>
+              </>
+            )}
+            {mode === "quick" && (
+              <>
+                <i aria-hidden="true">›</i>
+                <strong>Tạo Quick Quiz</strong>
+              </>
+            )}
+          </h1>
+          {mode !== "results" && (
+            <p className="manager-description">
+              Tạo nội dung, giao bài và theo dõi kết quả học tập.
+            </p>
+          )}
+        </div>
+        {mode === "list" ? (
+          <button
+            className="secondary-action quick-quiz-button"
+            onClick={() => setMode("quick")}
+          >
+            ⚡ Tạo Quick Quiz
+          </button>
+        ) : (
+          <button className="secondary-action" onClick={() => setMode("list")}>
+            Danh sách bài tập
+          </button>
+        )}
+      </div>
+      {mode === "results" && current && (
+        <section className="assignment-result-context">
+          <div>
+            <span>Lớp học</span>
+            <strong>{current.classroom.name}</strong>
+            <small>{current.classroom.code}</small>
+          </div>
+          <div>
+            <span>Tên bài tập</span>
+            <strong>{current.title}</strong>
+            <small>{typeLabels[current.type]}</small>
+          </div>
+          <div>
+            <span>Bài học</span>
+            <strong>{current.lesson?.title ?? "Không liên kết bài học"}</strong>
+            <small>{current.lesson ? "Đã liên kết" : "Bài tập độc lập"}</small>
+          </div>
+          <button type="button" onClick={() => setMode("editor")}>
+            Xem nội dung bài tập
+          </button>
+        </section>
+      )}
+      {error && <p className="admin-error">{error}</p>}
+      {feedback && <p className="admin-success">{feedback}</p>}
+      {mode === "quick" && (
+        <form
+          className="assignment-create quick-quiz-form"
+          onSubmit={(event) => void generateQuickQuiz(event)}
+        >
+          <div>
+            <p className="section-kicker">Ôn tập nhanh</p>
+            <h2>Tạo Quick Quiz từ vựng</h2>
+            <p>
+              Hệ thống tự dùng AI khi khả dụng và chuyển sang chế độ nội bộ khi
+              cần.
+            </p>
+          </div>
+          <label>
+            Lớp học
+            <select
+              required
+              value={quickForm.classroomId}
+              onChange={(event) =>
+                setQuickForm({
+                  ...quickForm,
+                  classroomId: event.target.value,
+                  lessonId: "",
+                })
+              }
+            >
+              <option value="">Chọn lớp học</option>
+              {classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Nguồn từ vựng
+            <select
+              value={
+                quickForm.sourceMode === "SELECTED"
+                  ? "SELECTED"
+                  : String(quickForm.recentLessons)
+              }
+              onChange={(event) =>
+                setQuickForm({
+                  ...quickForm,
+                  sourceMode:
+                    event.target.value === "SELECTED" ? "SELECTED" : "RECENT",
+                  recentLessons:
+                    event.target.value === "SELECTED"
+                      ? quickForm.recentLessons
+                      : Number(event.target.value),
+                  lessonId: "",
+                })
+              }
+            >
+              <option value="1">1 buổi gần nhất</option>
+              <option value="3">3 buổi gần nhất</option>
+              <option value="5">5 buổi gần nhất</option>
+              <option value="SELECTED">Chọn buổi học</option>
+            </select>
+          </label>
+          {quickForm.sourceMode === "SELECTED" && (
+            <label>
+              Buổi học
+              <select
+                required
+                value={quickForm.lessonId}
+                onChange={(event) =>
+                  setQuickForm({ ...quickForm, lessonId: event.target.value })
+                }
+              >
+                <option value="">Chọn buổi có từ vựng</option>
+                {quickLessons.map((item) => (
+                  <option key={item.lesson!.id} value={item.lesson!.id}>
+                    {item.lesson!.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label>
+            Số câu
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={quickForm.questionCount}
+              onChange={(event) =>
+                setQuickForm({
+                  ...quickForm,
+                  questionCount: Number(event.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            Số lần làm
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={quickForm.maxAttempts}
+              onChange={(event) =>
+                setQuickForm({
+                  ...quickForm,
+                  maxAttempts: Number(event.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            Thời gian
+            <select
+              value={quickForm.timeLimitMinutes}
+              onChange={(event) =>
+                setQuickForm({
+                  ...quickForm,
+                  timeLimitMinutes: event.target.value,
+                })
+              }
+            >
+              <option value="">Không giới hạn</option>
+              <option value="5">5 phút</option>
+              <option value="10">10 phút</option>
+            </select>
+          </label>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={quickForm.showLeaderboard}
+              onChange={(event) =>
+                setQuickForm({
+                  ...quickForm,
+                  showLeaderboard: event.target.checked,
+                })
+              }
+            />
+            Hiện bảng xếp hạng cho học sinh
+          </label>
+          <button disabled={Boolean(busy)}>
+            {busy === "quick" ? "Đang tạo Quick Quiz..." : "⚡ Tạo Quick Quiz"}
+          </button>
         </form>
-        <form id="assignment-question-builder" className="question-builder" onSubmit={saveQuestion}>
-          <div className="assignment-section-title"><div><h2>{isReadingQuestion ? "Reading" : "Vocabulary - Grammar"}</h2>{questionDraft.id && <p>Chỉnh sửa câu hỏi</p>}</div></div>
-          {!isReadingQuestion && <label className="assignment-section-toggle"><input type="checkbox" checked={vocabularyGrammarEnabled} onChange={(event) => toggleVocabularyGrammar(event.target.checked)} />Có Vocabulary - Grammar trong bài tập</label>}
-          {vocabularyGrammarEnabled || isReadingQuestion ? <>
-            <select value={questionDraft.type} onChange={(event) => setQuestionDraft({ ...questionDraft, type: event.target.value, configText: event.target.value === "READING_TRUE_FALSE_NOT_GIVEN" ? "TRUE" : "" })}>{editorQuestionTypes.map((item) => <option key={item} value={item}>{typeLabels[item]}</option>)}</select>
-            <textarea required rows={3} placeholder="Nội dung câu hỏi" value={questionDraft.prompt} onChange={(event) => setQuestionDraft({ ...questionDraft, prompt: event.target.value })} />
-            {isReadingQuestion && <label>Thuộc Reading<select required value={questionDraft.passageId} onChange={(event) => setQuestionDraft({ ...questionDraft, passageId: event.target.value })}>{current.passages.map((item, index) => <option key={item.id} value={item.id}>Reading {index + 1} — {item.title || "Không có tiêu đề"}</option>)}</select></label>}
-            <label>{questionDraft.type.includes("MULTIPLE_CHOICE") ? "Các lựa chọn, mỗi dòng một đáp án" : questionDraft.type === "VOCAB_MATCHING" ? "Mỗi dòng: từ => nghĩa" : questionDraft.type === "GRAMMAR_SENTENCE_ORDER" ? "Các thành phần theo thứ tự đúng, mỗi dòng một phần" : questionDraft.type === "READING_TRUE_FALSE_NOT_GIVEN" ? "Đáp án đúng" : "Các đáp án chấp nhận, mỗi dòng một đáp án"}{questionDraft.type === "READING_TRUE_FALSE_NOT_GIVEN" ? <select value={questionDraft.configText} onChange={(event) => setQuestionDraft({ ...questionDraft, configText: event.target.value })}><option value="TRUE">TRUE</option><option value="FALSE">FALSE</option><option value="NOT_GIVEN">NOT GIVEN</option></select> : <textarea required rows={5} value={questionDraft.configText} onChange={(event) => setQuestionDraft({ ...questionDraft, configText: event.target.value })} />}</label>
-            {questionDraft.type.includes("MULTIPLE_CHOICE") && <label>Đáp án đúng số<input type="number" min={1} max={6} value={questionDraft.correctIndex} onChange={(event) => setQuestionDraft({ ...questionDraft, correctIndex: Number(event.target.value) })} /></label>}
-            <label>Giải thích<textarea rows={2} value={questionDraft.explanation} onChange={(event) => setQuestionDraft({ ...questionDraft, explanation: event.target.value })} /></label>
-            <div className="inline-actions"><button disabled={Boolean(busy)}>{busy === "question" ? "Đang lưu..." : questionDraft.id ? "Lưu câu hỏi" : "+ Thêm câu hỏi"}</button>{questionDraft.id && <button type="button" onClick={() => setQuestionDraft(emptyQuestionDraft())}>Hủy sửa</button>}</div>
-          </> : <p className="assignment-section-disabled-note">Bỏ chọn: bài tập sẽ không có phần Vocabulary - Grammar.</p>}
-        </form>
-      </>}
-      <section className="read-aloud-editor"><div className="assignment-section-title"><div><h2>Speaking</h2></div></div><label className="read-aloud-toggle"><input type="checkbox" disabled={current.status !== "DRAFT"} checked={readAloud.enabled} onChange={(event) => setReadAloud({ ...readAloud, enabled: event.target.checked })} />Có Speaking trong bài tập</label>{readAloud.enabled && <div className="read-aloud-fields"><label>Tiêu đề<input disabled={current.status !== "DRAFT"} value={readAloud.title} onChange={(event) => setReadAloud({ ...readAloud, title: event.target.value })} /></label><label>Nội dung cần đọc<textarea disabled={current.status !== "DRAFT"} required rows={8} value={readAloud.readingText} onChange={(event) => setReadAloud({ ...readAloud, readingText: event.target.value })} /></label><label>Hướng dẫn<textarea disabled={current.status !== "DRAFT"} rows={3} value={readAloud.instructions} onChange={(event) => setReadAloud({ ...readAloud, instructions: event.target.value })} /></label><div className="assignment-form-grid"><label>Điểm Speaking<strong>10 điểm (thang điểm cố định)</strong></label><label>Thời lượng tối đa (giây)<input disabled={current.status !== "DRAFT"} type="number" min="1" max="300" value={readAloud.maxDurationSeconds} onChange={(event) => setReadAloud({ ...readAloud, maxDurationSeconds: Number(event.target.value) })} /></label></div></div>}{current.status === "DRAFT" && <button type="button" disabled={Boolean(busy) || readAloud.enabled && !readAloudComplete} onClick={() => void saveReadAloud()}>{busy === "read-aloud" ? "Đang lưu..." : "Lưu Speaking"}</button>}</section>
-      <section className="question-list"><div className="assignment-section-title"><div><h2>Nội dung</h2><p>{current.questions.length} câu trắc nghiệm{current.readAloudTask ? " · Speaking chấm riêng theo thang 10" : ""}</p></div></div>{current.status !== "DRAFT" && current.passages.length > 0 && <section className="assignment-published-reading"><div className="assignment-part-heading"><span>READING</span><h2>Đoạn đọc</h2></div>{current.passages.map((passage, index) => <article key={passage.id}><span className="passage-label">Reading {index + 1}</span><div><b>{passage.title || `Reading ${index + 1}`}</b><p>{passage.content}</p></div></article>)}</section>}{current.questions.map((item, index) => { const passageIndex = current.passages.findIndex((passage) => passage.id === item.passageId); const passage = passageIndex >= 0 ? current.passages[passageIndex] : null; return <article key={item.id}><span>{index + 1}</span><div><small>{typeLabels[item.type]}</small><b>{item.prompt}</b><em>{passage ? `Thuộc: Reading ${passageIndex + 1} — ${passage.title || "Không có tiêu đề"}` : "Vocabulary - Grammar"}</em></div>{current.status === "DRAFT" && <footer><button onClick={() => void moveQuestion(index, -1)} disabled={!index}>↑</button><button onClick={() => void moveQuestion(index, 1)} disabled={index === current.questions.length - 1}>↓</button><button onClick={() => editQuestion(item)}>Sửa</button><button onClick={() => void deleteQuestion(item.id)}>Xóa</button></footer>}</article>; })}{current.readAloudTask && <article><span>♪</span><div><small>Speaking · Chấm thủ công riêng</small><b>{current.readAloudTask.title || "Speaking"}</b><em>10 điểm</em></div></article>}</section><div className="assignment-sticky-actions"><span>{canPublish ? "Nội dung đã sẵn sàng" : publishHint}</span>{current.status === "DRAFT" && <button title={canPublish ? "Xuất bản bài tập" : publishHint} disabled={Boolean(busy) || !canPublish} onClick={() => void transition("publish")}>{busy === "publish" ? "Đang xuất bản..." : "Xuất bản"}</button>}{current.status === "PUBLISHED" && <><button onClick={() => void showResults(current)}>Xem kết quả</button><button onClick={() => void transition("close")}>{busy === "close" ? "Đang đóng..." : "Đóng bài"}</button></>}{current.status === "CLOSED" && <><button onClick={() => void showResults(current)}>Xem kết quả</button><button onClick={() => void transition("archive")}>{busy === "archive" ? "Đang lưu trữ..." : "Lưu trữ"}</button></>}</div></div>}
-    {mode === "results" && current && results && <div className="assignment-results"><div className="result-metrics">{[["Đã nộp", results.summary.submitted], ["Chưa nộp", results.summary.notSubmitted], ["Tỷ lệ đúng trung bình", results.summary.averagePercentage === null ? "—" : `${results.summary.averagePercentage.toFixed(1)}%`], ["Cao nhất", results.summary.highestPercentage === null ? "—" : `${results.summary.highestPercentage.toFixed(1)}%`], ["Thấp nhất", results.summary.lowestPercentage === null ? "—" : `${results.summary.lowestPercentage.toFixed(1)}%`], ["Nộp muộn", results.summary.lateSubmissions]].map(([label, value]) => <article key={label}><span>{label}</span><b>{value}</b></article>)}</div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Học sinh</th><th>Trạng thái</th><th>Lần làm</th><th>Thời gian nộp</th><th>Muộn</th><th>Kết quả khách quan</th><th>Speaking</th><th></th></tr></thead><tbody>{results.students.map((item) => <tr key={item.student.id}><td><b>{item.student.fullName}</b><small>{item.student.email}</small></td><td>{item.status === "SUBMITTED" ? "Đã nộp" : "Chưa nộp"}</td><td>{item.attemptNumber ?? "—"}</td><td>{item.submittedAt ? vietnamDate(item.submittedAt) : "—"}</td><td>{item.isLate ? "Có" : "Không"}</td><td>{item.objectiveResult ? `${item.objectiveResult.correctCount}/${item.objectiveResult.totalQuestions} · ${item.objectiveResult.percentage.toFixed(1)}%` : "—"}</td><td>{item.audioResult ? item.audioResult.status === "GRADED" ? `${item.audioResult.score}/10` : "Chưa chấm" : "—"}</td><td>{item.id && <button onClick={() => void showAttempt(item.id!)}>Xem chi tiết</button>}</td></tr>)}</tbody></table></div>{attemptDetail && <section className="attempt-detail"><div className="assignment-section-title"><div><p className="section-kicker">Chi tiết lần làm {attemptDetail.attemptNumber}</p><h2>{attemptDetail.student.fullName}</h2><p>{attemptDetail.student.email} · {vietnamDate(attemptDetail.submittedAt)}</p></div><b>{attemptDetail.objectiveResult.correctCount}/{attemptDetail.objectiveResult.totalQuestions} · {attemptDetail.objectiveResult.percentage.toFixed(1)}%</b></div><AssignmentQuestionSections questions={attemptDetail.questions} passages={attemptDetail.passages} renderQuestion={(item, questionNumber) => <article key={item.id}><header><span>Câu {questionNumber}</span><b className={item.isCorrect ? "correct" : "wrong"}>{item.isCorrect ? "✓ Đúng" : "✕ Sai"}</b></header><h3>{item.prompt}</h3><p><strong>Học sinh trả lời:</strong> {item.studentAnswer}</p>{item.correctAnswer !== undefined && <p><strong>Đáp án đúng:</strong> {item.correctAnswer}</p>}{item.matching && <p><strong>Số cặp đúng:</strong> {item.matching.correctPairs}/{item.matching.totalPairs}</p>}{item.explanation && <p><strong>Giải thích:</strong> {item.explanation}</p>}</article>} />{attemptDetail.readAloudTask && <article className="read-aloud-grading"><header><span>SPEAKING · THANG 10</span><b>{attemptDetail.readAloudSubmission?.gradedAt ? "Đã chấm" : attemptDetail.readAloudSubmission ? "Đã nộp · Chưa chấm" : "Chưa nộp"}</b></header>{attemptDetail.readAloudSubmission ? <><p>Thời gian nộp: {vietnamDate(attemptDetail.readAloudSubmission.submittedAt)}</p><p>Thời lượng: {attemptDetail.readAloudSubmission.durationSeconds ? `${attemptDetail.readAloudSubmission.durationSeconds} giây` : "Không xác định"}</p><AuthenticatedAudio apiUrl={apiUrl} accessToken={accessToken} path={attemptDetail.readAloudSubmission.audioUrl} /><label>Điểm <span>/ 10</span><input type="number" min="0" max="10" step="0.25" value={gradeDraft.score} onChange={(event) => { setGradeDraft({ ...gradeDraft, score: event.target.value }); setGradeStatus(null); }} /></label><label>Nhận xét<textarea rows={4} value={gradeDraft.feedback} onChange={(event) => { setGradeDraft({ ...gradeDraft, feedback: event.target.value }); setGradeStatus(null); }} /></label><button disabled={Boolean(busy) || gradeDraft.score === ""} onClick={() => void saveGrade()}>{busy === "grade" ? "Đang lưu..." : "Lưu đánh giá"}</button>{gradeStatus && <p className={`grade-save-status ${gradeStatus.kind}`} role="status" aria-live="polite">{gradeStatus.text}</p>}</> : <p>Học sinh chưa gửi bản ghi.</p>}</article>}</section>}</div>}
-    {mode === "results" && leaderboard && <section className="quick-leaderboard"><div className="assignment-section-title"><div><p className="section-kicker">XẾP HẠNG</p><h2>Quick Quiz</h2></div></div><ol>{leaderboard.entries.map((entry) => <li key={entry.student.id}><b>{entry.rank}. {entry.student.fullName}</b><span>{entry.correctCount}/{entry.totalQuestions} · {entry.percentage.toFixed(1)}%</span><small>{duration(entry.durationMs)} · Lượt {entry.attemptNumber}</small></li>)}</ol>{!leaderboard.entries.length && <p>Chưa có kết quả để xếp hạng.</p>}</section>}
-  </div>;
+      )}
+      {mode === "list" && (
+        <>
+          <form className="assignment-create" onSubmit={create}>
+            <h2>Tạo bài tập mới</h2>
+            <select
+              required
+              value={createForm.classroomId}
+              onChange={(event) =>
+                setCreateForm({
+                  ...createForm,
+                  classroomId: event.target.value,
+                  lessonId: "",
+                })
+              }
+            >
+              <option value="">Chọn lớp học</option>
+              {classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={createForm.lessonId}
+              onChange={(event) =>
+                setCreateForm({ ...createForm, lessonId: event.target.value })
+              }
+            >
+              <option value="">Không liên kết bài học</option>
+              {filteredLessons.map((item) => (
+                <option key={item.lesson!.id} value={item.lesson!.id}>
+                  {item.lesson!.title}
+                </option>
+              ))}
+            </select>
+            <input
+              required
+              maxLength={200}
+              placeholder="Tiêu đề bài tập"
+              value={createForm.title}
+              onChange={(event) =>
+                setCreateForm({ ...createForm, title: event.target.value })
+              }
+            />
+            <select
+              value={createForm.type}
+              onChange={(event) =>
+                setCreateForm({ ...createForm, type: event.target.value })
+              }
+            >
+              {["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].map((item) => (
+                <option key={item} value={item}>
+                  {typeLabels[item]}
+                </option>
+              ))}
+            </select>
+            <button disabled={Boolean(busy)}>
+              {busy === "create" ? "Đang tạo..." : "+ Tạo bản nháp"}
+            </button>
+          </form>
+          <div className="assignment-filters" aria-label="Bộ lọc bài tập">
+            <select
+              aria-label="Khoảng thời gian"
+              value={dateRange}
+              onChange={(event) =>
+                setDateRange(event.target.value as "RECENT" | "ALL")
+              }
+            >
+              <option value="RECENT">2 tuần gần nhất</option>
+              <option value="ALL">Tất cả bài tập</option>
+            </select>
+            <select
+              aria-label="Lọc theo lớp học"
+              value={filters.classroomId}
+              onChange={(event) =>
+                setFilters({ ...filters, classroomId: event.target.value })
+              }
+            >
+              <option value="">Tất cả lớp</option>
+              {classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Lọc theo loại bài tập"
+              value={filters.type}
+              onChange={(event) =>
+                setFilters({ ...filters, type: event.target.value })
+              }
+            >
+              <option value="">Tất cả loại</option>
+              {["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].map((item) => (
+                <option key={item} value={item}>
+                  {typeLabels[item]}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Lọc theo trạng thái"
+              value={filters.status}
+              onChange={(event) =>
+                setFilters({ ...filters, status: event.target.value })
+              }
+            >
+              <option value="">Tất cả trạng thái</option>
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label="Tìm kiếm bài tập"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tìm kiếm bài tập"
+            />
+          </div>
+          <div className="assignment-grid">
+            {visibleItems.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <span className={`assignment-status ${item.status}`}>
+                    {statusLabels[item.status]}
+                  </span>
+                  <small>{typeLabels[item.type]}</small>
+                </div>
+                <h2>{item.title}</h2>
+                <p>Lớp: {item.classroom.name}</p>
+                <p>Bài học: {item.lesson?.title ?? "Không liên kết"}</p>
+                <p>Hạn nộp: {vietnamDate(item.dueAt)}</p>
+                <small>
+                  {item.submittedCount ?? 0}/{item.assignedStudentCount ?? 0} đã
+                  nộp ·{" "}
+                  {item.readAloudTask
+                    ? "Có Speaking"
+                    : `${item.questions.length} câu hỏi`}
+                </small>
+                <footer>
+                  <button onClick={() => void open(item.id)}>Mở</button>
+                  {item.status === "DRAFT" && (
+                    <button onClick={() => void open(item.id)}>
+                      Chỉnh sửa
+                    </button>
+                  )}
+                  {item.status !== "DRAFT" && (
+                    <button onClick={() => void showResults(item)}>
+                      Kết quả
+                    </button>
+                  )}
+                  {item.status === "DRAFT" && (
+                    <button
+                      className="danger-link"
+                      onClick={() => void removeAssignment(item)}
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </footer>
+              </article>
+            ))}
+            {!visibleItems.length && (
+              <p className="report-empty">Chưa có bài tập theo bộ lọc.</p>
+            )}
+          </div>
+        </>
+      )}
+      {mode === "editor" && current && (
+        <div className="assignment-editor">
+          {current.generationMode !== "MANUAL" && (
+            <div className="quick-quiz-notice">
+              <div>
+                <b>
+                  ⚡ Quick Quiz · Nguồn tạo:{" "}
+                  {current.generationMode === "AI" ? "AI" : "Tự động nội bộ"}
+                </b>
+                <p>
+                  Quiz được tạo tự động. Vui lòng kiểm tra trước khi xuất bản.
+                </p>
+              </div>
+              {current.status === "DRAFT" && (
+                <button
+                  disabled={Boolean(busy)}
+                  onClick={() => void generateQuickQuiz(undefined, true)}
+                >
+                  {busy === "quick" ? "Đang tạo lại..." : "Tạo lại Quiz"}
+                </button>
+              )}
+            </div>
+          )}
+          <form className="assignment-info" onSubmit={save}>
+            <div className="assignment-section-title">
+              <div>
+                <span className={`assignment-status ${current.status}`}>
+                  {statusLabels[current.status]}
+                </span>
+                <h2>Thông tin bài tập</h2>
+              </div>
+            </div>
+            <div className="assignment-class-context">
+              <span>Lớp học</span>
+              <strong>{current.classroom.name}</strong>
+              <small>{current.classroom.code}</small>
+            </div>
+            <label>
+              Tiêu đề
+              <input
+                disabled={current.status !== "DRAFT"}
+                value={current.title}
+                onChange={(event) =>
+                  setCurrent({ ...current, title: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Mô tả
+              <textarea
+                disabled={current.status !== "DRAFT"}
+                rows={4}
+                value={current.description ?? ""}
+                onChange={(event) =>
+                  setCurrent({ ...current, description: event.target.value })
+                }
+              />
+            </label>
+            <div className="assignment-form-grid assignment-settings-grid">
+              <label>
+                Loại
+                <select
+                  disabled={current.status !== "DRAFT"}
+                  value={current.type}
+                  onChange={(event) =>
+                    setCurrent({ ...current, type: event.target.value })
+                  }
+                >
+                  {["PRACTICE", "HOMEWORK", "QUIZ", "TEST"].map((item) => (
+                    <option key={item} value={item}>
+                      {typeLabels[item]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Hạn nộp
+                <input
+                  disabled={current.status !== "DRAFT"}
+                  type="datetime-local"
+                  value={localDate(current.dueAt)}
+                  onChange={(event) =>
+                    setCurrent({
+                      ...current,
+                      dueAt: event.target.value
+                        ? new Date(event.target.value).toISOString()
+                        : null,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Số lần làm tối đa
+                <input
+                  disabled={current.status !== "DRAFT"}
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={current.maxAttempts}
+                  onChange={(event) =>
+                    setCurrent({
+                      ...current,
+                      maxAttempts: Number(event.target.value),
+                    })
+                  }
+                />
+              </label>
+              <div className="assignment-check-settings">
+                <label className="check-row">
+                  <input
+                    disabled={current.status !== "DRAFT"}
+                    type="checkbox"
+                    checked={current.allowLateSubmission}
+                    onChange={(event) =>
+                      setCurrent({
+                        ...current,
+                        allowLateSubmission: event.target.checked,
+                      })
+                    }
+                  />
+                  Cho phép nộp muộn
+                </label>
+                <label className="check-row">
+                  <input
+                    disabled={current.status !== "DRAFT"}
+                    type="checkbox"
+                    checked={current.showScoreImmediately}
+                    onChange={(event) =>
+                      setCurrent({
+                        ...current,
+                        showScoreImmediately: event.target.checked,
+                      })
+                    }
+                  />
+                  Hiện điểm ngay
+                </label>
+              </div>
+            </div>
+            {current.status === "DRAFT" && (
+              <button disabled={Boolean(busy)}>
+                {busy === "save" ? "Đang lưu..." : "Lưu bản nháp"}
+              </button>
+            )}
+          </form>
+          {current.status !== "DRAFT" && (
+            <section className="assignment-progress-panel">
+              <div className="assignment-section-title">
+                <div>
+                  <p className="section-kicker">Tiến độ học sinh</p>
+                  <h2>Trạng thái làm bài</h2>
+                </div>
+              </div>
+              <div className="assignment-progress-metrics">
+                <article>
+                  <span>Đã làm</span>
+                  <strong>
+                    {results?.summary.submitted ?? current.submittedCount ?? 0}
+                  </strong>
+                </article>
+                <article>
+                  <span>Chưa làm</span>
+                  <strong>
+                    {results?.summary.notSubmitted ??
+                      Math.max(
+                        0,
+                        (current.assignedStudentCount ?? 0) -
+                          (current.submittedCount ?? 0),
+                      )}
+                  </strong>
+                </article>
+              </div>
+              <p>
+                {results?.summary.submitted ?? current.submittedCount ?? 0}/
+                {results?.summary.enrolled ?? current.assignedStudentCount ?? 0}{" "}
+                học sinh đã nộp bài.
+              </p>
+              <button type="button" onClick={() => void showResults(current)}>
+                Xem chi tiết
+              </button>
+            </section>
+          )}
+          {current.status === "DRAFT" && (
+            <>
+              <form className="passage-editor" onSubmit={addPassage}>
+                <div className="assignment-section-title">
+                  <div>
+                    <h2>Reading</h2>
+                  </div>
+                </div>
+                <label className="assignment-section-toggle">
+                  <input
+                    type="checkbox"
+                    checked={readingEnabled}
+                    onChange={(event) => toggleReading(event.target.checked)}
+                  />
+                  Có Reading trong bài tập
+                </label>
+                {readingEnabled ? (
+                  <>
+                    {current.passages.map((item, index) => (
+                      <article key={item.id}>
+                        <span className="passage-label">
+                          Reading {index + 1}
+                        </span>
+                        <b>{item.title || `Reading ${index + 1}`}</b>
+                        <p>{item.content}</p>
+                        <footer>
+                          <button
+                            type="button"
+                            onClick={() => addQuestionForPassage(item.id)}
+                          >
+                            + Thêm câu hỏi Reading
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-link"
+                            onClick={() => void deletePassage(item)}
+                            disabled={busy === `delete-passage-${item.id}`}
+                          >
+                            {busy === `delete-passage-${item.id}`
+                              ? "Đang xóa..."
+                              : "Xóa Reading"}
+                          </button>
+                        </footer>
+                      </article>
+                    ))}
+                    <input
+                      placeholder="Tiêu đề Reading (không bắt buộc)"
+                      value={passageDraft.title}
+                      onChange={(event) =>
+                        setPassageDraft({
+                          ...passageDraft,
+                          title: event.target.value,
+                        })
+                      }
+                    />
+                    <textarea
+                      required
+                      rows={7}
+                      placeholder="Nội dung Reading"
+                      value={passageDraft.content}
+                      onChange={(event) =>
+                        setPassageDraft({
+                          ...passageDraft,
+                          content: event.target.value,
+                        })
+                      }
+                    />
+                    <button disabled={Boolean(busy)}>
+                      {busy === "passage" ? "Đang thêm..." : "+ Thêm Reading"}
+                    </button>
+                  </>
+                ) : (
+                  <p className="assignment-section-disabled-note">
+                    Bỏ chọn: bài tập sẽ không có phần Reading.
+                  </p>
+                )}
+              </form>
+              <form
+                id="assignment-question-builder"
+                className="question-builder"
+                onSubmit={saveQuestion}
+              >
+                <div className="assignment-section-title">
+                  <div>
+                    <h2>
+                      {isReadingQuestion ? "Reading" : "Vocabulary - Grammar"}
+                    </h2>
+                    {questionDraft.id && <p>Chỉnh sửa câu hỏi</p>}
+                  </div>
+                </div>
+                {!isReadingQuestion && (
+                  <label className="assignment-section-toggle">
+                    <input
+                      type="checkbox"
+                      checked={vocabularyGrammarEnabled}
+                      onChange={(event) =>
+                        toggleVocabularyGrammar(event.target.checked)
+                      }
+                    />
+                    Có Vocabulary - Grammar trong bài tập
+                  </label>
+                )}
+                {vocabularyGrammarEnabled || isReadingQuestion ? (
+                  <>
+                    <select
+                      value={questionDraft.type}
+                      onChange={(event) =>
+                        setQuestionDraft({
+                          ...questionDraft,
+                          type: event.target.value,
+                          configText:
+                            event.target.value ===
+                            "READING_TRUE_FALSE_NOT_GIVEN"
+                              ? "TRUE"
+                              : "",
+                        })
+                      }
+                    >
+                      {editorQuestionTypes.map((item) => (
+                        <option key={item} value={item}>
+                          {typeLabels[item]}
+                        </option>
+                      ))}
+                    </select>
+                    <textarea
+                      required
+                      rows={3}
+                      placeholder="Nội dung câu hỏi"
+                      value={questionDraft.prompt}
+                      onChange={(event) =>
+                        setQuestionDraft({
+                          ...questionDraft,
+                          prompt: event.target.value,
+                        })
+                      }
+                    />
+                    {isReadingQuestion && (
+                      <label>
+                        Thuộc Reading
+                        <select
+                          required
+                          value={questionDraft.passageId}
+                          onChange={(event) =>
+                            setQuestionDraft({
+                              ...questionDraft,
+                              passageId: event.target.value,
+                            })
+                          }
+                        >
+                          {current.passages.map((item, index) => (
+                            <option key={item.id} value={item.id}>
+                              Reading {index + 1} —{" "}
+                              {item.title || "Không có tiêu đề"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <label>
+                      {questionDraft.type.includes("MULTIPLE_CHOICE")
+                        ? "Các lựa chọn, mỗi dòng một đáp án"
+                        : questionDraft.type === "VOCAB_MATCHING"
+                          ? "Mỗi dòng: từ => nghĩa"
+                          : questionDraft.type === "GRAMMAR_SENTENCE_ORDER"
+                            ? "Các thành phần theo thứ tự đúng, mỗi dòng một phần"
+                            : questionDraft.type ===
+                                "READING_TRUE_FALSE_NOT_GIVEN"
+                              ? "Đáp án đúng"
+                              : "Các đáp án chấp nhận, mỗi dòng một đáp án"}
+                      {questionDraft.type === "READING_TRUE_FALSE_NOT_GIVEN" ? (
+                        <select
+                          value={questionDraft.configText}
+                          onChange={(event) =>
+                            setQuestionDraft({
+                              ...questionDraft,
+                              configText: event.target.value,
+                            })
+                          }
+                        >
+                          <option value="TRUE">TRUE</option>
+                          <option value="FALSE">FALSE</option>
+                          <option value="NOT_GIVEN">NOT GIVEN</option>
+                        </select>
+                      ) : (
+                        <textarea
+                          required
+                          rows={5}
+                          value={questionDraft.configText}
+                          onChange={(event) =>
+                            setQuestionDraft({
+                              ...questionDraft,
+                              configText: event.target.value,
+                            })
+                          }
+                        />
+                      )}
+                    </label>
+                    {questionDraft.type.includes("MULTIPLE_CHOICE") && (
+                      <label>
+                        Đáp án đúng số
+                        <input
+                          type="number"
+                          min={1}
+                          max={6}
+                          value={questionDraft.correctIndex}
+                          onChange={(event) =>
+                            setQuestionDraft({
+                              ...questionDraft,
+                              correctIndex: Number(event.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                    )}
+                    <label>
+                      Giải thích
+                      <textarea
+                        rows={2}
+                        value={questionDraft.explanation}
+                        onChange={(event) =>
+                          setQuestionDraft({
+                            ...questionDraft,
+                            explanation: event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <div className="inline-actions">
+                      <button disabled={Boolean(busy)}>
+                        {busy === "question"
+                          ? "Đang lưu..."
+                          : questionDraft.id
+                            ? "Lưu câu hỏi"
+                            : "+ Thêm câu hỏi"}
+                      </button>
+                      {questionDraft.id && (
+                        <button
+                          type="button"
+                          onClick={() => setQuestionDraft(emptyQuestionDraft())}
+                        >
+                          Hủy sửa
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="assignment-section-disabled-note">
+                    Bỏ chọn: bài tập sẽ không có phần Vocabulary - Grammar.
+                  </p>
+                )}
+              </form>
+            </>
+          )}
+          <TeacherWritingEditor
+            key={current.id}
+            assignmentId={current.id}
+            task={current.writingTask}
+            draft={current.status === "DRAFT"}
+            apiUrl={apiUrl}
+            accessToken={accessToken}
+            onChanged={async () => {
+              const value = await api<Assignment>(`/assignments/${current.id}`);
+              acceptCurrent(value);
+            }}
+          />
+          <section className="read-aloud-editor">
+            <div className="assignment-section-title">
+              <div>
+                <h2>Speaking</h2>
+              </div>
+            </div>
+            <label className="read-aloud-toggle">
+              <input
+                type="checkbox"
+                disabled={current.status !== "DRAFT"}
+                checked={readAloud.enabled}
+                onChange={(event) =>
+                  setReadAloud({ ...readAloud, enabled: event.target.checked })
+                }
+              />
+              Có Speaking trong bài tập
+            </label>
+            {readAloud.enabled && (
+              <div className="read-aloud-fields">
+                <label>
+                  Tiêu đề
+                  <input
+                    disabled={current.status !== "DRAFT"}
+                    value={readAloud.title}
+                    onChange={(event) =>
+                      setReadAloud({ ...readAloud, title: event.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  Nội dung cần đọc
+                  <textarea
+                    disabled={current.status !== "DRAFT"}
+                    required
+                    rows={8}
+                    value={readAloud.readingText}
+                    onChange={(event) =>
+                      setReadAloud({
+                        ...readAloud,
+                        readingText: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Hướng dẫn
+                  <textarea
+                    disabled={current.status !== "DRAFT"}
+                    rows={3}
+                    value={readAloud.instructions}
+                    onChange={(event) =>
+                      setReadAloud({
+                        ...readAloud,
+                        instructions: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+                <div className="assignment-form-grid">
+                  <label>
+                    Điểm Speaking<strong>10 điểm (thang điểm cố định)</strong>
+                  </label>
+                  <label>
+                    Thời lượng tối đa (giây)
+                    <input
+                      disabled={current.status !== "DRAFT"}
+                      type="number"
+                      min="1"
+                      max="300"
+                      value={readAloud.maxDurationSeconds}
+                      onChange={(event) =>
+                        setReadAloud({
+                          ...readAloud,
+                          maxDurationSeconds: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+            {current.status === "DRAFT" && (
+              <button
+                type="button"
+                disabled={
+                  Boolean(busy) || (readAloud.enabled && !readAloudComplete)
+                }
+                onClick={() => void saveReadAloud()}
+              >
+                {busy === "read-aloud" ? "Đang lưu..." : "Lưu Speaking"}
+              </button>
+            )}
+          </section>
+          <section className="question-list">
+            <div className="assignment-section-title">
+              <div>
+                <h2>Nội dung</h2>
+                <p>
+                  {current.questions.length} câu trắc nghiệm
+                  {current.writingTask ? " · Có Writing" : ""}
+                  {current.readAloudTask
+                    ? " · Speaking chấm riêng theo thang 10"
+                    : ""}
+                </p>
+              </div>
+            </div>
+            {current.status !== "DRAFT" && current.passages.length > 0 && (
+              <section className="assignment-published-reading">
+                <div className="assignment-part-heading">
+                  <span>READING</span>
+                  <h2>Đoạn đọc</h2>
+                </div>
+                {current.passages.map((passage, index) => (
+                  <article key={passage.id}>
+                    <span className="passage-label">Reading {index + 1}</span>
+                    <div>
+                      <b>{passage.title || `Reading ${index + 1}`}</b>
+                      <p>{passage.content}</p>
+                    </div>
+                  </article>
+                ))}
+              </section>
+            )}
+            {current.questions.map((item, index) => {
+              const passageIndex = current.passages.findIndex(
+                (passage) => passage.id === item.passageId,
+              );
+              const passage =
+                passageIndex >= 0 ? current.passages[passageIndex] : null;
+              return (
+                <article key={item.id}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <small>{typeLabels[item.type]}</small>
+                    <b>{item.prompt}</b>
+                    <em>
+                      {passage
+                        ? `Thuộc: Reading ${passageIndex + 1} — ${passage.title || "Không có tiêu đề"}`
+                        : "Vocabulary - Grammar"}
+                    </em>
+                  </div>
+                  {current.status === "DRAFT" && (
+                    <footer>
+                      <button
+                        onClick={() => void moveQuestion(index, -1)}
+                        disabled={!index}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => void moveQuestion(index, 1)}
+                        disabled={index === current.questions.length - 1}
+                      >
+                        ↓
+                      </button>
+                      <button onClick={() => editQuestion(item)}>Sửa</button>
+                      <button onClick={() => void deleteQuestion(item.id)}>
+                        Xóa
+                      </button>
+                    </footer>
+                  )}
+                </article>
+              );
+            })}
+            {current.writingTask && (
+              <article>
+                <span>W</span>
+                <div>
+                  <small>Writing · Chấm thủ công riêng</small>
+                  <b>{current.writingTask.title || "Writing"}</b>
+                  <em>
+                    {current.writingTask.type === "ESSAY"
+                      ? "Thang 10"
+                      : `${current.writingTask.translationItems.length} câu dịch`}
+                  </em>
+                </div>
+              </article>
+            )}
+            {current.readAloudTask && (
+              <article>
+                <span>♪</span>
+                <div>
+                  <small>Speaking · Chấm thủ công riêng</small>
+                  <b>{current.readAloudTask.title || "Speaking"}</b>
+                  <em>10 điểm</em>
+                </div>
+              </article>
+            )}
+          </section>
+          <div className="assignment-sticky-actions">
+            <span>{canPublish ? "Nội dung đã sẵn sàng" : publishHint}</span>
+            {current.status === "DRAFT" && (
+              <button
+                title={canPublish ? "Xuất bản bài tập" : publishHint}
+                disabled={Boolean(busy) || !canPublish}
+                onClick={() => void transition("publish")}
+              >
+                {busy === "publish" ? "Đang xuất bản..." : "Xuất bản"}
+              </button>
+            )}
+            {current.status === "PUBLISHED" && (
+              <>
+                <button onClick={() => void showResults(current)}>
+                  Xem kết quả
+                </button>
+                <button onClick={() => void transition("close")}>
+                  {busy === "close" ? "Đang đóng..." : "Đóng bài"}
+                </button>
+              </>
+            )}
+            {current.status === "CLOSED" && (
+              <>
+                <button onClick={() => void showResults(current)}>
+                  Xem kết quả
+                </button>
+                <button onClick={() => void transition("archive")}>
+                  {busy === "archive" ? "Đang lưu trữ..." : "Lưu trữ"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {mode === "results" && current && results && (
+        <div className="assignment-results">
+          <div className="result-metrics">
+            {[
+              ["Đã nộp", results.summary.submitted],
+              ["Chưa nộp", results.summary.notSubmitted],
+              [
+                "Tỷ lệ đúng trung bình",
+                results.summary.averagePercentage === null
+                  ? "—"
+                  : `${results.summary.averagePercentage.toFixed(1)}%`,
+              ],
+              [
+                "Cao nhất",
+                results.summary.highestPercentage === null
+                  ? "—"
+                  : `${results.summary.highestPercentage.toFixed(1)}%`,
+              ],
+              [
+                "Thấp nhất",
+                results.summary.lowestPercentage === null
+                  ? "—"
+                  : `${results.summary.lowestPercentage.toFixed(1)}%`,
+              ],
+              ["Nộp muộn", results.summary.lateSubmissions],
+            ].map(([label, value]) => (
+              <article key={label}>
+                <span>{label}</span>
+                <b>{value}</b>
+              </article>
+            ))}
+          </div>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Học sinh</th>
+                  <th>Trạng thái</th>
+                  <th>Lần làm</th>
+                  <th>Thời gian nộp</th>
+                  <th>Muộn</th>
+                  <th>Kết quả khách quan</th>
+                  <th>Writing</th>
+                  <th>Speaking</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.students.map((item) => (
+                  <tr key={item.student.id}>
+                    <td>
+                      <b>{item.student.fullName}</b>
+                      <small>{item.student.email}</small>
+                    </td>
+                    <td>
+                      {item.status === "SUBMITTED" ? "Đã nộp" : "Chưa nộp"}
+                    </td>
+                    <td>{item.attemptNumber ?? "—"}</td>
+                    <td>
+                      {item.submittedAt ? vietnamDate(item.submittedAt) : "—"}
+                    </td>
+                    <td>{item.isLate ? "Có" : "Không"}</td>
+                    <td>
+                      {item.objectiveResult
+                        ? `${item.objectiveResult.correctCount}/${item.objectiveResult.totalQuestions} · ${item.objectiveResult.percentage.toFixed(1)}%`
+                        : "—"}
+                    </td>
+                    <td>
+                      {item.writingResult
+                        ? item.writingResult.type === "ESSAY"
+                          ? item.writingResult.essayScore === null
+                            ? "Chưa chấm"
+                            : `${item.writingResult.essayScore}/10`
+                          : item.writingResult.translationResult?.complete
+                            ? `${item.writingResult.translationResult.correctCount}/${item.writingResult.translationResult.totalItems} · ${item.writingResult.translationResult.percentage?.toFixed(1)}%`
+                            : `Đã chấm ${item.writingResult.translationResult?.gradedCount ?? 0}/${item.writingResult.translationResult?.totalItems ?? 0}`
+                        : "—"}
+                    </td>
+                    <td>
+                      {item.audioResult
+                        ? item.audioResult.status === "GRADED"
+                          ? `${item.audioResult.score}/10`
+                          : "Chưa chấm"
+                        : "—"}
+                    </td>
+                    <td>
+                      {item.id && (
+                        <button onClick={() => void showAttempt(item.id!)}>
+                          Xem chi tiết
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {attemptDetail && (
+            <section className="attempt-detail">
+              <div className="assignment-section-title">
+                <div>
+                  <p className="section-kicker">
+                    Chi tiết lần làm {attemptDetail.attemptNumber}
+                  </p>
+                  <h2>{attemptDetail.student.fullName}</h2>
+                  <p>
+                    {attemptDetail.student.email} ·{" "}
+                    {vietnamDate(attemptDetail.submittedAt)}
+                  </p>
+                </div>
+                {attemptDetail.objectiveResult && (
+                  <b>
+                    {attemptDetail.objectiveResult.correctCount}/
+                    {attemptDetail.objectiveResult.totalQuestions} ·{" "}
+                    {attemptDetail.objectiveResult.percentage.toFixed(1)}%
+                  </b>
+                )}
+              </div>
+              <AssignmentQuestionSections
+                questions={attemptDetail.questions}
+                passages={attemptDetail.passages}
+                renderQuestion={(item, questionNumber) => (
+                  <article key={item.id}>
+                    <header>
+                      <span>Câu {questionNumber}</span>
+                      <b className={item.isCorrect ? "correct" : "wrong"}>
+                        {item.isCorrect ? "✓ Đúng" : "✕ Sai"}
+                      </b>
+                    </header>
+                    <h3>{item.prompt}</h3>
+                    <p>
+                      <strong>Học sinh trả lời:</strong> {item.studentAnswer}
+                    </p>
+                    {item.correctAnswer !== undefined && (
+                      <p>
+                        <strong>Đáp án đúng:</strong> {item.correctAnswer}
+                      </p>
+                    )}
+                    {item.matching && (
+                      <p>
+                        <strong>Số cặp đúng:</strong>{" "}
+                        {item.matching.correctPairs}/{item.matching.totalPairs}
+                      </p>
+                    )}
+                    {item.explanation && (
+                      <p>
+                        <strong>Giải thích:</strong> {item.explanation}
+                      </p>
+                    )}
+                  </article>
+                )}
+              />
+              {attemptDetail.writingTask && (
+                <TeacherWritingGrading
+                  key={attemptDetail.id}
+                  assignmentId={current.id}
+                  task={attemptDetail.writingTask}
+                  submission={attemptDetail.writingSubmission}
+                  apiUrl={apiUrl}
+                  accessToken={accessToken}
+                  onChanged={(writingSubmission) =>
+                    setAttemptDetail((value) =>
+                      value ? { ...value, writingSubmission } : value,
+                    )
+                  }
+                />
+              )}
+              {attemptDetail.readAloudTask && (
+                <article className="read-aloud-grading">
+                  <header>
+                    <span>SPEAKING · THANG 10</span>
+                    <b>
+                      {attemptDetail.readAloudSubmission?.gradedAt
+                        ? "Đã chấm"
+                        : attemptDetail.readAloudSubmission
+                          ? "Đã nộp · Chưa chấm"
+                          : "Chưa nộp"}
+                    </b>
+                  </header>
+                  {attemptDetail.readAloudSubmission ? (
+                    <>
+                      <p>
+                        Thời gian nộp:{" "}
+                        {vietnamDate(
+                          attemptDetail.readAloudSubmission.submittedAt,
+                        )}
+                      </p>
+                      <p>
+                        Thời lượng:{" "}
+                        {attemptDetail.readAloudSubmission.durationSeconds
+                          ? `${attemptDetail.readAloudSubmission.durationSeconds} giây`
+                          : "Không xác định"}
+                      </p>
+                      <AuthenticatedAudio
+                        apiUrl={apiUrl}
+                        accessToken={accessToken}
+                        path={attemptDetail.readAloudSubmission.audioUrl}
+                      />
+                      <label>
+                        Điểm <span>/ 10</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="10"
+                          step="0.25"
+                          value={gradeDraft.score}
+                          onChange={(event) => {
+                            setGradeDraft({
+                              ...gradeDraft,
+                              score: event.target.value,
+                            });
+                            setGradeStatus(null);
+                          }}
+                        />
+                      </label>
+                      <label>
+                        Nhận xét
+                        <textarea
+                          rows={4}
+                          value={gradeDraft.feedback}
+                          onChange={(event) => {
+                            setGradeDraft({
+                              ...gradeDraft,
+                              feedback: event.target.value,
+                            });
+                            setGradeStatus(null);
+                          }}
+                        />
+                      </label>
+                      <button
+                        disabled={Boolean(busy) || gradeDraft.score === ""}
+                        onClick={() => void saveGrade()}
+                      >
+                        {busy === "grade" ? "Đang lưu..." : "Lưu đánh giá"}
+                      </button>
+                      {gradeStatus && (
+                        <p
+                          className={`grade-save-status ${gradeStatus.kind}`}
+                          role="status"
+                          aria-live="polite"
+                        >
+                          {gradeStatus.text}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p>Học sinh chưa gửi bản ghi.</p>
+                  )}
+                </article>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+      {mode === "results" && leaderboard && (
+        <section className="quick-leaderboard">
+          <div className="assignment-section-title">
+            <div>
+              <p className="section-kicker">XẾP HẠNG</p>
+              <h2>Quick Quiz</h2>
+            </div>
+          </div>
+          <ol>
+            {leaderboard.entries.map((entry) => (
+              <li key={entry.student.id}>
+                <b>
+                  {entry.rank}. {entry.student.fullName}
+                </b>
+                <span>
+                  {entry.correctCount}/{entry.totalQuestions} ·{" "}
+                  {entry.percentage.toFixed(1)}%
+                </span>
+                <small>
+                  {duration(entry.durationMs)} · Lượt {entry.attemptNumber}
+                </small>
+              </li>
+            ))}
+          </ol>
+          {!leaderboard.entries.length && <p>Chưa có kết quả để xếp hạng.</p>}
+        </section>
+      )}
+    </div>
+  );
 }

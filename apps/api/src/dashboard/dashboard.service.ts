@@ -37,7 +37,7 @@ const dashboardByRole = {
       { label: "Buổi học hôm nay", value: "0", hint: "Chưa có lịch học" },
       { label: "Chuyên cần", value: "—", hint: "Chưa có dữ liệu điểm danh" },
     ],
-    actions: ["Chuyên cần", "Bài học", "Bài tập", "Quản lý phụ huynh"],
+    actions: ["Chuyên cần", "Bài học", "Bài tập", "Phụ huynh"],
   },
   GUARDIAN: {
     roleLabel: "Phụ huynh",

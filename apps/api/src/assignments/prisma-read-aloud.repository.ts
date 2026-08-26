@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { AssignmentAttemptStatus, AssignmentStatus, EnrollmentStatus, Prisma, Role, UserStatus } from "../../../../generated/prisma/client";
 import { prisma } from "../../../../server/database/client";
 import { READ_ALOUD_MAX_SCORE, ReadAloudRepository, type ReadAloudAudioInput, type ReadAloudAudioRecord, type ReadAloudResult, type ReadAloudTaskInput } from "./read-aloud.repository";
+import { manualGradeComplete } from "./manual-grading";
 
 const number = (value: Prisma.Decimal | number | null) => value === null ? null : typeof value === "number" ? value : value.toNumber();
 const taskSelect = { id: true, assignmentId: true, title: true, readingText: true, instructions: true, maxScore: true, maxDurationSeconds: true, createdAt: true, updatedAt: true } satisfies Prisma.AssignmentReadAloudTaskSelect;
@@ -86,7 +87,9 @@ export class PrismaReadAloudRepository extends ReadAloudRepository {
       if (score < 0 || score > READ_ALOUD_MAX_SCORE) return { status: "INVALID", message: `Điểm đọc phải từ 0 đến ${READ_ALOUD_MAX_SCORE}.` };
       const now = new Date();
       const submission = await tx.assignmentReadAloudSubmission.update({ where: { id: submissionId }, data: { score, feedback: feedback?.trim() || null, gradedById: teacherId, gradedAt: now }, select: submissionSelect });
-      await tx.assignmentAttempt.update({ where: { id: item.attemptId }, data: { status: AssignmentAttemptStatus.FULLY_GRADED } });
+      const attempt = await tx.assignmentAttempt.findUnique({ where: { id: item.attemptId }, select: { assignment: { select: { writingTask: { select: { type: true, translationItems: { select: { id: true } } } } } }, writingSubmission: { select: { essayScore: true, translationAnswers: { select: { isCorrect: true } } } } } });
+      const complete = manualGradeComplete({ hasReadAloud: true, readAloudScore: score, writingType: attempt?.assignment.writingTask?.type ?? null, essayScore: number(attempt?.writingSubmission?.essayScore ?? null), translationItemCount: attempt?.assignment.writingTask?.translationItems.length ?? 0, translationGrades: attempt?.writingSubmission?.translationAnswers.map((answer) => answer.isCorrect) ?? [] });
+      await tx.assignmentAttempt.update({ where: { id: item.attemptId }, data: { status: complete ? AssignmentAttemptStatus.FULLY_GRADED : AssignmentAttemptStatus.PENDING_MANUAL_GRADE } });
       await tx.auditLog.create({ data: { actorId: teacherId, action: "ASSIGNMENT_READ_ALOUD_GRADED", entityType: "AssignmentReadAloudSubmission", entityId: submissionId, metadata: { assignmentId, attemptId: item.attemptId, studentId: item.studentId, score, maxScore: READ_ALOUD_MAX_SCORE } } });
       return { status: "OK", value: submissionView(submission) };
     });

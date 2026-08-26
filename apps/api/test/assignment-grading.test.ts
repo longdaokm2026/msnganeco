@@ -12,6 +12,10 @@ describe("Assignment deterministic grading", () => {
     assert.equal(missingRequiredReadAloud({ id: "task" }, { id: "audio" }), false);
     assert.equal(assignmentPublishError({ title: "Read", questionCount: 0, readAloudTask: { readingText: "Hello", maxScore: 10 } }), null);
     assert.match(assignmentPublishError({ title: "Read", questionCount: 0, readAloudTask: { readingText: " ", maxScore: 10 } }) ?? "", /nội dung bài đọc/);
+    assert.equal(assignmentPublishError({ title: "Essay", questionCount: 0, writingTask: { type: "ESSAY", prompt: "Write about your family.", translationItemCount: 0 } }), null);
+    assert.match(assignmentPublishError({ title: "Essay", questionCount: 0, writingTask: { type: "ESSAY", prompt: " ", translationItemCount: 0 } }) ?? "", /đề bài Essay/);
+    assert.equal(assignmentPublishError({ title: "Translate", questionCount: 0, writingTask: { type: "TRANSLATION_EN_VI", prompt: null, translationItemCount: 2 } }), null);
+    assert.match(assignmentPublishError({ title: "Translate", questionCount: 0, writingTask: { type: "TRANSLATION_VI_EN", prompt: null, translationItemCount: 0 } }) ?? "", /ít nhất một câu dịch/);
   });
 
   test("renders human-readable answers for every question family without leaking IDs or JSON", () => {

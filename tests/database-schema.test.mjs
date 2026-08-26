@@ -44,6 +44,10 @@ const quickQuizMigrationUrl = new URL(
   "../prisma/migrations/20260825050000_quick_vocabulary_quiz/migration.sql",
   import.meta.url,
 );
+const assignmentWritingMigrationUrl = new URL(
+  "../prisma/migrations/20260826010000_assignment_writing/migration.sql",
+  import.meta.url,
+);
 
 async function createDatabase() {
   const db = await PGlite.create({ extensions: { citext } });
@@ -67,6 +71,8 @@ async function createDatabase() {
   await db.exec(assignmentReadAloudMigration);
   const quickQuizMigration = await readFile(quickQuizMigrationUrl, "utf8");
   await db.exec(quickQuizMigration);
+  const assignmentWritingMigration = await readFile(assignmentWritingMigrationUrl, "utf8");
+  await db.exec(assignmentWritingMigration);
   return db;
 }
 
@@ -91,6 +97,7 @@ test("initial migration creates the account tables", async () => {
       "assignment_questions",
       "assignment_read_aloud_submissions",
       "assignment_read_aloud_tasks",
+      "assignment_writing_tasks",
       "assignments",
       "attendance_records",
       "audit_logs",
@@ -107,6 +114,9 @@ test("initial migration creates the account tables", async () => {
       "user_roles",
       "users",
       "verification_tokens",
+      "writing_submissions",
+      "writing_translation_answers",
+      "writing_translation_items",
     ]);
   } finally {
     await db.close();
@@ -158,6 +168,32 @@ test("read-aloud migration enforces one task and one secure audio submission per
     await assert.rejects(db.query(`INSERT INTO assignment_read_aloud_tasks (assignment_id,reading_text,max_score,max_duration_seconds,updated_at) VALUES ($1,'Again',10,300,NOW())`, [assignmentId]), /duplicate key value/i);
     await assert.rejects(db.query(`UPDATE assignment_read_aloud_tasks SET max_duration_seconds=301 WHERE id=$1`, [taskId]), /check constraint/i);
     await assert.rejects(db.query(`INSERT INTO assignment_read_aloud_submissions (assignment_id,read_aloud_task_id,attempt_id,student_id,audio_attachment_id,updated_at) VALUES ($1,$2,$3,$4,$5,NOW())`, [assignmentId, taskId, attemptId, studentId, audioId]), /duplicate key value/i);
+  } finally { await db.close(); }
+});
+
+test("Writing migration is additive and enforces one task, ordered translation items and 0–10 Essay scores", async () => {
+  const db = await createDatabase();
+  const teacherId = "15000000-0000-4000-8000-000000000001", studentId = "15000000-0000-4000-8000-000000000002", classroomId = "15000000-0000-4000-8000-000000000003", assignmentId = "15000000-0000-4000-8000-000000000004", attemptId = "15000000-0000-4000-8000-000000000005", taskId = "15000000-0000-4000-8000-000000000006", itemId = "15000000-0000-4000-8000-000000000007", submissionId = "15000000-0000-4000-8000-000000000008";
+  try {
+    await db.exec(`
+      INSERT INTO users (id,email,password_hash,full_name,status,updated_at) VALUES ('${teacherId}','writing-teacher@test.local','hash','Teacher','ACTIVE',NOW()),('${studentId}','writing-student@test.local','hash','Student','ACTIVE',NOW());
+      INSERT INTO teacher_profiles (user_id,approval_status,updated_at) VALUES ('${teacherId}','APPROVED',NOW());
+      INSERT INTO student_profiles (user_id,updated_at) VALUES ('${studentId}',NOW());
+      INSERT INTO classrooms (id,teacher_id,code,name,updated_at) VALUES ('${classroomId}','${teacherId}','MSN-WRITE','Writing Class',NOW());
+      INSERT INTO assignments (id,classroom_id,created_by_id,title,updated_at) VALUES ('${assignmentId}','${classroomId}','${teacherId}','Writing',NOW());
+      INSERT INTO assignment_attempts (id,assignment_id,student_id,attempt_number,status,max_score,updated_at) VALUES ('${attemptId}','${assignmentId}','${studentId}',1,'PENDING_MANUAL_GRADE',0,NOW());
+      INSERT INTO assignment_writing_tasks (id,assignment_id,type,title,max_score,updated_at) VALUES ('${taskId}','${assignmentId}','TRANSLATION_VI_EN','Dịch câu',10,NOW());
+      INSERT INTO writing_translation_items (id,writing_task_id,position,source_text,reference_answer,updated_at) VALUES ('${itemId}','${taskId}',0,'Tôi đi học.','I go to school.',NOW());
+      INSERT INTO writing_submissions (id,writing_task_id,attempt_id,student_id,submitted_at,updated_at) VALUES ('${submissionId}','${taskId}','${attemptId}','${studentId}',NOW(),NOW());
+      INSERT INTO writing_translation_answers (writing_submission_id,translation_item_id,answer_text,updated_at) VALUES ('${submissionId}','${itemId}','I go to school.',NOW());
+    `);
+    await assert.rejects(db.query(`INSERT INTO assignment_writing_tasks (assignment_id,type,prompt,max_score,updated_at) VALUES ($1,'ESSAY','Essay',10,NOW())`, [assignmentId]), /duplicate key value/i);
+    await assert.rejects(db.query(`INSERT INTO writing_translation_items (writing_task_id,position,source_text,updated_at) VALUES ($1,0,'Duplicate',NOW())`, [taskId]), /duplicate key value/i);
+    await assert.rejects(db.query(`UPDATE assignment_writing_tasks SET max_score=20 WHERE id=$1`, [taskId]), /check constraint/i);
+    await assert.rejects(db.query(`UPDATE writing_submissions SET essay_score=10.01 WHERE id=$1`, [submissionId]), /check constraint/i);
+    await db.query(`DELETE FROM assignment_attempts WHERE id=$1`, [attemptId]);
+    const remaining = await db.query(`SELECT count(*)::int AS count FROM writing_submissions WHERE attempt_id=$1`, [attemptId]);
+    assert.equal(remaining.rows[0].count, 0);
   } finally { await db.close(); }
 });
 

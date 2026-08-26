@@ -924,6 +924,46 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .status-pill, .link-status { font-size: 13px; }
 .admin-edit-form label { font-size: var(--font-label); }
 
+/* Writing uses the existing Theme A cards while keeping long-form content easy to read. */
+.writing-editor, .writing-grading, .student-writing { padding: 22px; display: grid; gap: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.writing-editor { grid-column: 1 / -1; }
+.assignment-section-toggle { display: flex; align-items: center; gap: 10px; color: var(--ink); font-size: var(--font-label); font-weight: 700; }
+.assignment-section-toggle input { width: 19px; height: 19px; accent-color: var(--indigo); }
+.writing-task-form, .translation-item-editor, .translation-add-form, .translation-grading-list { display: grid; gap: 14px; }
+.writing-task-form > label, .translation-item-editor label, .translation-add-form label, .writing-grading > label, .translation-grading-list label { display: grid; gap: 7px; color: var(--muted); font-size: var(--font-label); font-weight: 700; }
+.writing-task-form input, .writing-task-form select, .writing-task-form textarea,
+.translation-item-editor textarea, .translation-add-form textarea,
+.writing-grading input, .writing-grading textarea, .student-writing textarea { width: 100%; border: 1px solid #cfd5e4; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-size: var(--font-control); line-height: 1.55; }
+.writing-task-form input, .writing-task-form select, .writing-grading input { min-height: 46px; padding: 10px 12px; }
+.writing-task-form textarea, .translation-item-editor textarea, .translation-add-form textarea, .writing-grading textarea, .student-writing textarea { padding: 12px 14px; resize: vertical; }
+.writing-word-limits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.writing-word-limits label, .writing-max-score { display: grid; gap: 7px; }
+.writing-max-score > span { color: var(--muted); font-size: var(--font-label); font-weight: 700; }
+.writing-word-limits strong { min-height: 46px; padding: 12px; border-radius: 10px; background: var(--indigo-soft); color: var(--indigo-dark); }
+.writing-editor button, .writing-grading button { width: fit-content; min-height: 42px; padding: 9px 15px; border: 1px solid var(--indigo); border-radius: 9px; background: var(--indigo); color: #fff; font-size: var(--font-control); font-weight: 700; cursor: pointer; }
+.writing-editor button:disabled, .writing-grading button:disabled { cursor: not-allowed; opacity: .62; }
+.translation-item-editor > article, .translation-grading-list > section { padding: 16px; display: grid; gap: 11px; border: 1px solid var(--line); border-radius: 12px; background: #f8f7f2; }
+.translation-item-editor article > header, .translation-grading-list section > header, .writing-grading > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.translation-item-editor header > div, .translation-grading-list section > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.translation-item-editor header button { min-width: 38px; padding: 6px 9px; }
+.writing-grading > header > span { color: var(--coral); font-size: 14px; font-weight: 800; letter-spacing: .06em; }
+.writing-grading .correct { color: #26784b; }
+.writing-grading .wrong { color: #b84f41; }
+.submitted-essay { padding: 18px; border-left: 4px solid var(--coral); border-radius: 10px; background: #f8f7f2; }
+.submitted-essay h3, .submitted-essay p { margin-top: 0; }
+.submitted-essay p, .writing-prompt, .student-translation-list article > p { color: var(--ink); font-size: var(--font-education); line-height: 1.75; white-space: pre-wrap; }
+.writing-instructions { margin: 0; color: var(--muted); font-size: var(--font-workspace); line-height: 1.65; }
+.student-essay-input { min-height: 260px; }
+.writing-save-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: var(--font-small); }
+.writing-save-row b { color: var(--indigo); }
+.student-translation-list { display: grid; gap: 14px; }
+.student-translation-list > article { padding: 17px; display: grid; gap: 10px; border: 1px solid var(--line); border-radius: 12px; background: #f8f7f2; }
+.student-translation-list article > header { display: flex; align-items: center; justify-content: space-between; }
+.student-translation-list .correct { color: #26784b; font-weight: 700; }
+.student-translation-list .wrong { color: #b84f41; font-weight: 700; }
+.writing-result-card { padding: 15px 17px; display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; border-radius: 11px; background: var(--indigo-soft); color: var(--indigo-dark); }
+.writing-result-card p { grid-column: 1 / -1; margin: 0; line-height: 1.6; }
+
 @media (max-width: 860px) {
   .dashboard-tagline { display: none; }
   .dashboard-content { grid-template-columns: 1fr; }
@@ -948,7 +988,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .assignment-create button { width: fit-content; }
   .assignment-grid, .student-assignment-list { grid-template-columns: 1fr 1fr; }
   .assignment-editor { grid-template-columns: 1fr; }
-  .assignment-info, .question-list, .read-aloud-editor, .assignment-sticky-actions { grid-column: auto; grid-row: auto; }
+  .assignment-info, .question-list, .read-aloud-editor, .writing-editor, .assignment-sticky-actions { grid-column: auto; grid-row: auto; }
   .result-metrics { grid-template-columns: repeat(3, 1fr); }
   .linked-student-list { border-right: 0; border-bottom: 1px solid #e7e4dc; }
 }
@@ -1007,6 +1047,8 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .student-passage p { line-height: 1.75; overflow-wrap: anywhere; }
   .assignment-sticky-actions, .student-submit-bar { align-items: stretch; flex-direction: column; }
   .result-metrics { grid-template-columns: 1fr 1fr; }
+  .writing-word-limits { grid-template-columns: 1fr; }
+  .writing-editor, .writing-grading, .student-writing { padding: 17px; }
 }
 
 @media (max-width: 560px) {
