@@ -313,7 +313,7 @@ export default function Home() {
                 <button className={currentView === "lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("lessons")}>{action}</button>
               ) : dashboard.primaryRole === "TEACHER" && action === "Quản lý bài tập" ? (
                 <button className={currentView === "assignments" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("assignments")}>{action}</button>
-              ) : dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần" ? (
+              ) : dashboard.primaryRole === "STUDENT" && action === "Chuyên cần" ? (
                 <button className={currentView === "student-schedule" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-schedule")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Bài học" ? (
                 <button className={currentView === "student-lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-lessons")}>{action}</button>
@@ -443,7 +443,7 @@ export default function Home() {
                   const opensClasses = dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học";
                   const opensLessons = dashboard.primaryRole === "TEACHER" && action === "Quản lý bài học";
                   const opensStudentLessons = dashboard.primaryRole === "STUDENT" && action === "Bài học";
-                  const opensStudentSchedule = dashboard.primaryRole === "STUDENT" && action === "Buổi học & chuyên cần";
+                  const opensStudentSchedule = dashboard.primaryRole === "STUDENT" && action === "Chuyên cần";
                   const opensStudentGuardians = dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh";
                   const opensGuardianPortal = dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh";
                   return (

@@ -186,7 +186,7 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
   return (
     <section className="session-manager">
       <div className="session-section-heading">
-        <div><span>Buổi học & chuyên cần</span><strong>{sessions.length} buổi</strong></div>
+        <div><span>Chuyên cần</span><strong>{sessions.length} buổi</strong></div>
         <button type="button" onClick={() => setShowCreate((value) => !value)}>+ Lên lịch buổi học</button>
       </div>
 
