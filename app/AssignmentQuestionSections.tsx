@@ -16,9 +16,9 @@ export default function AssignmentQuestionSections<Q extends GroupableQuestion, 
       <div className="student-question-list">{grouped.standaloneQuestions.map((question) => renderQuestion(question, grouped.questionNumberById.get(question.id)!))}</div>
     </section>}
     {hasReading && <section className="assignment-question-part reading-part">
-      <header className="assignment-part-heading"><span>PHẦN {hasStandalone ? 2 : 1}</span><h2>Đọc hiểu</h2></header>
+      <header className="assignment-part-heading"><span>PHẦN {hasStandalone ? 2 : 1}</span><h2>Reading</h2></header>
       {grouped.passageGroups.map(({ passage, passageNumber, questions: passageQuestions }) => <section className="reading-passage-group" key={passage.id}>
-        <article className="student-passage"><span>BÀI ĐỌC {passageNumber}</span><h2>{passage.title || `Bài đọc ${passageNumber}`}</h2><p>{passage.content}</p></article>
+        <article className="student-passage"><span>READING {passageNumber}</span><h2>{passage.title || `Reading ${passageNumber}`}</h2><p>{passage.content}</p></article>
         <div className="student-question-list">{passageQuestions.map((question) => renderQuestion(question, grouped.questionNumberById.get(question.id)!))}</div>
       </section>)}
     </section>}

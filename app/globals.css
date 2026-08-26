@@ -560,6 +560,9 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .assignment-sticky-actions span { margin-right: auto; color: var(--muted); font-size: 9px; }
 .read-aloud-toggle { display: flex !important; align-items: center; gap: 8px; color: var(--ink) !important; font-size: 10px !important; }
 .read-aloud-toggle input { width: auto !important; min-height: auto !important; }
+.assignment-section-toggle { display: flex !important; align-items: center; gap: 8px; color: var(--ink) !important; font-size: 10px !important; font-weight: 700; }
+.assignment-section-toggle input { width: auto !important; min-height: auto !important; }
+.assignment-section-disabled-note { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
 .read-aloud-fields { display: grid; gap: 11px; }
 .read-aloud-fields label, .read-aloud-grading label { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .read-aloud-editor > button, .read-aloud-grading > button, .recording-controls button, .saved-recording button { width: fit-content; min-height: 39px; padding: 9px 13px; border: 1px solid var(--indigo); border-radius: 8px; background: var(--indigo); color: #fff; cursor: pointer; font-size: 9px; font-weight: 700; }
@@ -808,7 +811,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .assignment-info label, .question-builder label { font-size: var(--font-label); }
 .assignment-section-title p, .passage-editor article p,
 .question-list article small, .question-list article em, .assignment-sticky-actions span,
-.read-aloud-toggle, .read-aloud-fields label, .read-aloud-grading label,
+.read-aloud-toggle, .assignment-section-toggle, .assignment-section-disabled-note, .read-aloud-fields label, .read-aloud-grading label,
 .audio-state { font-size: var(--font-small) !important; }
 .passage-editor article p { line-height: 1.65; }
 .question-list article b { font-size: 18px !important; line-height: 1.55; }
