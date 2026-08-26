@@ -11,11 +11,11 @@
   --line: #dfe3eb;
   --font-body: 17px;
   --font-workspace: clamp(17px, 1.15vw, 18px);
-  --font-education: 18px;
-  --font-question: 18px;
-  --font-option: 18px;
-  --font-small: 14px;
-  --font-label: 15px;
+  --font-education: 17px;
+  --font-question: 17px;
+  --font-option: 17px;
+  --font-small: 13px;
+  --font-label: 14px;
   --font-control: 17px;
   --font-card-title: clamp(23px, 1.5vw, 25px);
   --font-section-title: clamp(30px, 2.2vw, 34px);
