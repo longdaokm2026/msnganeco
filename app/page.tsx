@@ -108,6 +108,54 @@ function canOpenView(role: ApiRole, view: DashboardView) {
   return false;
 }
 
+function quickActionTarget(role: ApiRole, action: string): DashboardView | null {
+  const targets: Partial<Record<ApiRole, Record<string, DashboardView>>> = {
+    ADMIN: {
+      "Quản lý tài khoản": "admin-users",
+      "Duyệt giáo viên": "admin-teachers",
+      "Quản lý lớp học": "admin-classrooms",
+      "Xem nhật ký hệ thống": "admin-audit",
+    },
+    TEACHER: {
+      "Quản lý lớp học": "classes",
+      "Quản lý bài học": "lessons",
+      "Quản lý bài tập": "assignments",
+    },
+    STUDENT: {
+      "Chuyên cần": "student-schedule",
+      "Buổi học & chuyên cần": "student-schedule",
+      "Bài học": "student-lessons",
+      "Bài tập": "student-assignments",
+      "Quản lý phụ huynh": "student-guardians",
+    },
+    GUARDIAN: {
+      "Liên kết học sinh": "guardian-portal",
+      "Xem chuyên cần": "guardian-portal",
+      "Xem kết quả": "guardian-portal",
+    },
+  };
+  return targets[role]?.[action] ?? null;
+}
+
+function QuickStartSection({ dashboard, onNavigate }: { dashboard: DashboardData; onNavigate: (view: DashboardView) => void }) {
+  return <section className="quick-section" id="quick-actions">
+    <div>
+      <p className="section-kicker">Bắt đầu nhanh</p>
+      <h2>{dashboard.title}</h2>
+    </div>
+    <div className="action-grid">
+      {dashboard.actions.map((action, index) => {
+        const target = quickActionTarget(dashboard.primaryRole, action);
+        return <button type="button" key={action} disabled={!target} onClick={target ? () => onNavigate(target) : undefined}>
+          <span>{String(index + 1).padStart(2, "0")}</span>
+          <strong>{action}</strong>
+          <small>{target ? "Mở chức năng" : "Chức năng chưa khả dụng"}</small>
+        </button>;
+      })}
+    </div>
+  </section>;
+}
+
 async function apiError(response: Response) {
   const body = await response.json().catch(() => null) as { message?: string | string[] } | null;
   if (Array.isArray(body?.message)) return body.message.join(" ");
@@ -335,7 +383,10 @@ export default function Home() {
 
           <section className="dashboard-main" id="overview">
             {dashboard.primaryRole === "ADMIN" && accessToken ? (
-              <AdminManager section={currentView as AdminSection} accessToken={accessToken} apiUrl={apiUrl} currentUserId={user.id} />
+              <>
+                <AdminManager section={currentView as AdminSection} accessToken={accessToken} apiUrl={apiUrl} currentUserId={user.id} />
+                {currentView === "overview" && <QuickStartSection dashboard={dashboard} onNavigate={navigateDashboard} />}
+              </>
             ) : currentView === "classes" && accessToken ? (
               <ClassroomManager
                 accessToken={accessToken}
@@ -433,39 +484,7 @@ export default function Home() {
               </section>
             )}
 
-            <section className="quick-section" id="quick-actions">
-              <div>
-                <p className="section-kicker">Bắt đầu nhanh</p>
-                <h2>{dashboard.title}</h2>
-              </div>
-              <div className="action-grid">
-                {dashboard.actions.map((action, index) => {
-                  const opensClasses = dashboard.primaryRole === "TEACHER" && action === "Quản lý lớp học";
-                  const opensLessons = dashboard.primaryRole === "TEACHER" && action === "Quản lý bài học";
-                  const opensStudentLessons = dashboard.primaryRole === "STUDENT" && action === "Bài học";
-                  const opensStudentSchedule = dashboard.primaryRole === "STUDENT" && action === "Chuyên cần";
-                  const opensStudentGuardians = dashboard.primaryRole === "STUDENT" && action === "Quản lý phụ huynh";
-                  const opensGuardianPortal = dashboard.primaryRole === "GUARDIAN" && action === "Liên kết học sinh";
-                  return (
-                  <button
-                    type="button"
-                    key={action}
-                    disabled={!opensClasses && !opensLessons && !opensStudentLessons && !opensStudentSchedule && !opensStudentGuardians && !opensGuardianPortal}
-                    onClick={opensClasses
-                      ? () => navigateDashboard("classes")
-                      : opensLessons ? () => navigateDashboard("lessons")
-                      : opensStudentLessons ? () => navigateDashboard("student-lessons")
-                      : opensStudentSchedule ? () => navigateDashboard("student-schedule")
-                      : opensStudentGuardians ? () => navigateDashboard("student-guardians")
-                      : opensGuardianPortal ? () => navigateDashboard("guardian-portal") : undefined}
-                  >
-                    <span>0{index + 1}</span>
-                    <strong>{action}</strong>
-                    <small>{opensClasses || opensLessons || opensStudentLessons || opensStudentSchedule || opensStudentGuardians || opensGuardianPortal ? "Mở chức năng" : "Sẽ được mở ở giai đoạn chức năng tiếp theo"}</small>
-                  </button>
-                );})}
-              </div>
-            </section>
+            <QuickStartSection dashboard={dashboard} onNavigate={navigateDashboard} />
             </>
             )}
           </section>

@@ -170,7 +170,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .quick-section { padding: 26px; border-radius: 18px; background: var(--indigo); color: #fff; }
 .section-kicker { margin: 0 0 6px; color: #ffd7ce; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .quick-section h2 { margin: 0; font-family: var(--font-serif), serif; font-size: 25px; font-weight: 500; }
-.action-grid { margin-top: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.action-grid { margin-top: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
 .action-grid button { min-height: 128px; padding: 16px; display: grid; align-content: start; gap: 8px; border: 1px solid rgba(255,255,255,.13); border-radius: 12px; background: rgba(255,255,255,.08); color: #fff; text-align: left; }
 .action-grid button > span { color: #f6a18d; font-size: 10px; font-weight: 700; }
 .action-grid button > strong { font-size: 13px; }
