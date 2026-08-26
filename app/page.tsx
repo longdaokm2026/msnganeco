@@ -313,7 +313,7 @@ export default function Home() {
                 <button className={currentView === "lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("lessons")}>{action}</button>
               ) : dashboard.primaryRole === "TEACHER" && action === "Quản lý bài tập" ? (
                 <button className={currentView === "assignments" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("assignments")}>{action}</button>
-              ) : dashboard.primaryRole === "STUDENT" && action === "Chuyên cần" ? (
+              ) : dashboard.primaryRole === "STUDENT" && (action === "Chuyên cần" || action === "Buổi học & chuyên cần") ? (
                 <button className={currentView === "student-schedule" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-schedule")}>{action}</button>
               ) : dashboard.primaryRole === "STUDENT" && action === "Bài học" ? (
                 <button className={currentView === "student-lessons" ? "active" : ""} type="button" key={action} onClick={() => navigateDashboard("student-lessons")}>{action}</button>

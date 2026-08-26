@@ -163,7 +163,7 @@ export default function StudentSchedule({ accessToken, apiUrl, onBack }: Props) 
         <div>
           <WorkspacePageActions onBack={onBack} />
           <h1 className="manager-title-path">
-            <span>Buổi học &amp; chuyên cần</span>
+            <span>Chuyên cần</span>
             <i aria-hidden="true">›</i>
             <strong>Lịch học của tôi</strong>
           </h1>
