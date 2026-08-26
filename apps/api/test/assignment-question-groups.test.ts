@@ -36,6 +36,18 @@ describe("assignment question grouping", () => {
     assert.equal(grouped.passageGroups.some((group) => group.passage.id === "empty"), false);
   });
 
+  test("orders displayed sections by the first teacher-defined question position", () => {
+    const readingFirst = [
+      { id: "reading-1", passageId: "first", position: 1 },
+      { id: "reading-2", passageId: "first", position: 2 },
+      { id: "standalone-1", passageId: null, position: 3 },
+    ];
+    const grouped = groupAssignmentQuestions(readingFirst, passages);
+    assert.deepEqual(grouped.parts.map((part) => part.kind), ["READING", "STANDALONE"]);
+    assert.equal(grouped.questionNumberById.get("reading-1"), 1);
+    assert.equal(grouped.questionNumberById.get("standalone-1"), 3);
+  });
+
   test("hides the reading section data when there are no passage questions", () => {
     const grouped = groupAssignmentQuestions(questions.filter((item) => item.passageId === null), passages);
     assert.equal(grouped.passageGroups.length, 0);

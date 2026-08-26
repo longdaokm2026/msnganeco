@@ -17,6 +17,10 @@ export type PassageQuestionGroup<Q extends GroupableQuestion, P extends Groupabl
   questions: Q[];
 };
 
+export type AssignmentQuestionPart<Q extends GroupableQuestion, P extends GroupablePassage> =
+  | { kind: "STANDALONE"; questions: Q[]; firstPosition: number }
+  | { kind: "READING"; passageGroups: PassageQuestionGroup<Q, P>[]; firstPosition: number };
+
 export function groupAssignmentQuestions<Q extends GroupableQuestion, P extends GroupablePassage>(questions: Q[], passages: P[]) {
   const orderedQuestions = questions.map((question, originalIndex) => ({ question, originalIndex }))
     .sort((left, right) => left.question.position - right.question.position || left.originalIndex - right.originalIndex)
@@ -30,6 +34,10 @@ export function groupAssignmentQuestions<Q extends GroupableQuestion, P extends 
     passage,
     questions: orderedQuestions.filter((question) => question.passageId === passage.id),
   })).filter((group) => group.questions.length > 0).map((group, index) => ({ ...group, passageNumber: index + 1 }));
+  const parts: AssignmentQuestionPart<Q, P>[] = [
+    ...(standaloneQuestions.length ? [{ kind: "STANDALONE" as const, questions: standaloneQuestions, firstPosition: standaloneQuestions[0]!.position }] : []),
+    ...(passageGroups.length ? [{ kind: "READING" as const, passageGroups, firstPosition: Math.min(...passageGroups.flatMap((group) => group.questions.map((question) => question.position))) }] : []),
+  ].sort((left, right) => left.firstPosition - right.firstPosition);
 
-  return { standaloneQuestions, passageGroups, questionNumberById };
+  return { standaloneQuestions, passageGroups, parts, questionNumberById };
 }
