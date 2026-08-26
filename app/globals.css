@@ -517,7 +517,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .assignment-create h2 { grid-column: 1 / -1; margin: 0 0 3px; font-family: var(--font-serif), serif; font-size: 18px; }
 .assignment-create button, .assignment-info > button, .passage-editor > button, .question-builder button, .assignment-sticky-actions button, .student-assignment-list article > button, .student-assignment-intro > button, .student-submit-bar button { min-height: 39px; padding: 9px 13px; border: 1px solid var(--indigo); border-radius: 8px; background: var(--indigo); color: #fff; cursor: pointer; font-size: 9px; font-weight: 700; }
 .assignment-create button:disabled, .assignment-editor button:disabled, .student-assignment-manager button:disabled { cursor: not-allowed; opacity: 1; border-color: #c9ccda; background: #eceef3; color: #646b80; }
-.assignment-filters { display: grid; grid-template-columns: repeat(4, minmax(150px, 210px)); gap: 9px; }
+.assignment-filters { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 9px; }
 .assignment-grid, .student-assignment-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .assignment-grid > article, .student-assignment-list > article { padding: 17px; display: grid; align-content: start; gap: 7px; border: 1px solid #e1ded5; border-radius: 12px; background: var(--paper); }
 .assignment-grid article > div, .student-assignment-list article > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -533,6 +533,10 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .assignment-editor { display: grid; grid-template-columns: minmax(250px, 30%) minmax(0, 70%); align-items: start; gap: 14px; }
 .assignment-info { grid-row: span 2; }
 .assignment-info, .passage-editor, .question-builder, .question-list, .read-aloud-editor { padding: 18px; display: grid; gap: 12px; border: 1px solid #dedbd2; border-radius: 12px; background: var(--paper); }
+.assignment-class-context { padding: 11px 12px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; border: 1px solid #dfe2ec; border-radius: 9px; background: #f3f4f9; }
+.assignment-class-context span { color: var(--muted); font-size: 13px; font-weight: 700; }
+.assignment-class-context strong { color: var(--indigo); font-size: 17px; }
+.assignment-class-context small { color: var(--muted); font-size: 13px; }
 .question-list, .read-aloud-editor, .assignment-sticky-actions { grid-column: 1 / -1; }
 .assignment-info label, .question-builder label { display: grid; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 700; }
 .assignment-section-title { display: flex; align-items: center; justify-content: space-between; }
