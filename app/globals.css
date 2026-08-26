@@ -10,9 +10,9 @@
   --coral: #ed7459;
   --line: #dfe3eb;
   --font-body: 17px;
-  --font-workspace: clamp(18px, 1.15vw, 19px);
-  --font-education: 19px;
-  --font-question: 19px;
+  --font-workspace: clamp(17px, 1.15vw, 18px);
+  --font-education: 18px;
+  --font-question: 18px;
   --font-option: 18px;
   --font-small: 14px;
   --font-label: 15px;
