@@ -82,12 +82,14 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .terms a { color: var(--indigo); font-weight: 600; text-decoration: none; }
 
 @media (max-width: 860px) {
+  .assignment-result-context { grid-template-columns: 1fr 1fr; }
   .auth-shell { grid-template-columns: 1fr; }
   .brand-panel { display: none; }
   .form-panel { min-height: 100vh; padding: 34px 22px; }
   .mobile-brand { display: block; margin: 0 0 24px; color: var(--indigo); font-size: 13px; font-weight: 700; }
 }
 @media (max-width: 430px) {
+  .assignment-result-context, .assignment-progress-metrics { grid-template-columns: 1fr; }
   .form-panel { align-items: start; }
   .form-heading h2 { font-size: 30px; }
   .auth-tabs { margin-top: 24px; }
@@ -179,6 +181,10 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .classroom-manager { min-width: 0; }
 .manager-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .manager-heading .back-button { margin: 0 0 18px; padding: 0; border: 0; background: transparent; color: var(--indigo); cursor: pointer; font-size: 11px; font-weight: 700; }
+.workspace-page-actions { margin: 0 0 18px; display: flex; align-items: center; gap: 9px; }
+.workspace-page-actions .back-button { margin: 0; }
+.account-menu .global-refresh-button { width: 40px; height: 40px; min-height: 40px; padding: 0; display: grid; place-items: center; border: 1px solid #aeb8df; border-radius: 50%; background: #edf1ff; color: #2856b6; cursor: pointer; font-size: 24px; font-weight: 800; line-height: 1; }
+.account-menu .global-refresh-button:hover { border-color: #6f85d1; background: #e2e8ff; }
 .manager-heading .section-kicker { margin-bottom: 7px; color: var(--coral); }
 .manager-heading h1 { margin: 0; font-family: var(--font-serif), serif; font-size: clamp(32px, 4vw, 46px); letter-spacing: -.04em; }
 .manager-heading p:last-child { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
@@ -538,6 +544,18 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .assignment-class-context strong { color: var(--indigo); font-size: 17px; }
 .assignment-class-context small { color: var(--muted); font-size: 13px; }
 .question-list, .read-aloud-editor, .assignment-sticky-actions { grid-column: 1 / -1; }
+.assignment-progress-panel { padding: 20px; display: grid; gap: 14px; border: 1px solid #dedbd2; border-radius: 12px; background: var(--paper); }
+.assignment-progress-panel > p { margin: 0; color: var(--muted); font-size: 14px; }
+.assignment-progress-panel > button, .assignment-result-context button { width: fit-content; min-height: 42px; padding: 9px 14px; border: 1px solid var(--indigo); border-radius: 8px; background: var(--indigo); color: #fff; cursor: pointer; font-size: 15px; font-weight: 700; }
+.assignment-progress-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.assignment-progress-metrics article { padding: 16px; display: grid; gap: 5px; border-radius: 10px; background: #f3f4f9; }
+.assignment-progress-metrics span { color: var(--muted); font-size: 14px; }
+.assignment-progress-metrics strong { color: var(--indigo); font-family: var(--font-serif), serif; font-size: 32px; }
+.assignment-result-context { padding: 16px 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: center; gap: 14px; border: 1px solid #dedbd2; border-radius: 12px; background: var(--paper); }
+.assignment-result-context > div { min-width: 0; display: grid; gap: 3px; }
+.assignment-result-context span, .assignment-result-context small { color: var(--muted); font-size: 13px; }
+.assignment-result-context strong { overflow: hidden; color: var(--ink); font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.assignment-result-context > button::before { content: "Liên kết bài tập · "; }
 .assignment-info label, .question-builder label { display: grid; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 700; }
 .assignment-section-title { display: flex; align-items: center; justify-content: space-between; }
 .assignment-section-title h2 { margin: 3px 0 0; font-family: var(--font-serif), serif; font-size: 18px; }
@@ -712,6 +730,8 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .section-kicker, .dashboard-nav .nav-section, .panel-label, .passage-editor .passage-label, .assignment-part-heading span { font-size: var(--font-small); line-height: 1.4; }
 .overview-section-heading h2, .report-heading h2, .assignment-part-heading h2 { font-size: var(--font-section-title); line-height: 1.2; }
 .manager-heading .back-button, .manager-heading .manager-title-path { font-size: 15px; }
+.student-lessons .manager-heading .back-button { font-size: 0; }
+.student-lessons .manager-heading .back-button::after { content: "← Back"; font-size: 15px; }
 
 /* Header and sidebar stay compact but no longer use micro text. */
 .account-menu strong { font-size: 16px; }

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import SessionManager from "./SessionManager";
+import WorkspacePageActions from "./WorkspacePageActions";
 
 type Classroom = {
   id: string;
@@ -161,7 +162,7 @@ export default function ClassroomManager({ accessToken, apiUrl, onBack }: Props)
     <section className="classroom-manager">
       <div className="manager-heading">
         <div>
-          <button className="back-button" type="button" onClick={onBack}>← Tổng quan</button>
+          <WorkspacePageActions onBack={onBack} />
           <h1 className="manager-title-path">
             <span>Quản lý lớp học</span>
             <i aria-hidden="true">›</i>

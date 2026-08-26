@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import WorkspacePageActions from "./WorkspacePageActions";
 
 type SessionItem = { id: string; title: string; scheduledStart: string; classroom: { id: string; name: string; code: string }; lesson: { id: string; title: string; status: string; updatedAt: string; publishedAt: string | null } | null };
 type Attachment = { id: string; fileName: string; fileType: string; fileSize: number; category: string; downloadUrl: string };
@@ -156,7 +157,7 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
   const editState = isDirty ? "Có thay đổi chưa lưu" : lesson?.status === "PUBLISHED" ? `Đã xuất bản · Cập nhật lần cuối ${time(lesson.updatedAt)}` : lesson?.status === "ARCHIVED" ? `Đã lưu trữ · Cập nhật lần cuối ${time(lesson.updatedAt)}` : savedAt ? `Đã lưu lúc ${time(savedAt)}` : lesson ? `Cập nhật lần cuối ${time(lesson.updatedAt)}` : "";
 
   return <div className="lesson-manager">
-    <div className="manager-heading"><div><button className="back-button" onClick={onBack}>← Tổng quan</button><h1 className="manager-title-path"><span>Quản lý bài học</span><i aria-hidden="true">›</i><strong>Bài học theo buổi</strong></h1></div></div>
+    <div className="manager-heading"><div><WorkspacePageActions onBack={onBack} /><h1 className="manager-title-path"><span>Quản lý bài học</span><i aria-hidden="true">›</i><strong>Bài học theo buổi</strong></h1></div></div>
     <div className="lesson-filters"><select value={classroomId} onChange={(e) => setClassroomId(e.target.value)}><option value="">Tất cả lớp</option>{classrooms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} /><select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tất cả trạng thái</option><option value="DRAFT">Bản nháp</option><option value="PUBLISHED">Đã xuất bản</option><option value="ARCHIVED">Đã lưu trữ</option></select></div>
     {pageError && <p className="admin-error">{pageError}</p>}
     <div className="lesson-workspace">

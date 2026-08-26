@@ -288,6 +288,7 @@ export default function Home() {
           </a>
           <p className="dashboard-tagline">Learn with confidence. Grow without limits.</p>
           <div className="account-menu">
+            <button className="global-refresh-button" type="button" aria-label="Làm mới trang" title="Làm mới trang" onClick={() => window.location.reload()}>↻</button>
             <span>
               <strong>{user.fullName}</strong>
               <small>{dashboard.roleLabel}</small>

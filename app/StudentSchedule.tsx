@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import WorkspacePageActions from "./WorkspacePageActions";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
 type AbsenceStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -160,7 +161,7 @@ export default function StudentSchedule({ accessToken, apiUrl, onBack }: Props) 
     <section className="student-schedule">
       <div className="manager-heading">
         <div>
-          <button className="back-button" type="button" onClick={onBack}>← Tổng quan</button>
+          <WorkspacePageActions onBack={onBack} />
           <h1 className="manager-title-path">
             <span>Buổi học &amp; chuyên cần</span>
             <i aria-hidden="true">›</i>

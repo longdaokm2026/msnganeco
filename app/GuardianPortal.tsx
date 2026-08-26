@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import WorkspacePageActions from "./WorkspacePageActions";
 
 type LinkStatus = "PENDING" | "ACTIVE" | "REJECTED" | "REVOKED";
 
@@ -130,7 +131,7 @@ export default function GuardianPortal({ accessToken, apiUrl, onBack }: Props) {
     <section className="guardian-portal">
       <div className="manager-heading">
         <div>
-          <button className="back-button" type="button" onClick={onBack}>← Tổng quan</button>
+          <WorkspacePageActions onBack={onBack} />
           <p className="section-kicker">Dành cho phụ huynh</p>
           <h1>Theo dõi việc học</h1>
           <p>Liên kết tài khoản học sinh và theo dõi lớp học, lịch học, chuyên cần.</p>

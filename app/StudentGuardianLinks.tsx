@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import WorkspacePageActions from "./WorkspacePageActions";
 
 type GuardianLink = {
   guardianId: string;
@@ -90,7 +91,7 @@ export default function StudentGuardianLinks({ accessToken, apiUrl, onBack }: Pr
     <section className="student-guardian-links">
       <div className="manager-heading">
         <div>
-          <button className="back-button" type="button" onClick={onBack}>← Tổng quan</button>
+          <WorkspacePageActions onBack={onBack} />
           <p className="section-kicker">Quyền riêng tư</p>
           <h1>Liên kết phụ huynh</h1>
           <p>Chỉ chấp thuận người bạn biết. Phụ huynh được chấp thuận có thể xem lớp, lịch và chuyên cần của bạn.</p>
