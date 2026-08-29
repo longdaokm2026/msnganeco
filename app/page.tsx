@@ -347,7 +347,6 @@ export default function Home() {
 
         <div className="dashboard-content" id="dashboard">
           <aside className="dashboard-nav" aria-label="Điều hướng chính">
-            <span className="nav-section">Không gian của bạn</span>
             <button className={currentView === "overview" ? "active" : ""} type="button" onClick={() => navigateDashboard("overview")}>Tổng quan</button>
             {dashboard.primaryRole === "ADMIN" ? <>
               <button className={currentView === "admin-users" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-users")}>Quản lý tài khoản</button>
