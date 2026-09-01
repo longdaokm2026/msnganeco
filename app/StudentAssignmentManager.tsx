@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
 import { groupAssignmentQuestions } from "./assignment-question-groups";
+import StudentListeningSection from "./StudentListeningSection";
+import type { ListeningTrack } from "./listening-types";
 import StudentWritingSection from "./StudentWritingSection";
 import type { WritingSubmission, WritingTask } from "./writing-types";
 import WorkspacePageActions from "./WorkspacePageActions";
@@ -11,6 +13,7 @@ import WorkspacePageActions from "./WorkspacePageActions";
 type Question = {
   id: string;
   passageId: string | null;
+  listeningTrackId: string | null;
   type: string;
   section: string;
   position: number;
@@ -65,6 +68,7 @@ type Assignment = {
   questionCount?: number;
   classroom: { id: string; name: string };
   lesson: { id: string; title: string } | null;
+  listeningTracks: ListeningTrack[];
   writingTask: WritingTask | null;
   readAloudTask: ReadAloudTask | null;
   passages?: {
@@ -135,6 +139,10 @@ const questionLabels: Record<string, string> = {
   READING_MULTIPLE_CHOICE: "Reading · Trắc nghiệm",
   READING_TRUE_FALSE_NOT_GIVEN: "Reading · Đúng/Sai/Không có thông tin",
   READING_SHORT_ANSWER: "Reading · Trả lời ngắn",
+  LISTENING_MULTIPLE_CHOICE: "Listening · Trắc nghiệm",
+  LISTENING_TRUE_FALSE: "Listening · Đúng/Sai",
+  LISTENING_FILL_BLANK: "Listening · Điền từ",
+  LISTENING_MATCHING: "Listening · Nối cặp",
 };
 const date = (value: string | null) =>
   value
@@ -597,7 +605,10 @@ export default function StudentAssignmentManager({
           })}
         </div>
       );
-    if (question.type === "READING_TRUE_FALSE_NOT_GIVEN") {
+    if (
+      question.type === "READING_TRUE_FALSE_NOT_GIVEN" ||
+      question.type === "LISTENING_TRUE_FALSE"
+    ) {
       const choices =
         question.section === "VOCABULARY"
           ? [
@@ -626,7 +637,10 @@ export default function StudentAssignmentManager({
         </div>
       );
     }
-    if (question.type === "VOCAB_MATCHING") {
+    if (
+      question.type === "VOCAB_MATCHING" ||
+      question.type === "LISTENING_MATCHING"
+    ) {
       const mappings = Array.isArray(answer.mappings)
         ? (answer.mappings as { leftId: string; rightId: string }[])
         : [];
@@ -730,12 +744,67 @@ export default function StudentAssignmentManager({
     );
   }
 
+  function renderQuestionArticle(question: Question, questionNumber: number) {
+    if (!attempt) return null;
+    const stored = attempt.answers.find(
+      (item) => item.questionId === question.id,
+    );
+    return (
+      <article
+        className={stored?.result?.isCorrect === false ? "incorrect" : ""}
+        key={question.id}
+      >
+        <header>
+          <span>Câu {questionNumber}</span>
+          <small>
+            {question.type === "READING_TRUE_FALSE_NOT_GIVEN" &&
+            question.section === "VOCABULARY"
+              ? "Từ vựng · Đúng/Sai"
+              : questionLabels[question.type]}
+          </small>
+        </header>
+        <h3>{question.prompt}</h3>
+        {questionControl(question)}
+        <footer>
+          <span>{saveState[question.id]}</span>
+          {stored?.result && (
+            <>
+              <b>{stored.result.isCorrect ? "✓ Đúng" : "✕ Chưa đúng"}</b>
+              <p>
+                <strong>Câu trả lời:</strong> {stored.result.studentAnswer}
+              </p>
+              {stored.result.correctAnswer !== undefined && (
+                <p>
+                  <strong>Đáp án đúng:</strong> {stored.result.correctAnswer}
+                </p>
+              )}
+              {stored.result.matching && (
+                <p>
+                  <strong>Số cặp đúng:</strong>{" "}
+                  {stored.result.matching.correctPairs}/
+                  {stored.result.matching.totalPairs}
+                </p>
+              )}
+            </>
+          )}
+          {question.explanation && <p>{question.explanation}</p>}
+        </footer>
+      </article>
+    );
+  }
+
+  const regularQuestions = attempt
+    ? attempt.assignment.questions.filter(
+        (question) => !question.listeningTrackId,
+      )
+    : [];
   const objectivePartCount = attempt
     ? groupAssignmentQuestions(
-        attempt.assignment.questions,
+        regularQuestions,
         attempt.assignment.passages,
       ).parts.length
     : 0;
+  const hasListening = Boolean(attempt?.assignment.listeningTracks.length);
 
   return (
     <div className="student-assignment-manager">
@@ -918,62 +987,22 @@ export default function StudentAssignmentManager({
             )}
           </header>
           <AssignmentQuestionSections
-            questions={attempt.assignment.questions}
+            questions={regularQuestions}
             passages={attempt.assignment.passages}
-            renderQuestion={(question, questionNumber) => {
-              const stored = attempt.answers.find(
-                (item) => item.questionId === question.id,
-              );
-              return (
-                <article
-                  className={
-                    stored?.result?.isCorrect === false ? "incorrect" : ""
-                  }
-                  key={question.id}
-                >
-                  <header>
-                    <span>Câu {questionNumber}</span>
-                    <small>
-                      {question.type === "READING_TRUE_FALSE_NOT_GIVEN" &&
-                      question.section === "VOCABULARY"
-                        ? "Từ vựng · Đúng/Sai"
-                        : questionLabels[question.type]}
-                    </small>
-                  </header>
-                  <h3>{question.prompt}</h3>
-                  {questionControl(question)}
-                  <footer>
-                    <span>{saveState[question.id]}</span>
-                    {stored?.result && (
-                      <>
-                        <b>
-                          {stored.result.isCorrect ? "✓ Đúng" : "✕ Chưa đúng"}
-                        </b>
-                        <p>
-                          <strong>Câu trả lời:</strong>{" "}
-                          {stored.result.studentAnswer}
-                        </p>
-                        {stored.result.correctAnswer !== undefined && (
-                          <p>
-                            <strong>Đáp án đúng:</strong>{" "}
-                            {stored.result.correctAnswer}
-                          </p>
-                        )}
-                        {stored.result.matching && (
-                          <p>
-                            <strong>Số cặp đúng:</strong>{" "}
-                            {stored.result.matching.correctPairs}/
-                            {stored.result.matching.totalPairs}
-                          </p>
-                        )}
-                      </>
-                    )}
-                    {question.explanation && <p>{question.explanation}</p>}
-                  </footer>
-                </article>
-              );
-            }}
+            renderQuestion={renderQuestionArticle}
           />
+          {hasListening && (
+            <StudentListeningSection
+              attemptId={attempt.id}
+              tracks={attempt.assignment.listeningTracks}
+              questions={attempt.assignment.questions}
+              editable={attempt.status === "IN_PROGRESS"}
+              apiUrl={apiUrl}
+              accessToken={accessToken}
+              partNumber={objectivePartCount + 1}
+              renderQuestion={renderQuestionArticle}
+            />
+          )}
           {attempt.assignment.writingTask && (
             <StudentWritingSection
               attemptId={attempt.id}
@@ -982,7 +1011,7 @@ export default function StudentAssignmentManager({
               editable={attempt.status === "IN_PROGRESS"}
               apiUrl={apiUrl}
               accessToken={accessToken}
-              partNumber={objectivePartCount + 1}
+              partNumber={objectivePartCount + (hasListening ? 2 : 1)}
               onSavingChange={setWritingSaving}
               onChanged={(writingSubmission) =>
                 setAttempt((current) =>
@@ -995,7 +1024,10 @@ export default function StudentAssignmentManager({
             <section className="assignment-question-part speaking-part">
               <header className="assignment-part-heading">
                 <span>
-                  PHẦN {objectivePartCount + (attempt.assignment.writingTask ? 2 : 1)}
+                  PHẦN{" "}
+                  {objectivePartCount +
+                    (hasListening ? 1 : 0) +
+                    (attempt.assignment.writingTask ? 2 : 1)}
                 </span>
                 <h2>Speaking</h2>
               </header>

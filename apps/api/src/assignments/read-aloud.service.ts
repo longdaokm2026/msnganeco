@@ -21,7 +21,7 @@ export class ReadAloudService {
 
   async upload(studentId: string, attemptId: string, file: AudioUploadFile | undefined, durationSeconds?: number | null) {
     if (!file) throw new BadRequestException("Vui lòng chọn bản ghi âm.");
-    const saved = await this.storage.save(file);
+    const saved = await this.storage.save(file, "speaking");
     let result;
     try {
       result = await this.repository.saveUpload(studentId, attemptId, { fileName: file.originalname, fileType: saved.mime, fileSize: file.size, storageKey: saved.storageKey, durationSeconds });

@@ -968,6 +968,37 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .writing-result-card { padding: 15px 17px; display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; border-radius: 11px; background: var(--indigo-soft); color: var(--indigo-dark); }
 .writing-result-card p { grid-column: 1 / -1; margin: 0; line-height: 1.6; }
 
+/* Listening reuses the assignment cards and the authenticated audio workflow. */
+.listening-editor { grid-column: 1 / -1; padding: 22px; display: grid; gap: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.listening-editor > header, .listening-track-card > header, .listening-question-list > article, .listening-audio-box, .listening-play-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.listening-editor > header h2, .listening-track-card h3, .student-listening-track h3 { margin: 0; color: var(--ink); font-family: var(--font-serif), serif; }
+.listening-editor > header p, .listening-track-card p, .student-listening-track header p { margin: 4px 0 0; color: var(--muted); line-height: 1.6; }
+.listening-track-list, .listening-question-list, .student-listening, .student-listening-track, .student-listening-player, .teacher-listening-result, .listening-result-track { display: grid; gap: 14px; }
+.listening-track-card, .student-listening-track, .listening-result-track { padding: 18px; border: 1px solid var(--line); border-left: 4px solid var(--coral); border-radius: 12px; background: #f8f7f2; }
+.listening-track-card > header span, .student-listening-track > header > span, .listening-result-track > header span { color: var(--coral); font-size: var(--font-small); font-weight: 800; letter-spacing: .06em; }
+.listening-track-form, .listening-track-create, .listening-question-builder { display: grid; gap: 13px; }
+.listening-track-form > label, .listening-track-create label, .listening-question-builder label, .listening-settings > label { display: grid; gap: 7px; color: var(--muted); font-size: var(--font-label); font-weight: 700; }
+.listening-track-form input, .listening-track-form select, .listening-track-form textarea, .listening-track-create input, .listening-question-builder input, .listening-question-builder select, .listening-question-builder textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cfd5e4; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-size: var(--font-control); line-height: 1.5; }
+.listening-track-form textarea, .listening-question-builder textarea { resize: vertical; }
+.listening-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.listening-settings .check-row { display: flex; align-items: center; align-self: end; min-height: 44px; }
+.listening-settings .check-row input { width: 19px; min-height: 19px; accent-color: var(--indigo); }
+.listening-audio-box { flex-wrap: wrap; padding: 13px; border-radius: 10px; background: var(--indigo-soft); }
+.listening-audio-box audio, .student-listening-player audio, .listening-result-track audio { width: min(100%, 650px); }
+.listening-question-list { padding-top: 12px; border-top: 1px solid var(--line); }
+.listening-question-list > article { padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.listening-question-list article > div:first-child { display: grid; gap: 4px; }
+.listening-question-list article span { color: var(--muted); font-size: var(--font-small); }
+.student-listening-player { padding: 14px; border-radius: 10px; background: var(--indigo-soft); }
+.student-listening-player button { width: fit-content; min-height: 44px; padding: 9px 16px; border: 1px solid var(--indigo); border-radius: 9px; background: var(--indigo); color: #fff; font-size: var(--font-control); font-weight: 700; cursor: pointer; }
+.student-listening-player button:disabled { cursor: not-allowed; opacity: .68; }
+.listening-play-status { color: var(--muted); font-size: var(--font-small); }
+.listening-transcript { padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.listening-transcript summary { color: var(--indigo); font-weight: 700; cursor: pointer; }
+.listening-transcript p { white-space: pre-wrap; }
+.teacher-listening-result { margin-top: 14px; }
+.listening-result-track .student-question-list { padding-top: 0; border-top: 0; }
+
 /* Slightly stronger surface separation and selection feedback across Theme A. */
 .dashboard-main :is(section, article, aside, form),
 .classroom-workspace, .lesson-workspace, .guardian-workspace,
@@ -1018,6 +1049,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .assignment-editor { grid-template-columns: 1fr; }
   .assignment-info, .question-list, .read-aloud-editor, .writing-editor, .assignment-sticky-actions { grid-column: auto; grid-row: auto; }
   .result-metrics { grid-template-columns: repeat(3, 1fr); }
+  .listening-settings { grid-template-columns: 1fr 1fr; }
   .linked-student-list { border-right: 0; border-bottom: 1px solid #e7e4dc; }
 }
 
@@ -1077,6 +1109,10 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .result-metrics { grid-template-columns: 1fr 1fr; }
   .writing-word-limits { grid-template-columns: 1fr; }
   .writing-editor, .writing-grading, .student-writing { padding: 17px; }
+  .listening-editor, .listening-track-card, .student-listening-track { padding: 17px; }
+  .listening-settings { grid-template-columns: 1fr; }
+  .listening-track-card > header, .listening-question-list > article, .listening-audio-box, .listening-play-status { align-items: stretch; flex-direction: column; }
+  .listening-audio-box audio, .student-listening-player audio, .listening-result-track audio { width: 100%; }
 }
 
 @media (max-width: 560px) {

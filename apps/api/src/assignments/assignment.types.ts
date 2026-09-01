@@ -7,7 +7,7 @@ export type AssignmentInput = {
 };
 export type AssignmentPatch = Partial<Omit<AssignmentInput, "classroomId">> & { classroomId?: string };
 export type AssignmentListQuery = { classroomId?: string; lessonId?: string; type?: AssignmentType; status?: AssignmentStatus; page: number; pageSize: number };
-export type QuestionInput = { type: AssignmentQuestionType; section: AssignmentSection; passageId?: string | null; prompt: string; explanation?: string | null; points: number; required: boolean; config: Record<string, unknown> };
+export type QuestionInput = { type: AssignmentQuestionType; section: AssignmentSection; passageId?: string | null; listeningTrackId?: string | null; prompt: string; explanation?: string | null; points: number; required: boolean; config: Record<string, unknown> };
 export type PassageInput = { title?: string | null; content: string };
 export type ReorderInput = { ids: string[] };
 export type AnswerInput = { answer: unknown };

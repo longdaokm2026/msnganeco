@@ -48,6 +48,10 @@ const assignmentWritingMigrationUrl = new URL(
   "../prisma/migrations/20260826010000_assignment_writing/migration.sql",
   import.meta.url,
 );
+const assignmentListeningMigrationUrl = new URL(
+  "../prisma/migrations/20260901010000_assignment_listening/migration.sql",
+  import.meta.url,
+);
 
 async function createDatabase() {
   const db = await PGlite.create({ extensions: { citext } });
@@ -73,6 +77,8 @@ async function createDatabase() {
   await db.exec(quickQuizMigration);
   const assignmentWritingMigration = await readFile(assignmentWritingMigrationUrl, "utf8");
   await db.exec(assignmentWritingMigration);
+  const assignmentListeningMigration = await readFile(assignmentListeningMigrationUrl, "utf8");
+  await db.exec(assignmentListeningMigration);
   return db;
 }
 
@@ -93,6 +99,8 @@ test("initial migration creates the account tables", async () => {
       "assignment_answers",
       "assignment_attempts",
       "assignment_audio_attachments",
+      "assignment_listening_playbacks",
+      "assignment_listening_tracks",
       "assignment_passages",
       "assignment_questions",
       "assignment_read_aloud_submissions",
@@ -194,6 +202,34 @@ test("Writing migration is additive and enforces one task, ordered translation i
     await db.query(`DELETE FROM assignment_attempts WHERE id=$1`, [attemptId]);
     const remaining = await db.query(`SELECT count(*)::int AS count FROM writing_submissions WHERE attempt_id=$1`, [attemptId]);
     assert.equal(remaining.rows[0].count, 0);
+  } finally { await db.close(); }
+});
+
+test("Listening migration keeps audio outside PostgreSQL and enforces track, question and playback integrity", async () => {
+  const db = await createDatabase();
+  const teacherId = "16000000-0000-4000-8000-000000000001", studentId = "16000000-0000-4000-8000-000000000002", classroomId = "16000000-0000-4000-8000-000000000003", assignmentId = "16000000-0000-4000-8000-000000000004", attemptId = "16000000-0000-4000-8000-000000000005", trackId = "16000000-0000-4000-8000-000000000006", audioId = "16000000-0000-4000-8000-000000000007", passageId = "16000000-0000-4000-8000-000000000008";
+  try {
+    await db.exec(`
+      INSERT INTO users (id,email,password_hash,full_name,status,updated_at) VALUES ('${teacherId}','listening-teacher@test.local','hash','Teacher','ACTIVE',NOW()),('${studentId}','listening-student@test.local','hash','Student','ACTIVE',NOW());
+      INSERT INTO teacher_profiles (user_id,approval_status,updated_at) VALUES ('${teacherId}','APPROVED',NOW());
+      INSERT INTO student_profiles (user_id,updated_at) VALUES ('${studentId}',NOW());
+      INSERT INTO classrooms (id,teacher_id,code,name,updated_at) VALUES ('${classroomId}','${teacherId}','MSN-LISTEN','Listening Class',NOW());
+      INSERT INTO assignments (id,classroom_id,created_by_id,title,updated_at) VALUES ('${assignmentId}','${classroomId}','${teacherId}','Listening',NOW());
+      INSERT INTO assignment_attempts (id,assignment_id,student_id,attempt_number,status,updated_at) VALUES ('${attemptId}','${assignmentId}','${studentId}',1,'IN_PROGRESS',NOW());
+      INSERT INTO assignment_listening_tracks (id,assignment_id,title,max_play_count,position,updated_at) VALUES ('${trackId}','${assignmentId}','Track 1',2,0,NOW());
+      INSERT INTO assignment_audio_attachments (id,listening_track_id,file_name,file_type,file_size,storage_key,uploaded_by_id) VALUES ('${audioId}','${trackId}','track.mp3','audio/mpeg',20,'listening/secure-key.mp3','${teacherId}');
+      INSERT INTO assignment_questions (assignment_id,listening_track_id,type,section,position,prompt,config,updated_at) VALUES ('${assignmentId}','${trackId}','LISTENING_MULTIPLE_CHOICE','LISTENING',0,'What did you hear?','{"options":[{"id":"a","text":"Hello"}],"correctOptionId":"a"}',NOW());
+      INSERT INTO assignment_listening_playbacks (track_id,attempt_id,student_id) VALUES ('${trackId}','${attemptId}','${studentId}');
+      INSERT INTO assignment_passages (id,assignment_id,position,title,content,updated_at) VALUES ('${passageId}','${assignmentId}',0,'Reading','Text',NOW());
+    `);
+    await assert.rejects(db.query(`INSERT INTO assignment_listening_tracks (assignment_id,title,position,updated_at) VALUES ($1,'Duplicate position',0,NOW())`, [assignmentId]), /duplicate key value/i);
+    await assert.rejects(db.query(`UPDATE assignment_listening_tracks SET max_play_count=0 WHERE id=$1`, [trackId]), /check constraint/i);
+    await assert.rejects(db.query(`INSERT INTO assignment_questions (assignment_id,passage_id,listening_track_id,type,section,position,prompt,config,updated_at) VALUES ($1,$2,$3,'LISTENING_FILL_BLANK','LISTENING',1,'Both contexts','{}',NOW())`, [assignmentId, passageId, trackId]), /check constraint/i);
+    const audio = await db.query(`SELECT storage_key, listening_track_id FROM assignment_audio_attachments WHERE id=$1`, [audioId]);
+    assert.deepEqual(audio.rows[0], { storage_key: "listening/secure-key.mp3", listening_track_id: trackId });
+    await db.query(`DELETE FROM assignment_attempts WHERE id=$1`, [attemptId]);
+    const playbacks = await db.query(`SELECT count(*)::int AS count FROM assignment_listening_playbacks WHERE attempt_id=$1`, [attemptId]);
+    assert.equal(playbacks.rows[0].count, 0);
   } finally { await db.close(); }
 });
 

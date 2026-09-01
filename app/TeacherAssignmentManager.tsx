@@ -5,7 +5,9 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
 import TeacherWritingEditor from "./TeacherWritingEditor";
 import TeacherWritingGrading from "./TeacherWritingGrading";
+import TeacherListeningEditor from "./TeacherListeningEditor";
 import WorkspacePageActions from "./WorkspacePageActions";
+import type { ListeningTrack } from "./listening-types";
 import type { WritingSubmission, WritingTask } from "./writing-types";
 
 type Classroom = { id: string; code: string; name: string };
@@ -16,6 +18,7 @@ type LessonOption = {
 type Question = {
   id: string;
   passageId: string | null;
+  listeningTrackId: string | null;
   type: string;
   section: string;
   position: number;
@@ -81,6 +84,7 @@ type Assignment = {
   lesson: { id: string; title: string } | null;
   questions: Question[];
   passages: Passage[];
+  listeningTracks: ListeningTrack[];
   readAloudTask: ReadAloudTask | null;
   writingTask: WritingTask | null;
   attemptCount: number;
@@ -126,9 +130,11 @@ type AttemptDetail = {
   submittedAt: string;
   objectiveResult: ObjectiveResult | null;
   passages: Passage[];
+  listeningTracks: ListeningTrack[];
   questions: ({
     id: string;
     passageId: string | null;
+    listeningTrackId: string | null;
     type: string;
     section: string;
     position: number;
@@ -170,6 +176,10 @@ const typeLabels: Record<string, string> = {
   READING_MULTIPLE_CHOICE: "Reading · Trắc nghiệm",
   READING_TRUE_FALSE_NOT_GIVEN: "Reading · Đúng/Sai/Không có thông tin",
   READING_SHORT_ANSWER: "Reading · Trả lời ngắn",
+  LISTENING_MULTIPLE_CHOICE: "Listening · Trắc nghiệm",
+  LISTENING_TRUE_FALSE: "Listening · Đúng/Sai",
+  LISTENING_FILL_BLANK: "Listening · Điền từ",
+  LISTENING_MATCHING: "Listening · Nối cặp",
 };
 const statusLabels: Record<string, string> = {
   DRAFT: "Bản nháp",
@@ -186,14 +196,16 @@ const readingQuestionTypes = questionTypes.filter((key) =>
   key.startsWith("READING_"),
 );
 const vocabularyGrammarQuestionTypes = questionTypes.filter(
-  (key) => !key.startsWith("READING_"),
+  (key) => !key.startsWith("READING_") && !key.startsWith("LISTENING_"),
 );
 const sectionFor = (type: string) =>
   type.startsWith("VOCAB_")
     ? "VOCABULARY"
     : type.startsWith("GRAMMAR_")
       ? "GRAMMAR"
-      : "READING";
+      : type.startsWith("LISTENING_")
+        ? "LISTENING"
+        : "READING";
 const lines = (value: string) =>
   value
     .split("\n")
@@ -565,7 +577,9 @@ export default function TeacherAssignmentManager({
         value.questions.some((question) => Boolean(question.passageId)),
     );
     setVocabularyGrammarEnabled(
-      value.questions.some((question) => !question.passageId),
+      value.questions.some(
+        (question) => !question.passageId && !question.listeningTrackId,
+      ),
     );
     if (value.generationMode !== "MANUAL")
       setQuickForm((form) => ({
@@ -800,7 +814,12 @@ export default function TeacherAssignmentManager({
   }
   function toggleVocabularyGrammar(enabled: boolean) {
     if (!current) return;
-    if (!enabled && current.questions.some((question) => !question.passageId)) {
+    if (
+      !enabled &&
+      current.questions.some(
+        (question) => !question.passageId && !question.listeningTrackId,
+      )
+    ) {
       setError(
         "Vocabulary - Grammar đang có câu hỏi. Hãy xóa các câu hỏi này trước khi bỏ chọn.",
       );
@@ -1003,18 +1022,25 @@ export default function TeacherAssignmentManager({
   const readAloudComplete =
     !readAloud.enabled ||
     Boolean(readAloud.readingText.trim() && Number(readAloud.maxScore) > 0);
+  const listeningComplete =
+    current?.listeningTracks.every(
+      (track) => Boolean(track.audioAttachment) && track.questionCount > 0,
+    ) ?? true;
   const canPublish = Boolean(
     current?.title.trim() &&
+      listeningComplete &&
       (current.questions.length ||
         current.readAloudTask ||
         current.writingTask),
   );
   const publishHint =
-    readAloud.enabled && !current?.readAloudTask
+    !listeningComplete
+      ? "Mỗi đoạn Listening cần file âm thanh và ít nhất một câu hỏi."
+      : readAloud.enabled && !current?.readAloudTask
       ? "Hãy lưu Speaking trước khi xuất bản."
       : !readAloudComplete
         ? "Cần nhập nội dung Speaking trước khi xuất bản."
-        : "Cần nhập tiêu đề và ít nhất một câu hỏi, nội dung Speaking hoặc Writing trước khi xuất bản.";
+        : "Cần nhập tiêu đề và ít nhất một câu hỏi, nội dung Listening, Speaking hoặc Writing trước khi xuất bản.";
   const isReadingQuestion = Boolean(questionDraft.passageId);
   const editorQuestionTypes = isReadingQuestion
     ? readingQuestionTypes
@@ -1844,6 +1870,19 @@ export default function TeacherAssignmentManager({
               </form>
             </>
           )}
+          <TeacherListeningEditor
+            key={`listening-${current.id}`}
+            assignmentId={current.id}
+            tracks={current.listeningTracks}
+            questions={current.questions}
+            draft={current.status === "DRAFT"}
+            apiUrl={apiUrl}
+            accessToken={accessToken}
+            onChanged={async () => {
+              const value = await api<Assignment>(`/assignments/${current.id}`);
+              acceptCurrent(value);
+            }}
+          />
           <TeacherWritingEditor
             key={current.id}
             assignmentId={current.id}
@@ -1955,6 +1994,9 @@ export default function TeacherAssignmentManager({
                 <h2>Nội dung</h2>
                 <p>
                   {current.questions.length} câu trắc nghiệm
+                  {current.listeningTracks.length
+                    ? ` · ${current.listeningTracks.length} đoạn Listening`
+                    : ""}
                   {current.writingTask ? " · Có Writing" : ""}
                   {current.readAloudTask
                     ? " · Speaking chấm riêng theo thang 10"
@@ -1979,7 +2021,12 @@ export default function TeacherAssignmentManager({
                 ))}
               </section>
             )}
-            {current.questions.map((item, index) => {
+            {current.questions
+              .filter((item) => !item.listeningTrackId)
+              .map((item) => {
+              const index = current.questions.findIndex(
+                (question) => question.id === item.id,
+              );
               const passageIndex = current.passages.findIndex(
                 (passage) => passage.id === item.passageId,
               );
@@ -2198,7 +2245,9 @@ export default function TeacherAssignmentManager({
                 )}
               </div>
               <AssignmentQuestionSections
-                questions={attemptDetail.questions}
+                questions={attemptDetail.questions.filter(
+                  (question) => !question.listeningTrackId,
+                )}
                 passages={attemptDetail.passages}
                 renderQuestion={(item, questionNumber) => (
                   <article key={item.id}>
@@ -2231,6 +2280,72 @@ export default function TeacherAssignmentManager({
                   </article>
                 )}
               />
+              {attemptDetail.listeningTracks.length > 0 && (
+                <section className="teacher-listening-result">
+                  <div className="assignment-part-heading">
+                    <span>LISTENING</span>
+                    <h2>Kết quả Listening</h2>
+                  </div>
+                  {attemptDetail.listeningTracks.map((track, trackIndex) => (
+                    <article key={track.id} className="listening-result-track">
+                      <header>
+                        <div>
+                          <span>Listening {trackIndex + 1}</span>
+                          <h3>{track.title}</h3>
+                        </div>
+                      </header>
+                      {track.audioAttachment && (
+                        <AuthenticatedAudio
+                          apiUrl={apiUrl}
+                          accessToken={accessToken}
+                          path={track.audioAttachment.audioUrl}
+                        />
+                      )}
+                      {attemptDetail.questions
+                        .filter(
+                          (question) => question.listeningTrackId === track.id,
+                        )
+                        .sort((left, right) => left.position - right.position)
+                        .map((item) => {
+                          const questionNumber =
+                            [...attemptDetail.questions]
+                              .sort(
+                                (left, right) =>
+                                  left.position - right.position,
+                              )
+                              .findIndex(
+                                (question) => question.id === item.id,
+                              ) + 1;
+                          return (
+                            <section key={item.id}>
+                              <header>
+                                <span>Câu {questionNumber}</span>
+                                <b
+                                  className={
+                                    item.isCorrect ? "correct" : "wrong"
+                                  }
+                                >
+                                  {item.isCorrect ? "✓ Đúng" : "✕ Sai"}
+                                </b>
+                              </header>
+                              <h3>{item.prompt}</h3>
+                              <p>
+                                <strong>Học sinh trả lời:</strong>{" "}
+                                {item.studentAnswer}
+                              </p>
+                              {item.correctAnswer !== undefined && (
+                                <p>
+                                  <strong>Đáp án đúng:</strong>{" "}
+                                  {item.correctAnswer}
+                                </p>
+                              )}
+                            </section>
+                          );
+                        })}
+                    </article>
+                  ))}
+                </section>
+              )}
               {attemptDetail.writingTask && (
                 <TeacherWritingGrading
                   key={attemptDetail.id}

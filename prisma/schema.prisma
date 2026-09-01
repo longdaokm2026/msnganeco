@@ -110,6 +110,7 @@ enum AssignmentSection {
   VOCABULARY
   GRAMMAR
   READING
+  LISTENING
 }
 
 enum AssignmentQuestionType {
@@ -123,6 +124,15 @@ enum AssignmentQuestionType {
   READING_MULTIPLE_CHOICE
   READING_TRUE_FALSE_NOT_GIVEN
   READING_SHORT_ANSWER
+  LISTENING_MULTIPLE_CHOICE
+  LISTENING_TRUE_FALSE
+  LISTENING_FILL_BLANK
+  LISTENING_MATCHING
+}
+
+enum ListeningTranscriptVisibility {
+  NEVER
+  AFTER_SUBMIT
 }
 
 enum AssignmentAttemptStatus {
@@ -198,6 +208,7 @@ model StudentProfile {
   assignmentAttempts AssignmentAttempt[]
   readAloudSubmissions AssignmentReadAloudSubmission[]
   writingSubmissions WritingSubmission[]
+  listeningPlaybacks AssignmentListeningPlayback[]
 
   @@map("student_profiles")
 }
@@ -361,6 +372,7 @@ model Assignment {
   readAloudTask        AssignmentReadAloudTask?
   readAloudSubmissions AssignmentReadAloudSubmission[]
   writingTask          AssignmentWritingTask?
+  listeningTracks      AssignmentListeningTrack[]
 
   @@index([classroomId])
   @@index([lessonId])
@@ -390,6 +402,7 @@ model AssignmentQuestion {
   id           String                 @id @default(uuid()) @db.Uuid
   assignmentId String                 @map("assignment_id") @db.Uuid
   passageId    String?                @map("passage_id") @db.Uuid
+  listeningTrackId String?            @map("listening_track_id") @db.Uuid
   type         AssignmentQuestionType
   section      AssignmentSection
   position     Int
@@ -402,11 +415,13 @@ model AssignmentQuestion {
   updatedAt    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
   assignment   Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   passage      AssignmentPassage?     @relation(fields: [passageId], references: [id], onDelete: SetNull)
+  listeningTrack AssignmentListeningTrack? @relation(fields: [listeningTrackId], references: [id], onDelete: Cascade)
   answers      AssignmentAnswer[]
 
   @@unique([assignmentId, position])
   @@index([assignmentId, position])
   @@index([passageId])
+  @@index([listeningTrackId])
   @@map("assignment_questions")
 }
 
@@ -429,6 +444,7 @@ model AssignmentAttempt {
   answers       AssignmentAnswer[]
   readAloudSubmission AssignmentReadAloudSubmission?
   writingSubmission WritingSubmission?
+  listeningPlaybacks AssignmentListeningPlayback[]
 
   @@unique([assignmentId, studentId, attemptNumber])
   @@index([assignmentId, studentId])
@@ -459,12 +475,51 @@ model AssignmentAudioAttachment {
   fileSize     Int          @map("file_size")
   storageKey   String       @unique @map("storage_key") @db.VarChar(500)
   uploadedById String       @map("uploaded_by_id") @db.Uuid
+  listeningTrackId String?  @unique @map("listening_track_id") @db.Uuid
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   uploadedBy   User         @relation("AssignmentAudioUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
   submission   AssignmentReadAloudSubmission?
+  listeningTrack AssignmentListeningTrack? @relation(fields: [listeningTrackId], references: [id], onDelete: Cascade)
 
   @@index([uploadedById])
   @@map("assignment_audio_attachments")
+}
+
+model AssignmentListeningTrack {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  assignmentId         String                        @map("assignment_id") @db.Uuid
+  title                String                        @db.VarChar(200)
+  instructions         String?
+  transcript           String?
+  transcriptVisibility ListeningTranscriptVisibility @default(NEVER) @map("transcript_visibility")
+  maxPlayCount         Int?                          @map("max_play_count")
+  allowSeeking         Boolean                       @default(true) @map("allow_seeking")
+  position             Int
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assignment           Assignment                    @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  audioAttachment      AssignmentAudioAttachment?
+  questions            AssignmentQuestion[]
+  playbacks            AssignmentListeningPlayback[]
+
+  @@unique([assignmentId, position])
+  @@index([assignmentId, position])
+  @@map("assignment_listening_tracks")
+}
+
+model AssignmentListeningPlayback {
+  id        String                   @id @default(uuid()) @db.Uuid
+  trackId   String                   @map("track_id") @db.Uuid
+  attemptId String                   @map("attempt_id") @db.Uuid
+  studentId String                   @map("student_id") @db.Uuid
+  playedAt  DateTime                 @default(now()) @map("played_at") @db.Timestamptz(3)
+  track     AssignmentListeningTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  attempt   AssignmentAttempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  student   StudentProfile           @relation(fields: [studentId], references: [userId], onDelete: Restrict)
+
+  @@index([attemptId, trackId])
+  @@index([studentId, playedAt])
+  @@map("assignment_listening_playbacks")
 }
 
 model AssignmentReadAloudSubmission {

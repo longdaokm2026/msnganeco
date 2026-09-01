@@ -16,6 +16,9 @@ describe("Assignment deterministic grading", () => {
     assert.match(assignmentPublishError({ title: "Essay", questionCount: 0, writingTask: { type: "ESSAY", prompt: " ", translationItemCount: 0 } }) ?? "", /đề bài Essay/);
     assert.equal(assignmentPublishError({ title: "Translate", questionCount: 0, writingTask: { type: "TRANSLATION_EN_VI", prompt: null, translationItemCount: 2 } }), null);
     assert.match(assignmentPublishError({ title: "Translate", questionCount: 0, writingTask: { type: "TRANSLATION_VI_EN", prompt: null, translationItemCount: 0 } }) ?? "", /ít nhất một câu dịch/);
+    assert.equal(assignmentPublishError({ title: "Listening", questionCount: 2, listeningTracks: [{ hasAudio: true, questionCount: 2 }] }), null);
+    assert.match(assignmentPublishError({ title: "Listening", questionCount: 2, listeningTracks: [{ hasAudio: false, questionCount: 2 }] }) ?? "", /file âm thanh/);
+    assert.match(assignmentPublishError({ title: "Listening", questionCount: 1, listeningTracks: [{ hasAudio: true, questionCount: 0 }] }) ?? "", /ít nhất một câu hỏi/);
   });
 
   test("renders human-readable answers for every question family without leaking IDs or JSON", () => {
@@ -68,6 +71,27 @@ describe("Assignment deterministic grading", () => {
       gradeQuestion({ type: AssignmentQuestionType.READING_MULTIPLE_CHOICE, points: 2.5, config: { correctOptionId: "x" } }, { selectedOptionId: "x" }),
     ];
     assert.equal(values.reduce((sum, item) => sum + item.awardedPoints, 0), 4);
+  });
+
+  test("validates and grades every Listening question type with the existing deterministic engine", () => {
+    const base = { prompt: "Listen and answer.", explanation: null, points: 1, required: true, passageId: null, listeningTrackId: "track-id", section: "LISTENING" as const };
+    const inputs = [
+      { ...base, type: AssignmentQuestionType.LISTENING_MULTIPLE_CHOICE, config: { options: [{ id: "a", text: "School" }, { id: "b", text: "Home" }], correctOptionId: "a" } },
+      { ...base, type: AssignmentQuestionType.LISTENING_TRUE_FALSE, config: { correctAnswer: "TRUE" } },
+      { ...base, type: AssignmentQuestionType.LISTENING_FILL_BLANK, config: { acceptedAnswers: ["good morning"] } },
+      { ...base, type: AssignmentQuestionType.LISTENING_MATCHING, config: { pairs: [{ leftId: "one", leftText: "Tom", rightId: "school", rightText: "School" }] } },
+    ];
+    for (const input of inputs) assert.equal(validateQuestion(input), null);
+    assert.match(validateQuestion({ ...inputs[0]!, listeningTrackId: null }) ?? "", /thuộc một đoạn nghe/);
+    assert.match(validateQuestion({ ...inputs[0]!, passageId: "passage-id" }) ?? "", /không thể đồng thời/);
+    assert.equal(gradeQuestion({ type: AssignmentQuestionType.LISTENING_MULTIPLE_CHOICE, points: 1, config: inputs[0]!.config }, { selectedOptionId: "a" }).isCorrect, true);
+    assert.equal(gradeQuestion({ type: AssignmentQuestionType.LISTENING_TRUE_FALSE, points: 1, config: inputs[1]!.config }, { value: "TRUE" }).isCorrect, true);
+    assert.equal(gradeQuestion({ type: AssignmentQuestionType.LISTENING_FILL_BLANK, points: 1, config: inputs[2]!.config }, { text: " Good   Morning " }).isCorrect, true);
+    assert.equal(gradeQuestion({ type: AssignmentQuestionType.LISTENING_MATCHING, points: 1, config: inputs[3]!.config }, { mappings: [{ leftId: "one", rightId: "school" }] }).isCorrect, true);
+    const serialized = JSON.stringify(inputs.map((input) => studentConfig(input.type, input.config)));
+    assert.equal(serialized.includes("correctOptionId"), false);
+    assert.equal(serialized.includes("acceptedAnswers"), false);
+    assert.equal(serialized.includes("rightId\":\"school"), false);
   });
 
   test("student configurations strip every answer key and de-correlate ordered solutions", () => {

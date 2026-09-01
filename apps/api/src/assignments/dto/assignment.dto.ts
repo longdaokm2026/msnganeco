@@ -45,6 +45,7 @@ export class QuestionDto {
   @IsEnum(AssignmentQuestionType) type!: AssignmentQuestionType;
   @IsEnum(AssignmentSection) section!: AssignmentSection;
   @IsOptional() @ValidateIf((_, value) => value !== null) @IsUUID() passageId?: string | null;
+  @IsOptional() @ValidateIf((_, value) => value !== null) @IsUUID() listeningTrackId?: string | null;
   @IsString() @Length(1, 10000) prompt!: string;
   @IsOptional() @ValidateIf((_, value) => value !== null) @IsString() @Length(0, 10000) explanation?: string | null;
   @Transform(({ value }) => Number(value)) @Min(0.01) @Max(1000) points!: number;

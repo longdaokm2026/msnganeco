@@ -165,6 +165,8 @@ Các bảng hiện có:
 - `assignments`, `assignment_passages`, `assignment_questions`
 - `assignment_attempts`, `assignment_answers`
 - `assignment_read_aloud_tasks`, `assignment_read_aloud_submissions`, `assignment_audio_attachments`
+- `assignment_listening_tracks`, `assignment_listening_playbacks`
+- `assignment_writing_tasks`, `writing_submissions`, `writing_translation_items`, `writing_translation_answers`
 - `audit_logs`
 
 Prisma ORM 7 dùng PostgreSQL driver adapter tại `server/database/client.ts`.
@@ -199,6 +201,14 @@ AI_QUIZ_TIMEOUT_MS=45000
 
 Không dùng tiền tố `NEXT_PUBLIC_` và không đưa key vào frontend. Ứng dụng khởi động bình thường khi không có `OPENAI_API_KEY`.
 
+## Listening
+
+Trong bản nháp bài tập, giáo viên có thể bật **Listening**, tạo một hoặc nhiều đoạn nghe, tải file MP3/M4A/WAV/OGG/WebM (tối đa 10 MB), đặt số lượt nghe, cho phép hoặc không cho phép tua và lựa chọn chỉ hiện transcript sau khi học sinh nộp bài. Mỗi đoạn nghe phải có file audio và ít nhất một câu hỏi trước khi bài tập được xuất bản.
+
+Listening dùng chung Assignment, Attempt, Answer và bộ chấm điểm xác định hiện có. Các dạng được hỗ trợ là trắc nghiệm, đúng/sai, điền từ và nối cặp. Lượt nghe và thời gian làm bài được kiểm tra ở backend; bộ đếm trên trình duyệt chỉ dùng để hiển thị.
+
+Audio Listening và Speaking được lưu dưới `ASSIGNMENT_UPLOAD_DIR` (hai namespace `listening/` và `speaking/`), không lưu binary trong PostgreSQL và không phục vụ công khai. API xác thực quyền trước khi phát file. Lớp `AssignmentAudioStorageService` tách nghiệp vụ khỏi filesystem để có thể bổ sung driver S3/MinIO sau này; phiên bản hiện tại mới kích hoạt local Docker volume, chưa có driver object storage.
+
 ## Kiểm tra
 
 ```bash
@@ -215,7 +225,7 @@ Không commit file `.env`, mật khẩu, token hoặc thông tin kết nối pro
 
 ### Sao lưu dữ liệu và tệp tải lên
 
-Tệp bài học và bản ghi đọc thành tiếng được lưu trong các Docker named volume, không nằm trong PostgreSQL. Vì vậy một bản `pg_dump` không phải là bản sao lưu đầy đủ. Khi sao lưu production cần giữ cả:
+Tệp bài học cùng audio Speaking/Listening được lưu trong các Docker named volume, không nằm trong PostgreSQL. Vì vậy một bản `pg_dump` không phải là bản sao lưu đầy đủ. Khi sao lưu production cần giữ cả:
 
 1. PostgreSQL dump.
 2. Bản archive của volume `lesson_uploads`.

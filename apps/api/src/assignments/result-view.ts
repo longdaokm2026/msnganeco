@@ -9,8 +9,10 @@ const records = (value: unknown) => Array.isArray(value) ? value.filter(record) 
 const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : "Chưa trả lời";
 const tfng: Record<string, string> = { TRUE: "Đúng", FALSE: "Sai", NOT_GIVEN: "Không có thông tin" };
-const multipleChoice = new Set(["VOCAB_MULTIPLE_CHOICE", "GRAMMAR_MULTIPLE_CHOICE", "READING_MULTIPLE_CHOICE"]);
-const textQuestion = new Set(["VOCAB_FILL_BLANK", "GRAMMAR_FILL_BLANK", "GRAMMAR_ERROR_CORRECTION", "READING_SHORT_ANSWER"]);
+const multipleChoice = new Set(["VOCAB_MULTIPLE_CHOICE", "GRAMMAR_MULTIPLE_CHOICE", "READING_MULTIPLE_CHOICE", "LISTENING_MULTIPLE_CHOICE"]);
+const textQuestion = new Set(["VOCAB_FILL_BLANK", "GRAMMAR_FILL_BLANK", "GRAMMAR_ERROR_CORRECTION", "READING_SHORT_ANSWER", "LISTENING_FILL_BLANK"]);
+const trueFalse = new Set(["READING_TRUE_FALSE_NOT_GIVEN", "LISTENING_TRUE_FALSE"]);
+const matching = new Set(["VOCAB_MATCHING", "LISTENING_MATCHING"]);
 
 export type ObjectiveResult = { correctCount: number; totalQuestions: number; percentage: number };
 export type HumanReadableQuestionResult = {
@@ -35,7 +37,7 @@ export function humanReadableQuestionResult(question: QuestionForResult, storedA
     const optionText = (id: unknown) => text(options.find((option) => option.id === id)?.text);
     return { ...base, studentAnswer: optionText(answer.selectedOptionId), ...(revealCorrectAnswer ? { correctAnswer: optionText(config.correctOptionId) } : {}) };
   }
-  if (question.type === "READING_TRUE_FALSE_NOT_GIVEN") {
+  if (trueFalse.has(question.type)) {
     const label = (value: unknown) => tfng[String(value)] ?? "Chưa trả lời";
     return { ...base, studentAnswer: label(answer.value), ...(revealCorrectAnswer ? { correctAnswer: label(config.correctAnswer) } : {}) };
   }
@@ -43,7 +45,7 @@ export function humanReadableQuestionResult(question: QuestionForResult, storedA
     const accepted = strings(config.acceptedAnswers).map((item) => item.trim()).filter(Boolean);
     return { ...base, studentAnswer: text(answer.text), ...(revealCorrectAnswer ? { correctAnswer: accepted.length ? accepted.join(" / ") : "Không có đáp án mẫu" } : {}) };
   }
-  if (question.type === "VOCAB_MATCHING") {
+  if (matching.has(question.type)) {
     const pairs = records(config.pairs);
     const mappings = records(answer.mappings);
     const rightText = (rightId: unknown) => text(pairs.find((pair) => pair.rightId === rightId)?.rightText);
