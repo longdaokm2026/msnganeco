@@ -15,7 +15,7 @@ const dashboardByRole = {
       { label: "Giáo viên", value: "—", hint: "Chờ duyệt và đang hoạt động" },
       { label: "Lớp học", value: "—", hint: "Toàn bộ lớp trên hệ thống" },
     ],
-    actions: ["Quản lý tài khoản", "Duyệt giáo viên", "Quản lý lớp học", "Xem nhật ký hệ thống"],
+    actions: ["Quản lý tài khoản", "Duyệt giáo viên", "Quản lý lớp học", "Nhật ký hệ thống"],
   },
   TEACHER: {
     roleLabel: "Giáo viên",

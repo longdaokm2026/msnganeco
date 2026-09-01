@@ -1,13 +1,17 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useState } from "react";
 import { adminFetch, AdminUser, formatDate, Page } from "./types";
+
+const defaultColumnWidths = [130, 260, 115, 175, 145, 130, 270];
+const minimumColumnWidths = [100, 180, 90, 140, 120, 110, 210];
 
 export default function AdminUsers({ apiUrl, accessToken, currentUserId }: { apiUrl: string; accessToken: string; currentUserId: string }) {
   const [result, setResult] = useState<Page<AdminUser> | null>(null);
   const [query, setQuery] = useState(""); const [role, setRole] = useState(""); const [status, setStatus] = useState(""); const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<AdminUser | null>(null); const [error, setError] = useState(""); const [busy, setBusy] = useState("");
   const [editing, setEditing] = useState<AdminUser | null>(null); const [editName, setEditName] = useState(""); const [editPhone, setEditPhone] = useState(""); const [notice, setNotice] = useState("");
+  const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
   const load = useCallback(async () => {
     const params = new URLSearchParams({ page: String(page), pageSize: "20" });
     if (query.trim()) params.set("search", query.trim()); if (role) params.set("role", role); if (status) params.set("status", status);
@@ -48,6 +52,25 @@ export default function AdminUsers({ apiUrl, accessToken, currentUserId }: { api
     try { setBusy(user.id); await adminFetch(apiUrl, accessToken, `/admin/users/${user.id}`, { method: "DELETE", body: JSON.stringify({ reason: "Xóa từ màn hình quản trị" }) }); setSelected(null); setNotice("Đã xóa tài khoản."); await load(); }
     catch (reason) { const message = (reason as Error).message; setError(message.includes("dữ liệu học tập") ? `${message} Bạn có thể dùng chức năng Khóa.` : message); } finally { setBusy(""); }
   }
+  function startColumnResize(index: number, event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = columnWidths[index] ?? defaultColumnWidths[index]!;
+    const move = (pointerEvent: PointerEvent) => {
+      const nextWidth = Math.max(minimumColumnWidths[index]!, startWidth + pointerEvent.clientX - startX);
+      setColumnWidths((current) => current.map((width, position) => position === index ? nextWidth : width));
+    };
+    const finish = () => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", finish);
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", finish);
+  }
+  function resizeColumnWithKeyboard(index: number, direction: number) {
+    setColumnWidths((current) => current.map((width, position) => position === index ? Math.max(minimumColumnWidths[index]!, width + direction * 10) : width));
+  }
+  const columnHeaders = ["Họ tên", "Email", "Vai trò", "Trạng thái", "Xác thực email", "Ngày tạo", "Thao tác"];
   return <section className="admin-panel">
     <form className="admin-filters" onSubmit={submit}>
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm email hoặc họ tên" aria-label="Tìm tài khoản" />
@@ -57,8 +80,8 @@ export default function AdminUsers({ apiUrl, accessToken, currentUserId }: { api
     </form>
     {error && <p className="admin-error" role="alert">{error}</p>}
     {notice && <p className="admin-success" role="status">{notice}</p>}
-    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Xác thực email</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead><tbody>
-      {result?.items.map((user) => <tr key={user.id}><td>{user.fullName}</td><td>{user.email}</td><td>{user.roles.join(", ")}</td><td><span className={`status-pill status-${user.status.toLowerCase()}`}>{user.status}</span></td><td>{user.emailVerifiedAt ? "Đã xác thực" : "Chưa xác thực"}</td><td>{formatDate(user.createdAt)}</td><td><div className="admin-actions admin-user-actions"><button type="button" onClick={() => void view(user.id)}>Xem</button><button type="button" onClick={() => startEdit(user)}>Sửa</button>{!user.emailVerifiedAt && user.status !== "DISABLED" && <button type="button" disabled={busy === user.id} onClick={() => void resend(user)}>Gửi xác thực</button>}<button type="button" disabled={busy === user.id || user.id === currentUserId} onClick={() => void toggle(user)}>{user.status === "DISABLED" ? "Mở khóa" : "Khóa"}</button><button className="admin-delete" type="button" disabled={busy === user.id || user.id === currentUserId} onClick={() => void remove(user)}>Xóa</button></div></td></tr>)}
+    <div className="admin-table-wrap admin-user-table-wrap"><table className="admin-table admin-user-table" style={{ width: Math.max(columnWidths.reduce((sum, width) => sum + width, 0), 1100) }}><colgroup>{columnWidths.map((width, index) => <col key={columnHeaders[index]} style={{ width }} />)}</colgroup><thead><tr>{columnHeaders.map((header, index) => <th key={header}><span>{header}</span><button className="admin-column-resizer" type="button" aria-label={`Điều chỉnh độ rộng cột ${header}`} title="Kéo để đổi độ rộng; dùng phím mũi tên để tinh chỉnh" onPointerDown={(event) => startColumnResize(index, event)} onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); resizeColumnWithKeyboard(index, event.key === "ArrowLeft" ? -1 : 1); } }} /></th>)}</tr></thead><tbody>
+      {result?.items.map((user) => <tr key={user.id}><td className="admin-user-name" title={user.fullName}>{user.fullName}</td><td className="admin-user-email" title={user.email}>{user.email}</td><td>{user.roles.join(", ")}</td><td><span className={`status-pill status-${user.status.toLowerCase()}`}>{user.status}</span></td><td>{user.emailVerifiedAt ? "Đã xác thực" : "Chưa xác thực"}</td><td className="admin-user-created">{formatDate(user.createdAt)}</td><td><div className="admin-actions admin-user-actions"><button type="button" onClick={() => void view(user.id)}>Xem</button><button type="button" onClick={() => startEdit(user)}>Sửa</button>{!user.emailVerifiedAt && user.status !== "DISABLED" && <button type="button" disabled={busy === user.id} onClick={() => void resend(user)}>Gửi xác thực</button>}<button type="button" disabled={busy === user.id || user.id === currentUserId} onClick={() => void toggle(user)}>{user.status === "DISABLED" ? "Mở khóa" : "Khóa"}</button><button className="admin-delete" type="button" disabled={busy === user.id || user.id === currentUserId} onClick={() => void remove(user)}>Xóa</button></div></td></tr>)}
       {!result?.items.length && <tr><td colSpan={7}>Không có tài khoản phù hợp.</td></tr>}
     </tbody></table></div>
     <div className="admin-pagination"><span>{result?.total ?? 0} tài khoản</span><button disabled={page <= 1} onClick={() => setPage(page - 1)}>Trước</button><span>{page}/{result?.totalPages || 1}</span><button disabled={!result || page >= result.totalPages} onClick={() => setPage(page + 1)}>Sau</button></div>

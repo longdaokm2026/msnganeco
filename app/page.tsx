@@ -114,7 +114,7 @@ function quickActionTarget(role: ApiRole, action: string): DashboardView | null 
       "Quản lý tài khoản": "admin-users",
       "Duyệt giáo viên": "admin-teachers",
       "Quản lý lớp học": "admin-classrooms",
-      "Xem nhật ký hệ thống": "admin-audit",
+      "Nhật ký hệ thống": "admin-audit",
     },
     TEACHER: {
       "Quản lý lớp học": "classes",
@@ -352,7 +352,7 @@ export default function Home() {
               <button className={currentView === "admin-users" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-users")}>Quản lý tài khoản</button>
               <button className={currentView === "admin-teachers" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-teachers")}>Duyệt giáo viên</button>
               <button className={currentView === "admin-classrooms" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-classrooms")}>Quản lý lớp học</button>
-              <button className={currentView === "admin-audit" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-audit")}>Xem nhật ký hệ thống</button>
+              <button className={currentView === "admin-audit" ? "active" : ""} type="button" onClick={() => navigateDashboard("admin-audit")}>Nhật ký hệ thống</button>
             </> : dashboard.actions.map((action) => {
               const target = quickActionTarget(dashboard.primaryRole, action);
               return target ? (
