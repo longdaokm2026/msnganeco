@@ -956,6 +956,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .submitted-essay h3, .submitted-essay p { margin-top: 0; }
 .submitted-essay p, .writing-prompt, .student-translation-list article > p { color: var(--ink); font-size: var(--font-education); line-height: 1.75; white-space: pre-wrap; }
 .writing-instructions { margin: 0; color: var(--muted); font-size: var(--font-workspace); line-height: 1.65; }
+.writing-paste-warning { margin: 0; padding: 11px 13px; border: 1px solid #e6b8ae; border-radius: 9px; background: #fff1ed; color: #9b3e30; font-size: var(--font-small); font-weight: 700; line-height: 1.5; }
 .student-essay-input { min-height: 260px; }
 .writing-save-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: var(--font-small); }
 .writing-save-row b { color: var(--indigo); }

@@ -26,3 +26,12 @@ test("student sidebar uses the concise Phụ huynh label without changing its ro
   assert.doesNotMatch(page, /"Quản lý phụ huynh": "student-guardians"/);
   assert.match(dashboard, /actions: \["Chuyên cần", "Bài học", "Bài tập", "Phụ huynh"\]/);
 });
+
+test("student Writing inputs block pasted and dropped text with accessible feedback", async () => {
+  const studentWriting = await read("../app/StudentWritingSection.tsx");
+  assert.match(studentWriting, /onPaste: blockPaste/);
+  assert.match(studentWriting, /onDrop: blockDrop/);
+  assert.match(studentWriting, /insertFromPaste/);
+  assert.match(studentWriting, /Không thể dán nội dung\. Vui lòng tự nhập câu trả lời Writing\./);
+  assert.match(studentWriting, /role="alert"/);
+});
