@@ -53,6 +53,22 @@ function userWhere(query: AdminUserQuery): Prisma.UserWhereInput {
   return where;
 }
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function auditMetadata(value: Prisma.JsonValue): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function addUuid(target: Set<string>, value: unknown) {
+  if (typeof value === "string" && uuidPattern.test(value)) target.add(value);
+}
+
+function namedMap<T extends { id: string }>(items: T[], label: (item: T) => string) {
+  return new Map(items.map((item) => [item.id, label(item)]));
+}
+
 @Injectable()
 export class PrismaAdminRepository extends AdminRepository {
   async overview(dayStart: Date, dayEnd: Date): Promise<AdminOverview> {
@@ -320,6 +336,117 @@ export class PrismaAdminRepository extends AdminRepository {
       }),
       prisma.auditLog.count({ where }),
     ]);
-    return page(items, total, query.page, query.pageSize);
+    const userIds = new Set<string>();
+    const classroomIds = new Set<string>();
+    const sessionIds = new Set<string>();
+    const lessonIds = new Set<string>();
+    const assignmentIds = new Set<string>();
+    const attemptIds = new Set<string>();
+    const listeningTrackIds = new Set<string>();
+    const lessonAttachmentIds = new Set<string>();
+    const absenceRequestIds = new Set<string>();
+    const speakingTaskIds = new Set<string>();
+    const speakingSubmissionIds = new Set<string>();
+    const writingTaskIds = new Set<string>();
+    const writingSubmissionIds = new Set<string>();
+
+    for (const item of items) {
+      const metadata = auditMetadata(item.metadata);
+      addUuid(userIds, metadata.studentId);
+      addUuid(classroomIds, metadata.classroomId);
+      addUuid(sessionIds, metadata.sessionId);
+      addUuid(lessonIds, metadata.lessonId);
+      addUuid(assignmentIds, metadata.assignmentId);
+      addUuid(attemptIds, metadata.attemptId);
+      if (Array.isArray(metadata.sourceLessonIds)) {
+        for (const lessonId of metadata.sourceLessonIds) addUuid(lessonIds, lessonId);
+      }
+
+      const entityTargets: Record<string, Set<string>> = {
+        User: userIds,
+        TeacherProfile: userIds,
+        Classroom: classroomIds,
+        ClassSession: sessionIds,
+        Lesson: lessonIds,
+        LessonAttachment: lessonAttachmentIds,
+        Assignment: assignmentIds,
+        AssignmentAttempt: attemptIds,
+        AssignmentListeningTrack: listeningTrackIds,
+        AbsenceRequest: absenceRequestIds,
+        AssignmentReadAloudTask: speakingTaskIds,
+        AssignmentReadAloudSubmission: speakingSubmissionIds,
+        AssignmentWritingTask: writingTaskIds,
+        WritingSubmission: writingSubmissionIds,
+      };
+      const entityTarget = entityTargets[item.entityType];
+      if (entityTarget) addUuid(entityTarget, item.entityId);
+    }
+
+    const [users, classrooms, sessions, lessons, assignments, attempts, listeningTracks, lessonAttachments, absenceRequests, speakingTasks, speakingSubmissions, writingTasks, writingSubmissions] = await Promise.all([
+      prisma.user.findMany({ where: { id: { in: [...userIds] } }, select: { id: true, fullName: true, email: true } }),
+      prisma.classroom.findMany({ where: { id: { in: [...classroomIds] } }, select: { id: true, name: true, code: true } }),
+      prisma.classSession.findMany({ where: { id: { in: [...sessionIds] } }, select: { id: true, title: true, classroom: { select: { name: true } } } }),
+      prisma.lesson.findMany({ where: { id: { in: [...lessonIds] } }, select: { id: true, title: true } }),
+      prisma.assignment.findMany({ where: { id: { in: [...assignmentIds] } }, select: { id: true, title: true } }),
+      prisma.assignmentAttempt.findMany({ where: { id: { in: [...attemptIds] } }, select: { id: true, attemptNumber: true, assignment: { select: { title: true } }, student: { select: { user: { select: { fullName: true } } } } } }),
+      prisma.assignmentListeningTrack.findMany({ where: { id: { in: [...listeningTrackIds] } }, select: { id: true, title: true, assignment: { select: { title: true } } } }),
+      prisma.lessonAttachment.findMany({ where: { id: { in: [...lessonAttachmentIds] } }, select: { id: true, fileName: true, lesson: { select: { title: true } } } }),
+      prisma.absenceRequest.findMany({ where: { id: { in: [...absenceRequestIds] } }, select: { id: true, session: { select: { title: true } }, student: { select: { user: { select: { fullName: true } } } } } }),
+      prisma.assignmentReadAloudTask.findMany({ where: { id: { in: [...speakingTaskIds] } }, select: { id: true, title: true, assignment: { select: { title: true } } } }),
+      prisma.assignmentReadAloudSubmission.findMany({ where: { id: { in: [...speakingSubmissionIds] } }, select: { id: true, assignment: { select: { title: true } }, student: { select: { user: { select: { fullName: true } } } } } }),
+      prisma.assignmentWritingTask.findMany({ where: { id: { in: [...writingTaskIds] } }, select: { id: true, title: true, assignment: { select: { title: true } } } }),
+      prisma.writingSubmission.findMany({ where: { id: { in: [...writingSubmissionIds] } }, select: { id: true, writingTask: { select: { title: true, assignment: { select: { title: true } } } }, student: { select: { user: { select: { fullName: true } } } } } }),
+    ]);
+
+    const namesByType: Record<string, Map<string, string>> = {
+      User: namedMap(users, (item) => `${item.fullName} · ${item.email}`),
+      TeacherProfile: namedMap(users, (item) => `${item.fullName} · ${item.email}`),
+      Classroom: namedMap(classrooms, (item) => `${item.name} (${item.code})`),
+      ClassSession: namedMap(sessions, (item) => `${item.title} · ${item.classroom.name}`),
+      Lesson: namedMap(lessons, (item) => item.title),
+      Assignment: namedMap(assignments, (item) => item.title),
+      AssignmentAttempt: namedMap(attempts, (item) => `Lượt ${item.attemptNumber} · ${item.student.user.fullName} · ${item.assignment.title}`),
+      AssignmentListeningTrack: namedMap(listeningTracks, (item) => `${item.title} · ${item.assignment.title}`),
+      LessonAttachment: namedMap(lessonAttachments, (item) => `${item.fileName} · ${item.lesson.title}`),
+      AbsenceRequest: namedMap(absenceRequests, (item) => `${item.student.user.fullName} · ${item.session.title}`),
+      AssignmentReadAloudTask: namedMap(speakingTasks, (item) => `${item.title || "Speaking"} · ${item.assignment.title}`),
+      AssignmentReadAloudSubmission: namedMap(speakingSubmissions, (item) => `${item.student.user.fullName} · ${item.assignment.title}`),
+      AssignmentWritingTask: namedMap(writingTasks, (item) => `${item.title || "Writing"} · ${item.assignment.title}`),
+      WritingSubmission: namedMap(writingSubmissions, (item) => `${item.student.user.fullName} · ${item.writingTask.title || item.writingTask.assignment.title}`),
+    };
+    const userNames = namesByType.User;
+    const classroomNames = namesByType.Classroom;
+    const sessionNames = namesByType.ClassSession;
+    const lessonNames = namesByType.Lesson;
+    const assignmentNames = namesByType.Assignment;
+    const attemptNames = namesByType.AssignmentAttempt;
+
+    const enrichedItems = items.map((item) => {
+      const metadata = auditMetadata(item.metadata);
+      const referenceNames: Record<string, string | string[]> = {};
+      const references: Array<[string, unknown, Map<string, string>]> = [
+        ["studentId", metadata.studentId, userNames],
+        ["classroomId", metadata.classroomId, classroomNames],
+        ["sessionId", metadata.sessionId, sessionNames],
+        ["lessonId", metadata.lessonId, lessonNames],
+        ["assignmentId", metadata.assignmentId, assignmentNames],
+        ["attemptId", metadata.attemptId, attemptNames],
+      ];
+      for (const [key, value, names] of references) {
+        if (typeof value === "string") referenceNames[key] = names.get(value) ?? "Đối tượng không còn tồn tại";
+      }
+      if (Array.isArray(metadata.sourceLessonIds)) {
+        referenceNames.sourceLessonIds = metadata.sourceLessonIds.map((value) => typeof value === "string"
+          ? lessonNames.get(value) ?? "Bài học không còn tồn tại"
+          : "Bài học không xác định");
+      }
+      const metadataEmail = typeof metadata.email === "string" ? metadata.email : null;
+      return {
+        ...item,
+        displayEntityName: item.entityId ? namesByType[item.entityType]?.get(item.entityId) ?? metadataEmail : metadataEmail,
+        referenceNames,
+      };
+    });
+    return page(enrichedItems, total, query.page, query.pageSize);
   }
 }

@@ -112,12 +112,6 @@ const fieldLabels: Record<string, string> = {
 };
 
 const idKeys = new Set(["assignmentId", "classroomId", "lessonId", "sessionId", "studentId", "attemptId"]);
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function shortAuditId(value: string) {
-  return uuidPattern.test(value) ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
-}
-
 export function auditActionLabel(action: string) {
   return actionLabels[action] ?? action.toLocaleLowerCase().replaceAll("_", " ").replace(/^./u, (character) => character.toLocaleUpperCase());
 }
@@ -130,7 +124,8 @@ function metadataRecord(value: unknown): AuditMetadata {
   return value && typeof value === "object" && !Array.isArray(value) ? value as AuditMetadata : {};
 }
 
-function formatValue(key: string, value: unknown) {
+function formatValue(key: string, value: unknown, referenceName?: string | string[]) {
+  if (referenceName) return Array.isArray(referenceName) ? referenceName.join(", ") : referenceName;
   if (value === null || value === undefined || value === "") return "Không có";
   if (key === "fileSize" && typeof value === "number") return `${(value / 1024 / 1024).toFixed(1)} MB`;
   if (key === "fileType" && typeof value === "string") return value.replace(/^audio\//, "").toLocaleUpperCase();
@@ -139,17 +134,17 @@ function formatValue(key: string, value: unknown) {
   if (key === "roles" && Array.isArray(value)) return value.map((role) => roleLabels[String(role)] ?? String(role)).join(", ");
   if (key === "changedFields" && Array.isArray(value)) return value.map((field) => fieldLabels[String(field)] ?? String(field)).join(", ");
   if (key === "sourceLessonIds" && Array.isArray(value)) return `${value.length} bài học`;
-  if (idKeys.has(key) && typeof value === "string") return shortAuditId(value);
-  if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? shortAuditId(item) : String(item)).join(", ");
+  if (idKeys.has(key) && typeof value === "string") return "Đối tượng không còn tồn tại";
+  if (Array.isArray(value)) return value.map(String).join(", ");
   if (typeof value === "boolean") return value ? "Có" : "Không";
   if (typeof value === "object") return "Dữ liệu bổ sung";
   return String(value);
 }
 
-export function auditDetails(metadata: unknown) {
+export function auditDetails(metadata: unknown, referenceNames: Record<string, string | string[]> = {}) {
   return Object.entries(metadataRecord(metadata)).map(([key, value]) => ({
     key,
     label: detailLabels[key] ?? key,
-    value: formatValue(key, value),
+    value: formatValue(key, value, referenceNames[key]),
   }));
 }
