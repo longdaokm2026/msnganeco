@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import EmptyState from "./EmptyState";
 
 type Session = {
   id: string;
@@ -210,11 +211,7 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
         <div className="session-list">
           {loading && !sessions.length && <p className="empty-note">Đang tải buổi học...</p>}
           {!loading && !sessions.length && (
-            <div className="session-empty">
-              <strong>Chưa có buổi học</strong>
-              <span>Tạo buổi học đầu tiên để bắt đầu điểm danh.</span>
-              <button type="button" onClick={() => setShowCreate(true)}>+ Tạo buổi học đầu tiên</button>
-            </div>
+            <EmptyState compact title="Chưa có buổi học" description="Tạo buổi học đầu tiên để bắt đầu điểm danh." action={<button type="button" onClick={() => setShowCreate(true)}>+ Tạo buổi học đầu tiên</button>} />
           )}
           {sessions.map((session) => (
             <button
@@ -232,10 +229,7 @@ export default function SessionManager({ classroomId, accessToken, apiUrl }: Pro
 
         <div className="attendance-sheet">
           {!selected ? (
-            <div className="attendance-empty">
-              <strong>{sessions.length ? "Chọn một buổi học" : "Hãy tạo buổi học trước"}</strong>
-              <span>{sessions.length ? "Chọn buổi học ở danh sách bên trái để mở sổ điểm danh." : "Sau khi tạo, buổi học sẽ tự động được chọn và danh sách học sinh sẽ hiện tại đây."}</span>
-            </div>
+            <EmptyState compact title={sessions.length ? "Chọn một buổi học" : "Hãy tạo buổi học trước"} description={sessions.length ? "Chọn buổi học ở danh sách bên trái để mở sổ điểm danh." : "Sau khi tạo, danh sách học sinh sẽ hiển thị tại đây."} />
           ) : (
             <>
               <div className="attendance-heading">

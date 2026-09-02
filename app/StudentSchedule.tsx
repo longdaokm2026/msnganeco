@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import WorkspacePageActions from "./WorkspacePageActions";
+import EmptyState from "./EmptyState";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
 type AbsenceStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -210,7 +211,7 @@ export default function StudentSchedule({ accessToken, apiUrl, onBack }: Props) 
 
       <div className="student-session-list">
         {loading && !sessions.length && <p className="empty-note">Đang tải lịch học...</p>}
-        {!loading && !visibleSessions.length && <p className="schedule-empty">Không có buổi học phù hợp với bộ lọc này.</p>}
+        {!loading && !visibleSessions.length && <EmptyState compact title="Chưa có buổi học" description="Không có buổi học phù hợp với bộ lọc hiện tại." />}
         {visibleSessions.map((session) => {
           const deadlinePassed = new Date(session.absenceDeadline).getTime() < currentTime;
           const hasActiveRequest = session.absenceRequest?.status === "PENDING" || session.absenceRequest?.status === "APPROVED";

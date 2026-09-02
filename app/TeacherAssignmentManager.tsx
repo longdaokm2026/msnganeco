@@ -7,6 +7,7 @@ import TeacherWritingEditor from "./TeacherWritingEditor";
 import TeacherWritingGrading from "./TeacherWritingGrading";
 import TeacherListeningEditor from "./TeacherListeningEditor";
 import WorkspacePageActions from "./WorkspacePageActions";
+import EmptyState from "./EmptyState";
 import type { ListeningTrack } from "./listening-types";
 import type { WritingSubmission, WritingTask } from "./writing-types";
 
@@ -1431,7 +1432,7 @@ export default function TeacherAssignmentManager({
               </article>
             ))}
             {!visibleItems.length && (
-              <p className="report-empty">Chưa có bài tập theo bộ lọc.</p>
+              <EmptyState compact title="Chưa có bài tập" description="Thử thay đổi bộ lọc hoặc tạo một bài tập mới." />
             )}
           </div>
         </>

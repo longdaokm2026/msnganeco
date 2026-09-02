@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import SessionManager from "./SessionManager";
 import WorkspacePageActions from "./WorkspacePageActions";
+import EmptyState from "./EmptyState";
 
 type Classroom = {
   id: string;
@@ -214,7 +215,7 @@ export default function ClassroomManager({ accessToken, apiUrl, onBack }: Props)
 
         <div className="roster-panel">
           {!selected ? (
-            <div className="roster-empty"><strong>Chọn một lớp học</strong><span>Danh sách học sinh sẽ hiển thị tại đây.</span></div>
+            <EmptyState title="Chọn một lớp học" description="Danh sách học sinh và thông tin chuyên cần sẽ hiển thị tại đây." />
           ) : (
             <>
               <div className="roster-heading">

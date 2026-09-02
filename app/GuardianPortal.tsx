@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import WorkspacePageActions from "./WorkspacePageActions";
+import EmptyState from "./EmptyState";
 
 type LinkStatus = "PENDING" | "ACTIVE" | "REJECTED" | "REVOKED";
 
@@ -169,7 +170,7 @@ export default function GuardianPortal({ accessToken, apiUrl, onBack }: Props) {
 
         <div className="guardian-overview">
           {!overview ? (
-            <div className="roster-empty"><strong>Chọn học sinh đã liên kết</strong><span>Dữ liệu chỉ xuất hiện sau khi học sinh xác nhận.</span></div>
+            <EmptyState title="Chọn học sinh đã liên kết" description="Thông tin học tập sẽ xuất hiện sau khi học sinh xác nhận liên kết." />
           ) : (
             <>
               <div className="guardian-student-heading">

@@ -9,6 +9,7 @@ import type { ListeningTrack } from "./listening-types";
 import StudentWritingSection from "./StudentWritingSection";
 import type { WritingSubmission, WritingTask } from "./writing-types";
 import WorkspacePageActions from "./WorkspacePageActions";
+import EmptyState from "./EmptyState";
 
 type Question = {
   id: string;
@@ -869,7 +870,7 @@ export default function StudentAssignmentManager({
             </article>
           ))}
           {!items.length && (
-            <p className="report-empty">Chưa có bài tập được giao.</p>
+            <EmptyState compact title="Chưa có bài tập" description="Bài tập giáo viên giao sẽ hiển thị tại đây." />
           )}
         </div>
       )}

@@ -160,6 +160,23 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .report-summary .billable-total span { color: rgba(255,255,255,.7); }
 .report-summary .billable-total strong { color: #fff; }
 .report-empty { margin: 18px 0 0; padding: 18px; border: 1px dashed #d6d3cb; border-radius: 11px; color: var(--muted); font-size: 10px; text-align: center; }
+.content-empty-state { width: 100%; min-height: 300px; padding: 32px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: var(--muted); text-align: center; }
+.content-empty-state.compact { min-height: 190px; padding: 22px 18px; }
+.content-empty-state strong { color: var(--ink); font-family: var(--font-serif), serif; font-size: 20px; line-height: 1.2; }
+.content-empty-state span { max-width: 390px; font-size: var(--font-small); line-height: 1.55; }
+.empty-state-artwork { width: min(220px, 70%); height: auto; margin-bottom: 7px; overflow: visible; }
+.content-empty-state.compact .empty-state-artwork { width: min(150px, 60%); }
+.empty-art-blob { fill: #fff0e9; }
+.empty-art-board { fill: #fffdfa; stroke: #7b86a4; stroke-width: 3; }
+.empty-art-line, .empty-art-desk { fill: none; stroke: #73809f; stroke-width: 3; stroke-linecap: round; }
+.empty-art-accent { fill: var(--coral); }
+.empty-art-accent.pale, .empty-art-dot.pale { fill: #f7b39d; }
+.empty-art-person { fill: #344587; }
+.empty-art-person.light { fill: #7180ad; }
+.empty-art-accent-stroke { fill: none; stroke: var(--coral); stroke-width: 4; stroke-linecap: round; }
+.empty-art-dot { fill: var(--coral); }
+.empty-state-action { margin-top: 9px; }
+.empty-state-action button { min-height: 38px; padding: 9px 14px; border: 0; border-radius: 8px; background: var(--indigo); color: #fff; font: inherit; font-size: var(--font-small); font-weight: 700; cursor: pointer; }
 .report-table-wrap { overflow-x: auto; }
 .report-table { width: 100%; border-collapse: collapse; font-size: 9px; }
 .report-table th, .report-table td { padding: 10px 8px; border-bottom: 1px solid #ece9e2; text-align: center; white-space: nowrap; }

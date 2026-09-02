@@ -13,6 +13,7 @@ import TeacherLessonManager from "./TeacherLessonManager";
 import StudentLessonViewer from "./StudentLessonViewer";
 import TeacherAssignmentManager from "./TeacherAssignmentManager";
 import StudentAssignmentManager from "./StudentAssignmentManager";
+import EmptyState from "./EmptyState";
 
 type AuthMode = "login" | "register" | "forgot";
 type Role = "student" | "teacher" | "guardian";
@@ -424,7 +425,7 @@ export default function Home() {
                     <button type="button" onClick={() => navigateDashboard("classes")}>Quản lý lớp học</button>
                   </div>
                   {!dashboard.teacherOverview.classes.length ? (
-                    <p className="report-empty">Bạn chưa có lớp học nào.</p>
+                    <EmptyState compact title="Chưa có lớp học" description="Các lớp bạn tạo sẽ hiển thị tại đây." />
                   ) : (
                     <div className="teacher-class-grid">
                       {dashboard.teacherOverview.classes.map((classroom) => (
@@ -449,7 +450,7 @@ export default function Home() {
                   <button type="button" onClick={() => navigateDashboard("student-schedule")}>Xem buổi học</button>
                 </div>
                 {!dashboard.studentOverview.classes.length ? (
-                  <p className="report-empty">Bạn chưa được thêm vào lớp học nào.</p>
+                  <EmptyState compact title="Chưa có lớp học" description="Khi được giáo viên thêm vào lớp, thông tin sẽ hiển thị tại đây." />
                 ) : (
                   <div className="student-class-grid">
                     {dashboard.studentOverview.classes.map((classroom) => (

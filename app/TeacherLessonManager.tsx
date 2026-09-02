@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import WorkspacePageActions from "./WorkspacePageActions";
+import EmptyState from "./EmptyState";
 
 type SessionItem = { id: string; title: string; scheduledStart: string; classroom: { id: string; name: string; code: string }; lesson: { id: string; title: string; status: string; updatedAt: string; publishedAt: string | null } | null };
 type Attachment = { id: string; fileName: string; fileType: string; fileSize: number; category: string; downloadUrl: string };
@@ -176,7 +177,7 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
             {lesson.status === "PUBLISHED" && <button className="archive-button" type="button" disabled={busy} onClick={() => void archive()}>{operation === "archive" ? "Đang lưu trữ..." : "Lưu trữ"}</button>}
           </div>
         </div>
-      </form> : <div className="lesson-empty"><h2>Chọn một buổi học</h2><p>Chọn buổi học bên trái để soạn hoặc cập nhật nội dung.</p></div>}</section>
+      </form> : <EmptyState title="Chọn một buổi học" description="Chọn buổi học bên trái để soạn hoặc cập nhật nội dung." />}</section>
     </div>
   </div>;
 }
