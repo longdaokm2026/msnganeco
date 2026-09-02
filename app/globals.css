@@ -944,6 +944,21 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .admin-user-table .admin-column-resizer::after { content: ""; position: absolute; top: 20%; bottom: 20%; left: 4px; width: 2px; border-radius: 2px; background: #b6b3aa; opacity: .55; }
 .admin-user-table .admin-column-resizer:hover::after, .admin-user-table .admin-column-resizer:focus-visible::after { top: 8%; bottom: 8%; background: var(--indigo); opacity: 1; }
 .admin-user-table .admin-column-resizer:focus-visible { outline: 2px solid rgba(52, 66, 128, .28); outline-offset: -2px; }
+.admin-panel .admin-audit-table { min-width: 1120px; table-layout: fixed; font-size: 13px; line-height: 1.4; }
+.admin-audit-table th:nth-child(1) { width: 125px; }
+.admin-audit-table th:nth-child(2) { width: 210px; }
+.admin-audit-table th:nth-child(3) { width: 190px; }
+.admin-audit-table th:nth-child(4) { width: 165px; }
+.admin-audit-table th:nth-child(5) { width: auto; }
+.admin-panel .admin-audit-table td { vertical-align: top; overflow-wrap: anywhere; }
+.admin-audit-table td > strong { display: block; color: var(--ink); }
+.audit-action-label { color: var(--indigo) !important; font-weight: 750; }
+.audit-details { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.audit-details > div { display: inline-flex; gap: 5px; min-width: 0; }
+.audit-details dt { color: var(--muted); font-weight: 650; }
+.audit-details dt::after { content: ":"; }
+.audit-details dd { margin: 0; color: var(--ink); font-weight: 550; }
+.audit-empty-detail { color: var(--muted); font-style: italic; }
 
 /* Writing uses the existing Theme A cards while keeping long-form content easy to read. */
 .writing-editor, .writing-grading, .student-writing { padding: 22px; display: grid; gap: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
@@ -999,6 +1014,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .listening-track-form input, .listening-track-form select, .listening-track-form textarea, .listening-track-create input, .listening-question-builder input, .listening-question-builder select, .listening-question-builder textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cfd5e4; border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-size: var(--font-control); line-height: 1.5; }
 .listening-track-form textarea, .listening-question-builder textarea { resize: vertical; }
 .listening-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.listening-settings label > small { color: var(--muted); font-size: 13px; font-weight: 500; line-height: 1.4; }
 .listening-settings .check-row { display: flex; align-items: center; align-self: end; min-height: 44px; }
 .listening-settings .check-row input { width: 19px; min-height: 19px; accent-color: var(--indigo); }
 .listening-audio-box { flex-wrap: wrap; padding: 13px; border-radius: 10px; background: var(--indigo-soft); }
@@ -1013,6 +1029,15 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .listening-question-list > article { padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
 .listening-question-list article > div:first-child { display: grid; gap: 4px; }
 .listening-question-list article span { color: var(--muted); font-size: var(--font-small); }
+.listening-primary-button, .listening-secondary-button { width: fit-content; min-height: 44px; padding: 10px 17px; border-radius: 9px; font-size: var(--font-control); font-weight: 750; cursor: pointer; }
+.listening-primary-button { border: 1px solid var(--indigo); background: var(--indigo); color: #fff; box-shadow: 0 4px 10px rgba(49, 63, 132, .16); }
+.listening-primary-button:hover { background: var(--indigo-dark); }
+.listening-secondary-button { border: 1px solid #aeb6d0; background: #fff; color: var(--indigo); }
+.listening-secondary-button:hover { border-color: var(--indigo); background: var(--indigo-soft); }
+.listening-primary-button:disabled, .listening-secondary-button:disabled { cursor: not-allowed; opacity: .6; box-shadow: none; }
+.listening-add-question-button { justify-self: start; margin-top: 2px; }
+.listening-form-actions { align-items: center; margin-top: 3px; }
+.listening-form-actions button + button { background: #fff; color: var(--indigo); }
 .student-listening-player { padding: 14px; border-radius: 10px; background: var(--indigo-soft); }
 .student-listening-player button { width: fit-content; min-height: 44px; padding: 9px 16px; border: 1px solid var(--indigo); border-radius: 9px; background: var(--indigo); color: #fff; font-size: var(--font-control); font-weight: 700; cursor: pointer; }
 .student-listening-player button:disabled { cursor: not-allowed; opacity: .68; }
