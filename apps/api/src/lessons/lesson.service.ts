@@ -1,13 +1,14 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { basename, extname } from "node:path";
 import { LessonAttachmentCategory } from "../../../../generated/prisma/client";
+import { LessonDocumentService } from "./lesson-document.service";
 import { LessonRepository } from "./lesson.repository";
 import type { LessonListQuery, LessonTextInput } from "./lesson.types";
 import { LessonStorageService, type UploadFile } from "./storage/lesson-storage.service";
 
 @Injectable()
 export class LessonService {
-  constructor(@Inject(LessonRepository) private readonly repository: LessonRepository, @Inject(LessonStorageService) private readonly storage: LessonStorageService) {}
+  constructor(@Inject(LessonRepository) private readonly repository: LessonRepository, @Inject(LessonStorageService) private readonly storage: LessonStorageService, @Inject(LessonDocumentService) private readonly documents: LessonDocumentService) {}
   listTeacher(teacherId: string, query: LessonListQuery) { return this.repository.listTeacher(teacherId, query); }
   async teacherLesson(teacherId: string, sessionId: string) { const result = await this.repository.teacherLesson(teacherId, sessionId); if (result.status === "NOT_FOUND") throw new NotFoundException("Không tìm thấy buổi học."); return result.value; }
   async update(teacherId: string, sessionId: string, raw: LessonTextInput) {
@@ -17,6 +18,13 @@ export class LessonService {
   }
   async publish(teacherId: string, sessionId: string) { const result = await this.repository.publish(teacherId, sessionId); if (result.status === "NOT_FOUND") throw new NotFoundException("Không tìm thấy bài học."); if (result.status === "EMPTY") throw new BadRequestException("Cần có tiêu đề và ít nhất một nội dung hoặc tài liệu trước khi xuất bản."); return result.value; }
   async archive(teacherId: string, sessionId: string) { const result = await this.repository.archive(teacherId, sessionId); if (result.status === "NOT_FOUND") throw new NotFoundException("Không tìm thấy bài học."); return result.value; }
+  wordTemplate() { return this.documents.createTemplate(); }
+  async importWordPreview(teacherId: string, sessionId: string, file: UploadFile | undefined) { await this.teacherLesson(teacherId, sessionId); return this.documents.parseImport(file); }
+  async exportWord(teacherId: string, sessionId: string) {
+    const lesson = await this.teacherLesson(teacherId, sessionId) as LessonTextInput & { title: string };
+    const safeTitle = lesson.title.normalize("NFC").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 80) || "bai-hoc";
+    return { contents: await this.documents.exportLesson(lesson), fileName: `${safeTitle}.docx` };
+  }
   async upload(teacherId: string, sessionId: string, file: UploadFile | undefined, requestedCategory?: LessonAttachmentCategory) {
     if (!file) throw new BadRequestException("Vui lòng chọn tệp cần tải lên.");
     const original = basename(file.originalname).replace(/[\r\n\0]/g, "").slice(0, 255); if (!original) throw new BadRequestException("Tên tệp không hợp lệ.");

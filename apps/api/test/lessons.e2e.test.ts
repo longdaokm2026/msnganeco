@@ -13,10 +13,18 @@ import type { AuthUser, AuthUserWithPassword } from "../src/auth/auth.types";
 import { JwtAuthGuard } from "../src/auth/jwt-auth.guard";
 import { authConfig } from "../src/config/env";
 import { LessonController } from "../src/lessons/lesson.controller";
+import { docxMime, LessonDocumentService } from "../src/lessons/lesson-document.service";
 import { LessonRepository } from "../src/lessons/lesson.repository";
 import { LessonService } from "../src/lessons/lesson.service";
 import type { AttachmentInput, LessonListQuery, LessonTextInput } from "../src/lessons/lesson.types";
 import { LessonStorageService } from "../src/lessons/storage/lesson-storage.service";
+
+const parseBinary = (response: request.Response, callback: (error: Error | null, body?: Buffer) => void) => {
+  const chunks: Buffer[] = [];
+  response.on("data", (chunk: Buffer | string) => chunks.push(Buffer.from(chunk)));
+  response.on("end", () => callback(null, Buffer.concat(chunks)));
+  response.on("error", callback);
+};
 
 class TestAuth extends AuthRepository {
   constructor(private readonly users: AuthUser[]) { super(); }
@@ -49,7 +57,7 @@ describe("Lesson API", () => {
   let app: INestApplication; let server: Parameters<typeof request>[0]; let jwt: JwtService; let repository: MemoryLessons; let storage: LessonStorageService;
   const owner = randomUUID(), other = randomUUID(), unapproved = randomUUID(), student = randomUUID(), outsider = randomUUID(), admin = randomUUID(); const session = randomUUID(), historical = randomUUID();
   const users: AuthUser[] = [{ id: owner, email: "owner@test", phone: null, fullName: "Owner", status: "ACTIVE", roles: ["TEACHER"] }, { id: other, email: "other@test", phone: null, fullName: "Other", status: "ACTIVE", roles: ["TEACHER"] }, { id: unapproved, email: "pending@test", phone: null, fullName: "Pending", status: "ACTIVE", roles: ["TEACHER"] }, { id: student, email: "student@test", phone: null, fullName: "Student", status: "ACTIVE", roles: ["STUDENT"] }, { id: outsider, email: "out@test", phone: null, fullName: "Out", status: "ACTIVE", roles: ["STUDENT"] }, { id: admin, email: "admin@test", phone: null, fullName: "Admin", status: "ACTIVE", roles: ["ADMIN"] }];
-  before(async () => { process.env.LESSON_UPLOAD_DIR = `/tmp/msngan-lessons-${randomUUID()}`; repository = new MemoryLessons(student); repository.addSession(session, owner, randomUUID(), "Unit 1", true); repository.addSession(historical, owner, randomUUID(), "Historical"); const moduleRef = await Test.createTestingModule({ imports: [JwtModule.register({ secret: authConfig.accessSecret() })], controllers: [LessonController], providers: [LessonService, LessonStorageService, JwtAuthGuard, RolesGuard, { provide: TeacherApprovalRepository, useValue: { isApproved: async (id: string) => id !== unapproved } }, { provide: AuthRepository, useValue: new TestAuth(users) }, { provide: LessonRepository, useValue: repository }] }).compile(); app = moduleRef.createNestApplication(); await app.init(); server = app.getHttpServer(); jwt = moduleRef.get(JwtService); storage = moduleRef.get(LessonStorageService); });
+  before(async () => { process.env.LESSON_UPLOAD_DIR = `/tmp/msngan-lessons-${randomUUID()}`; repository = new MemoryLessons(student); repository.addSession(session, owner, randomUUID(), "Unit 1", true); repository.addSession(historical, owner, randomUUID(), "Historical"); const moduleRef = await Test.createTestingModule({ imports: [JwtModule.register({ secret: authConfig.accessSecret() })], controllers: [LessonController], providers: [LessonService, LessonDocumentService, LessonStorageService, JwtAuthGuard, RolesGuard, { provide: TeacherApprovalRepository, useValue: { isApproved: async (id: string) => id !== unapproved } }, { provide: AuthRepository, useValue: new TestAuth(users) }, { provide: LessonRepository, useValue: repository }] }).compile(); app = moduleRef.createNestApplication(); await app.init(); server = app.getHttpServer(); jwt = moduleRef.get(JwtService); storage = moduleRef.get(LessonStorageService); });
   after(async () => { await app.close(); });
   async function token(id: string) { const user = users.find((u) => u.id === id)!; return jwt.signAsync({ sub: user.id, email: user.email, roles: user.roles }, { secret: authConfig.accessSecret(), issuer: authConfig.accessIssuer(), audience: authConfig.accessAudience(), expiresIn: 900 }); }
 
@@ -57,6 +65,38 @@ describe("Lesson API", () => {
   test("non-owner, unapproved teacher and student cannot mutate", async () => { await request(server).put(`/sessions/${session}/lesson`).set("Authorization", `Bearer ${await token(other)}`).send({ summary: "No" }).expect(404); await request(server).put(`/sessions/${session}/lesson`).set("Authorization", `Bearer ${await token(unapproved)}`).send({ summary: "No" }).expect(403); await request(server).put(`/sessions/${session}/lesson`).set("Authorization", `Bearer ${await token(student)}`).send({ summary: "No" }).expect(403); });
   test("students see published/archived but never draft or non-enrolled lessons", async () => { const published = repository.lessons.get(session)!; const draft = repository.lessons.get(historical)!; const auth = `Bearer ${await token(student)}`; published.status = "PUBLISHED"; await request(server).get(`/student/lessons/${published.id}`).set("Authorization", auth).expect(200); published.status = "ARCHIVED"; await request(server).get(`/student/lessons/${published.id}`).set("Authorization", auth).expect(200); await request(server).get(`/student/lessons/${draft.id}`).set("Authorization", auth).expect(404); await request(server).get(`/student/lessons/${published.id}`).set("Authorization", `Bearer ${await token(outsider)}`).expect(404); await request(server).get(`/admin/lessons/${draft.id}`).set("Authorization", `Bearer ${await token(admin)}`).expect(200); });
   test("validates, secures, downloads and deletes attachments without exposing storage keys", async () => { const auth = `Bearer ${await token(owner)}`; const pdf = await request(server).post(`/sessions/${session}/lesson/attachments`).set("Authorization", auth).attach("file", Buffer.from("%PDF-1.4 test"), { filename: "Grammar.pdf", contentType: "application/pdf" }).expect(201); assert.equal(pdf.body.storageKey, undefined); const id = pdf.body.id as string; await request(server).get(`/lessons/attachments/${id}/download`).set("Authorization", `Bearer ${await token(student)}`).expect(200); await request(server).get(`/lessons/attachments/${id}/download`).set("Authorization", `Bearer ${await token(admin)}`).expect(200); await request(server).get(`/lessons/attachments/${id}/download`).set("Authorization", `Bearer ${await token(outsider)}`).expect(404); await request(server).post(`/sessions/${session}/lesson/attachments`).set("Authorization", `Bearer ${await token(other)}`).attach("file", Buffer.from("%PDF-test"), { filename: "No.pdf", contentType: "application/pdf" }).expect(404); await request(server).post(`/sessions/${session}/lesson/attachments`).set("Authorization", auth).attach("file", Buffer.from("bad"), { filename: "bad.exe", contentType: "application/octet-stream" }).expect(400); const draftFile = await request(server).post(`/sessions/${historical}/lesson/attachments`).set("Authorization", auth).attach("file", Buffer.from("%PDF-draft"), { filename: "Draft.pdf", contentType: "application/pdf" }).expect(201); await request(server).get(`/lessons/attachments/${draftFile.body.id}/download`).set("Authorization", `Bearer ${await token(student)}`).expect(404); await request(server).delete(`/sessions/${historical}/lesson/attachments/${draftFile.body.id}`).set("Authorization", auth).expect(200); await request(server).delete(`/sessions/${session}/lesson/attachments/${id}`).set("Authorization", `Bearer ${await token(other)}`).expect(404); await request(server).delete(`/sessions/${session}/lesson/attachments/${id}`).set("Authorization", auth).expect(200); assert.ok(repository.audits.includes("LESSON_ATTACHMENT_UPLOADED") && repository.audits.includes("LESSON_ATTACHMENT_DELETED")); });
+
+  test("exports a text-only Word lesson and imports it back as a preview without saving", async () => {
+    const auth = `Bearer ${await token(owner)}`;
+    const lessonInput = {
+      title: "Unit 3 – Traveling",
+      summary: "Mục tiêu: sử dụng từ vựng du lịch.",
+      mainContent: "Giới thiệu chủ đề và luyện hội thoại.",
+      theory: "Dùng be going to cho kế hoạch.",
+      vocabulary: "travel | /ˈtræv.əl/ | du lịch | travel abroad | I love to travel.\nhotel | /həʊˈtel/ | khách sạn | book a hotel | We stayed at a hotel.",
+      grammar: "S + be going to + V.",
+      examples: "We are going to visit Da Nang.",
+      reviewNotes: "Ôn từ mới.",
+      homeworkNotes: "Viết năm câu.",
+    };
+    await request(server).put(`/sessions/${session}/lesson`).set("Authorization", auth).send(lessonInput).expect(200);
+    const exported = await request(server).get(`/sessions/${session}/lesson/export-docx`).set("Authorization", auth).buffer(true).parse(parseBinary).expect(200).expect("Content-Type", new RegExp(docxMime));
+    assert.ok(Buffer.isBuffer(exported.body)); assert.equal(exported.body[0], 0x50); assert.equal(exported.body[1], 0x4b);
+    const preview = await request(server).post(`/sessions/${session}/lesson/import-docx/preview`).set("Authorization", auth).attach("file", exported.body, { filename: "lesson.docx", contentType: docxMime }).expect(201);
+    assert.deepEqual(preview.body.fields, lessonInput);
+    assert.equal(preview.body.vocabularyCount, 2);
+    assert.deepEqual(preview.body.missingSections, []);
+    assert.equal(repository.lessons.get(session)?.title, lessonInput.title);
+  });
+
+  test("secures Word routes and rejects malformed imports", async () => {
+    const ownerAuth = `Bearer ${await token(owner)}`;
+    await request(server).get("/teacher/lessons/docx-template").set("Authorization", ownerAuth).expect(200).expect("Content-Type", new RegExp(docxMime));
+    await request(server).get("/teacher/lessons/docx-template").set("Authorization", `Bearer ${await token(unapproved)}`).expect(403);
+    await request(server).get(`/sessions/${session}/lesson/export-docx`).set("Authorization", `Bearer ${await token(other)}`).expect(404);
+    await request(server).post(`/sessions/${session}/lesson/import-docx/preview`).set("Authorization", ownerAuth).attach("file", Buffer.from("not a zip"), { filename: "bad.docx", contentType: docxMime }).expect(400);
+    await request(server).post(`/sessions/${session}/lesson/import-docx/preview`).set("Authorization", ownerAuth).attach("file", Buffer.from([0x50, 0x4b, 0x03, 0x04]), { filename: "bad.txt", contentType: "text/plain" }).expect(400);
+  });
 
   test("accepts approved image and Office signatures and rejects MIME or oversized files", () => {
     const files = [
