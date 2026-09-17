@@ -50,8 +50,8 @@ describe("Quick Quiz deterministic local generation", () => {
   });
 
   test("parses only safe teacher vocabulary formats", () => {
-    const parsed = parseLessonVocabulary({ id: "l1", title: "Lesson", scheduledStart: new Date(), vocabulary: "sunny | có nắng | It is sunny.\nrainy => có mưa => It is rainy.\nunsafe free text" });
-    assert.deepEqual(parsed.map(({ word, meaning, example }) => ({ word, meaning, example })), [{ word: "sunny", meaning: "có nắng", example: "It is sunny." }, { word: "rainy", meaning: "có mưa", example: "It is rainy." }]);
+    const parsed = parseLessonVocabulary({ id: "l1", title: "Lesson", scheduledStart: new Date(), vocabulary: "sunny | /ˈsʌn.i/ | có nắng | sunny day | It is sunny.\nrainy => có mưa => It is rainy.\nunsafe free text" });
+    assert.deepEqual(parsed.map(({ word, pronunciation, meaning, phrase, example }) => ({ word, pronunciation, meaning, phrase, example })), [{ word: "sunny", pronunciation: "/ˈsʌn.i/", meaning: "có nắng", phrase: "sunny day", example: "It is sunny." }, { word: "rainy", pronunciation: null, meaning: "có mưa", phrase: null, example: "It is rainy." }]);
   });
 
   test("creates grounded English/Vietnamese MCQ, context and true/false without internet", () => {

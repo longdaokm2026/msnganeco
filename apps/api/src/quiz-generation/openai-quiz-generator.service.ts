@@ -29,7 +29,7 @@ const schema = {
 
 const instructions = `You generate a varied and educational English vocabulary Quick Quiz for school students.
 
-Use ONLY the supplied teacher vocabulary records: English word, Vietnamese meaning, and example sentence. Do not invent target vocabulary or replace a teacher-provided meaning.
+Use ONLY the supplied teacher vocabulary records: English word, pronunciation, Vietnamese meaning, phrase/collocation, and example sentence. Do not invent target vocabulary or replace teacher-provided content.
 
 For a 20-question final quiz, aim for approximately: 25% English word to Vietnamese meaning, 20% Vietnamese meaning to English word, 20% sentence completion, 15% best word for a simple real-life situation, 10% category or odd-one-out, and 10% meaning-in-context or simple inference. Scale this mix proportionally for other final quiz sizes and for the larger candidate pool.
 
@@ -76,7 +76,7 @@ export async function generateQuizWithResponses(createResponse: CreateResponse, 
       reasoning: { effort: "low" },
       max_output_tokens: Math.min(10_000, Math.max(2_000, count * 350)),
       instructions,
-      input: JSON.stringify({ candidateQuestionCount: count, finalQuestionCount, vocabulary: vocabulary.map(({ word, meaning, example }) => ({ word, meaning, example })) }),
+      input: JSON.stringify({ candidateQuestionCount: count, finalQuestionCount, vocabulary: vocabulary.map(({ word, pronunciation, meaning, phrase, example }) => ({ word, pronunciation, meaning, phrase, example })) }),
       text: { verbosity: "low", format: { type: "json_schema", name: "quick_vocabulary_quiz", strict: true, schema } },
     });
   } catch (error) {

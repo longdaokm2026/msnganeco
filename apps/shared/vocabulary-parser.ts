@@ -1,7 +1,9 @@
 export type VocabularyEntry = {
   kind: "entry";
   word: string;
+  pronunciation: string | null;
   meaning: string;
+  phrase: string | null;
   example: string | null;
 };
 
@@ -16,7 +18,7 @@ const cleanPart = (value: string) => value.trim().replace(/^(?:[*•-]|\d+[.)])\
 
 function splitLine(line: string) {
   if (line.includes("|")) return { parts: line.split("|").map(cleanPart), joiner: " | " };
-  if (line.includes("\t")) return { parts: line.split(/\t+/u).map(cleanPart), joiner: " " };
+  if (line.includes("\t")) return { parts: line.split("\t").map(cleanPart), joiner: " " };
   // Keep the established Quick Quiz format for existing lesson data.
   if (line.includes("=>")) return { parts: line.split("=>").map(cleanPart), joiner: " => " };
   return null;
@@ -28,10 +30,20 @@ export function parseVocabularyText(value: string): VocabularyLine[] {
     if (!text) return [];
     const split = splitLine(text);
     if (!split) return [{ kind: "fallback" as const, text }];
-    const [word, meaning, ...exampleParts] = split.parts;
+    const isExtendedFormat = split.parts.length >= 4;
+    const [word, pronunciation, extendedMeaning, phrase, ...extendedExampleParts] = split.parts;
+    const meaning = isExtendedFormat ? extendedMeaning : split.parts[1];
+    const exampleParts = isExtendedFormat ? extendedExampleParts : split.parts.slice(2);
     if (!word || !meaning) return [{ kind: "fallback" as const, text }];
     const example = exampleParts.join(split.joiner).trim();
-    return [{ kind: "entry" as const, word, meaning, example: example || null }];
+    return [{
+      kind: "entry" as const,
+      word,
+      pronunciation: isExtendedFormat ? pronunciation || null : null,
+      meaning,
+      phrase: isExtendedFormat ? phrase || null : null,
+      example: example || null,
+    }];
   });
 }
 

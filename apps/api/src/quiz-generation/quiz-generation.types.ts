@@ -2,7 +2,9 @@ import type { AssignmentQuestionType, AssignmentSection } from "../../../../gene
 
 export type VocabularyRecord = {
   word: string;
+  pronunciation?: string | null;
   meaning: string;
+  phrase?: string | null;
   example: string | null;
   lessonId: string;
   lessonTitle: string;

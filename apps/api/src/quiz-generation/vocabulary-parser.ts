@@ -2,7 +2,7 @@ import type { SourceLesson, VocabularyRecord } from "./quiz-generation.types";
 import { parseVocabularyEntries } from "../../../shared/vocabulary-parser";
 
 export function parseLessonVocabulary(lesson: SourceLesson): VocabularyRecord[] {
-  return parseVocabularyEntries(lesson.vocabulary).map(({ word, meaning, example }) => ({ word, meaning, example, lessonId: lesson.id, lessonTitle: lesson.title }));
+  return parseVocabularyEntries(lesson.vocabulary).map(({ word, pronunciation, meaning, phrase, example }) => ({ word, pronunciation, meaning, phrase, example, lessonId: lesson.id, lessonTitle: lesson.title }));
 }
 
 export function uniqueVocabulary(lessons: SourceLesson[]) {
