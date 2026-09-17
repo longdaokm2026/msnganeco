@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { AlignmentType, BorderStyle, Document, HeadingLevel, Packer, Paragraph, ShadingType, Table, TableCell, TableLayoutType, TableRow, TextRun, WidthType } from "docx";
+import { AlignmentType, BorderStyle, Document, HeadingLevel, LevelFormat, Packer, Paragraph, ShadingType, Table, TableCell, TableLayoutType, TableRow, TextRun, WidthType } from "docx";
 import mammoth from "mammoth";
 import { HTMLElement, Node, parse } from "node-html-parser";
 import { extname } from "node:path";
@@ -30,13 +30,58 @@ const sectionByHeading = new Map(sections.map((item) => [normalizeHeading(item.l
 const placeholders = new Set(sections.map((item) => item.placeholder).filter(Boolean).map(normalizeHeading));
 const cleanText = (value: string) => value.replace(/\u00a0/gu, " ").replace(/[ \t]+\n/gu, "\n").replace(/\n{3,}/gu, "\n\n").trim();
 
+const continuationIndent = "   ";
+const orderedNumbering = "lesson-ordered";
+const listMarker = /^(?:[-\u2022*]|\d+[.)])\s+/u;
+const stripListMarker = (value: string) => value.replace(listMarker, "").trim();
+
+// B\u1ea3n xu\u1ea5t Word tr\u01b0\u1edbc \u0111\u00e2y g\u1ed9p c\u1ea3 m\u1ee5c v\u00e0o m\u1ed9t TextRun, n\u00ean Word chuy\u1ec3n m\u1ecdi xu\u1ed1ng d\u00f2ng
+// th\u00e0nh kho\u1ea3ng tr\u1eafng \u0111\u00f4i. T\u00e1ch l\u1ea1i \u0111\u1ec3 kh\u00f4i ph\u1ee5c c\u1ea5u tr\u00fac nhi\u1ec1u d\u00f2ng c\u1ee7a file c\u0169.
+const splitSoftLines = (value: string) => value.split(/ {2,}/u).map((part) => part.trim()).filter(Boolean);
+
 function textFromBlock(node: Node) {
   if (!(node instanceof HTMLElement)) return cleanText(node.textContent);
   const tag = node.tagName.toUpperCase();
-  if (tag === "UL") return node.querySelectorAll("li").map((item) => `- ${cleanText(item.textContent)}`).join("\n");
-  if (tag === "OL") return node.querySelectorAll("li").map((item, index) => `${index + 1}. ${cleanText(item.textContent)}`).join("\n");
+  if (tag === "UL" || tag === "OL") return node.querySelectorAll("li").map((item) => cleanText(item.textContent)).join("\n");
   if (tag === "TABLE") return node.querySelectorAll("tr").map((row) => row.querySelectorAll("th,td").map((cell) => cleanText(cell.textContent)).join(" | ")).join("\n");
   return cleanText(node.textContent);
+}
+
+function parseSectionContent(nodes: Node[]) {
+  const lines: string[] = [];
+  let ordered = 0;
+  let afterOrderedItem = false;
+  for (const node of nodes) {
+    const element = node instanceof HTMLElement ? node : null;
+    const tag = element?.tagName.toUpperCase() ?? "";
+    if (tag === "UL") {
+      for (const item of element!.querySelectorAll("li")) {
+        const text = cleanText(item.textContent);
+        if (text) lines.push(`- ${stripListMarker(text)}`);
+      }
+      afterOrderedItem = false;
+      continue;
+    }
+    if (tag === "OL") {
+      // Word t\u00e1ch m\u1ed7i m\u1ee5c \u0111\u00e1nh s\u1ed1 th\u00e0nh m\u1ed9t <ol> ri\u00eang, n\u00ean \u0111\u1ebfm li\u00ean t\u1ee5c thay v\u00ec theo t\u1eebng danh s\u00e1ch.
+      for (const item of element!.querySelectorAll("li")) {
+        const parts = splitSoftLines(cleanText(item.textContent));
+        if (!parts.length) continue;
+        ordered += 1;
+        lines.push(`${ordered}. ${stripListMarker(parts[0])}`);
+        for (const extra of parts.slice(1)) lines.push(`${continuationIndent}${extra}`);
+      }
+      afterOrderedItem = true;
+      continue;
+    }
+    const text = textFromBlock(node);
+    if (!text) continue;
+    // \u0110o\u1ea1n th\u1ee5t l\u1ec1 ngay sau m\u1ed9t m\u1ee5c \u0111\u00e1nh s\u1ed1 l\u00e0 c\u00e1c d\u00f2ng con c\u1ee7a m\u1ee5c \u0111\u00f3.
+    if (afterOrderedItem && tag !== "TABLE") for (const part of splitSoftLines(text)) lines.push(`${continuationIndent}${part}`);
+    else lines.push(text);
+    if (tag === "TABLE") afterOrderedItem = false;
+  }
+  return cleanText(lines.join("\n"));
 }
 
 function parseVocabulary(nodes: Node[]) {
@@ -51,9 +96,22 @@ function parseVocabulary(nodes: Node[]) {
   }).join("\n");
 }
 
-function sectionParagraph(text: string, placeholder: string) {
-  const value = text.trim();
-  return new Paragraph({ spacing: { after: 160 }, children: [new TextRun({ text: value || placeholder, color: value ? "18233B" : "8A91A2", italics: !value, size: 22 })] });
+const placeholderParagraph = (placeholder: string) =>
+  new Paragraph({ spacing: { after: 160 }, children: [new TextRun({ text: placeholder, color: "8A91A2", italics: true, size: 22 })] });
+
+// Một TextRun không giữ được ký tự xuống dòng, nên mỗi dòng phải là một Paragraph riêng.
+function sectionParagraphs(text: string, placeholder: string, instance: number) {
+  const paragraphs: Paragraph[] = [];
+  for (const raw of text.split(/\r?\n/u)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const body = new TextRun({ text: stripListMarker(line), color: "18233B", size: 22 });
+    if (/^[-•*]\s+/u.test(line)) paragraphs.push(new Paragraph({ bullet: { level: 0 }, spacing: { after: 80 }, children: [body] }));
+    else if (/^\d+[.)]\s+/u.test(line)) paragraphs.push(new Paragraph({ numbering: { reference: orderedNumbering, level: 0, instance }, spacing: { after: 80 }, children: [body] }));
+    else if (/^\s/u.test(raw)) paragraphs.push(new Paragraph({ indent: { left: 720 }, spacing: { after: 80 }, children: [new TextRun({ text: line, color: "18233B", size: 22 })] }));
+    else paragraphs.push(new Paragraph({ spacing: { after: 160 }, children: [new TextRun({ text: line, color: "18233B", size: 22 })] }));
+  }
+  return paragraphs.length ? paragraphs : [placeholderParagraph(placeholder)];
 }
 
 function vocabularyTable(value: string) {
@@ -74,12 +132,14 @@ export class LessonDocumentService {
       new Paragraph({ style: "Title", children: [new TextRun({ text: data ? `Bài học ${data.title || ""}`.trim() : "Mẫu nhập bài học Ms Ngân English", bold: true, color: "000000", size: 36 })] }),
       new Paragraph({ spacing: { after: 260 }, children: [new TextRun({ text: data ? "Nội dung bài học được xuất từ Ms Ngân English" : "Điền nội dung dưới từng tiêu đề. Không đổi tên hoặc thứ tự các tiêu đề. Phần từ vựng sử dụng bảng 5 cột có sẵn.", color: "647086", size: 20 })] }),
     ];
-    for (const section of sections) {
+    for (const [index, section] of sections.entries()) {
       children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, keepNext: true, spacing: { before: 220, after: 100 }, children: [new TextRun({ text: section.label, bold: true, color: "000000", size: 26 })] }));
       if (section.key === "vocabulary") children.push(vocabularyTable(String(data?.vocabulary ?? "")));
-      else children.push(sectionParagraph(String(data?.[section.key] ?? ""), section.placeholder));
+      // Mỗi mục dùng một instance riêng để số thứ tự bắt đầu lại từ 1.
+      else children.push(...sectionParagraphs(String(data?.[section.key] ?? ""), section.placeholder, index + 1));
     }
-    const document = new Document({ styles: { default: { document: { run: { font: "Arial", size: 22 }, paragraph: { spacing: { line: 276 } } } } }, sections: [{ properties: { page: { margin: { top: 900, right: 900, bottom: 900, left: 900 } } }, children }] });
+    const numbering = { config: [{ reference: orderedNumbering, levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.START, style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] }] };
+    const document = new Document({ numbering, styles: { default: { document: { run: { font: "Arial", size: 22 }, paragraph: { spacing: { line: 276 } } } } }, sections: [{ properties: { page: { margin: { top: 900, right: 900, bottom: 900, left: 900 } } }, children }] });
     return Buffer.from(await Packer.toBuffer(document));
   }
 
@@ -122,7 +182,7 @@ export class LessonDocumentService {
         if (node instanceof HTMLElement && /^H[1-3]$/u.test(node.tagName.toUpperCase())) break;
         nodes.push(node);
       }
-      let value = definition.key === "vocabulary" ? parseVocabulary(nodes) : cleanText(nodes.map(textFromBlock).filter(Boolean).join("\n\n"));
+      let value = definition.key === "vocabulary" ? parseVocabulary(nodes) : parseSectionContent(nodes);
       if (placeholders.has(normalizeHeading(value))) value = "";
       if (value.length > definition.limit) throw new BadRequestException(`Mục “${definition.label}” vượt quá giới hạn ${definition.limit.toLocaleString("vi-VN")} ký tự.`);
       if (value) fields[definition.key] = value;
