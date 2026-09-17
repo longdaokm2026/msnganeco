@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import LessonRichText from "./LessonRichText";
 import { splitPresentationText } from "../apps/shared/lesson-presentation";
 import { parseVocabularyText, type VocabularyLine } from "../apps/shared/vocabulary-parser";
 
@@ -58,21 +59,6 @@ export function buildLessonSlides(lesson: PresentableLesson): LessonSlide[] {
   return slides;
 }
 
-const bulletMarker = /^[-•*]\s+/u;
-
-function TextContent({ value }: { value: string }) {
-  const lines = value.split(/\r?\n/u).filter((line) => line.trim());
-  return <div className="lesson-presentation-copy">
-    {lines.map((raw, index) => {
-      const line = raw.trim();
-      if (/^\s/u.test(raw)) return <p className="is-child" key={index}>{line}</p>;
-      if (bulletMarker.test(line)) return <p className="is-bullet" key={index}>{line.replace(bulletMarker, "")}</p>;
-      if (/^\d+[.)]\s+/u.test(line)) return <p className="is-lead" key={index}>{line}</p>;
-      return <p key={index}>{line}</p>;
-    })}
-  </div>;
-}
-
 function VocabularyContent({ lines }: { lines: VocabularyLine[] }) {
   return <div className="lesson-presentation-vocabulary"><table><caption>Từ vựng của bài học</caption><colgroup><col className="vocabulary-word-column" /><col className="vocabulary-pronunciation-column" /><col className="vocabulary-meaning-column" /><col className="vocabulary-phrase-column" /><col className="vocabulary-example-column" /></colgroup><thead><tr><th scope="col">Từ</th><th scope="col">Phiên âm</th><th scope="col">Nghĩa</th><th scope="col">Cụm từ</th><th scope="col">Câu ví dụ</th></tr></thead><tbody>{lines.map((line, index) => line.kind === "entry" ? <tr key={`${line.word}-${index}`}><th scope="row">{line.word}</th><td>{line.pronunciation || "—"}</td><td>{line.meaning}</td><td>{line.phrase || "—"}</td><td><em>{line.example || "—"}</em></td></tr> : <tr key={`fallback-${index}`}><td colSpan={5}>{line.text}</td></tr>)}</tbody></table></div>;
 }
@@ -123,7 +109,7 @@ export default function LessonPresentation({ lesson, onClose }: { lesson: Presen
     </header>
     <main className="lesson-presentation-deck">
       {slides.map((slide, index) => <article className={`lesson-presentation-slide${index === current ? " is-active" : ""}${slide.kind === "title" ? " is-title" : ""}`} aria-hidden={index !== current} key={`${slide.kind}-${index}`}>
-        {slide.kind === "title" ? <div className="lesson-presentation-title"><span>Bài học</span><h1>{slide.title}</h1><i aria-hidden="true" /></div> : <><header>{slide.page ? <span>Trang {slide.page}</span> : null}<h2>{slide.title}</h2></header>{slide.kind === "vocabulary" ? <VocabularyContent lines={slide.lines} /> : <TextContent value={slide.content} />}</>}
+        {slide.kind === "title" ? <div className="lesson-presentation-title"><span>Bài học</span><h1>{slide.title}</h1><i aria-hidden="true" /></div> : <><header>{slide.page ? <span>Trang {slide.page}</span> : null}<h2>{slide.title}</h2></header>{slide.kind === "vocabulary" ? <VocabularyContent lines={slide.lines} /> : <LessonRichText value={slide.content} className="lesson-presentation-copy" />}</>}
         <footer><span>Ms Ngân English</span><b>{index + 1}</b></footer>
       </article>)}
     </main>

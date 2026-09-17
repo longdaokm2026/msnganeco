@@ -49,3 +49,19 @@ export function splitPresentationText(value: string, limit = 680, maxBlocks = 7)
   flush();
   return pages;
 }
+
+export type LessonLine = { kind: "lead" | "child" | "bullet" | "plain"; text: string };
+
+const bulletMarker = /^[-•*]\s+/u;
+
+// Dùng chung cho trình chiếu và màn xem bài của học sinh để hai nơi hiển thị giống nhau.
+export function classifyLines(value: string): LessonLine[] {
+  return value.split(/\r?\n/u).flatMap<LessonLine>((raw) => {
+    const text = raw.trim();
+    if (!text) return [];
+    if (/^\s/u.test(raw)) return [{ kind: "child", text }];
+    if (bulletMarker.test(text)) return [{ kind: "bullet", text: text.replace(bulletMarker, "") }];
+    if (/^\d+[.)]\s+/u.test(text)) return [{ kind: "lead", text }];
+    return [{ kind: "plain", text }];
+  });
+}

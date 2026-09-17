@@ -10,6 +10,8 @@
   --coral: #ed7459;
   --line: #d2d7e1;
   --line-strong: #c8c2b7;
+  --line-field: #8b92a5;
+  --line-panel: #988f7c;
   --font-body: 17px;
   --font-workspace: clamp(17px, 1.15vw, 18px);
   --font-education: 17px;
@@ -68,7 +70,7 @@ form { display: grid; gap: 17px; }
 label { display: grid; gap: 7px; font-size: 13px; font-weight: 600; }
 input { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; outline: none; background: #fff; color: var(--ink); transition: border-color .18s, box-shadow .18s; }
 input::placeholder { color: #a3aaba; }
-input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,.1); }
+input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,.18); }
 .password-row { display: block; }
 .forgot-link { justify-self: end; margin-top: -7px; color: var(--indigo); font-size: 12px; font-weight: 600; text-decoration: none; }
 .forgot-link:hover, .terms a:hover { text-decoration: underline; }
@@ -456,9 +458,9 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 
 .lesson-manager, .student-lessons { display: grid; gap: 14px; }
 .lesson-filters { display: grid; grid-template-columns: repeat(3, minmax(150px, 220px)); gap: 9px; }
-.lesson-filters select, .lesson-filters input { min-height: 42px; padding: 8px 11px; border: 1px solid #d9dce7; border-radius: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 11px; }
-.lesson-workspace { min-height: 620px; display: grid; grid-template-columns: 240px minmax(0, 1fr); border: 1px solid #e1ded5; border-radius: 18px; overflow: hidden; background: var(--paper); }
-.lesson-session-list { padding: 16px 14px; border-right: 1px solid #e7e4dc; background: #f0efe9; }
+.lesson-filters select, .lesson-filters input { min-height: 42px; padding: 8px 11px; border: 1px solid var(--line-field); border-radius: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 11px; }
+.lesson-workspace { min-height: 620px; display: grid; grid-template-columns: 240px minmax(0, 1fr); border: 1px solid var(--line-panel); border-radius: 18px; overflow: hidden; background: var(--paper); }
+.lesson-session-list { padding: 16px 14px; border-right: 1px solid var(--line-panel); background: #f0efe9; }
 .lesson-session-list h2 { margin: 0 0 14px; color: var(--muted); font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .lesson-session-list > button { width: 100%; padding: 12px 8px; display: grid; grid-template-columns: 48px 1fr; gap: 10px; border: 0; border-bottom: 1px solid #dedbd2; background: transparent; color: inherit; cursor: pointer; text-align: left; }
 .lesson-session-list > button.active { border: 1px solid #7f8dbc; border-radius: 9px; background: #f5f7ff; box-shadow: inset 4px 0 0 var(--indigo), 0 7px 18px rgba(31,43,76,.1); }
@@ -472,7 +474,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .lesson-editor { padding: 25px; }
 .lesson-editor form { display: grid; gap: 15px; }
 .lesson-editor label { display: grid; gap: 6px; color: var(--muted); font-size: 9px; font-weight: 700; }
-.lesson-editor input, .lesson-editor textarea { width: 100%; padding: 10px 12px; border: 1px solid #d9dce7; border-radius: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 10px; line-height: 1.6; resize: vertical; }
+.lesson-editor input, .lesson-editor textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line-field); border-radius: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 10px; line-height: 1.6; resize: vertical; }
 .lesson-meta { padding: 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; border-radius: 9px; background: #f0f1f7; color: var(--muted); font-size: 8px; }
 .lesson-word-tools { padding: 16px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 1px solid #cfd5e8; border-radius: 12px; background: #f7f8fc; }
 .lesson-word-tools h3, .lesson-import-preview h3 { margin: 0; color: var(--ink); font-family: inherit; font-size: 18px; }
@@ -490,7 +492,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .lesson-import-preview dt { color: var(--muted); font-size: 13px; font-weight: 800; }
 .lesson-import-preview dd { margin: 4px 0 0; color: var(--ink); font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .lesson-import-preview-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.lesson-attachments { padding: 16px; border: 1px solid #e2dfd7; border-radius: 10px; }
+.lesson-attachments { padding: 16px; border: 1px solid var(--line-panel); border-radius: 10px; }
 .lesson-attachments > div { display: flex; align-items: center; justify-content: space-between; }
 .lesson-attachments h3 { margin: 0; font-size: 12px; }
 .upload-button, .lesson-actions button, .student-lesson-list article > button { padding: 8px 11px; border: 1px solid var(--indigo); border-radius: 7px; background: var(--indigo); color: #fff !important; cursor: pointer; font-size: 8px !important; font-weight: 700; }
@@ -520,17 +522,17 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .lesson-empty p { margin: 0; color: var(--muted); font-size: 11px; }
 .student-lesson-filters { grid-template-columns: repeat(2, minmax(160px, 230px)); }
 .student-lesson-list { display: grid; gap: 10px; }
-.student-lesson-list > article { padding: 18px; display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 16px; border: 1px solid #dedbd2; border-radius: 12px; background: var(--paper); }
+.student-lesson-list > article { padding: 18px; display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 16px; border: 1px solid var(--line-panel); border-radius: 12px; background: var(--paper); }
 .student-lesson-list time { color: var(--coral); font-family: var(--font-serif), serif; font-size: 22px; }
 .student-lesson-list span { color: var(--indigo); font-size: 8px; font-weight: 700; }
 .student-lesson-list h2 { margin: 3px 0; font-family: var(--font-serif), serif; font-size: 18px; }
 .student-lesson-list p, .student-lesson-list small { margin: 0; color: var(--muted); font-size: 9px; }
-.student-lesson-detail { padding: 28px; border: 1px solid #dedbd2; border-radius: 14px; background: var(--paper); }
+.student-lesson-detail { padding: 28px; border: 1px solid var(--line-panel); border-radius: 14px; background: var(--paper); }
 .lesson-detail-meta { color: var(--muted); font-size: 10px; }
 .lesson-field-help { display: block; margin: 3px 0 6px; color: var(--muted); font-size: var(--font-small); font-weight: 500; line-height: 1.45; }
 .student-lesson-detail section { margin-top: 24px; }
 .student-lesson-detail h2 { margin: 0 0 8px; font-family: var(--font-serif), serif; font-size: 21px; }
-.student-lesson-detail section p { color: #46506a; font-size: 10px; line-height: 1.8; white-space: pre-wrap; }
+.student-lesson-detail section > p { color: #46506a; font-size: 10px; line-height: 1.8; white-space: pre-wrap; }
 .vocabulary-viewer { max-width: 100%; }
 .vocabulary-table-wrap { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .vocabulary-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(11px, 1vw, 13px); }
@@ -1269,6 +1271,7 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .vocabulary-cards small, .vocabulary-cards span, .vocabulary-cards em { font-size: 18px; line-height: 1.55; }
   .vocabulary-cards > .vocabulary-fallback { font-size: 17px; }
   .student-lesson-detail section > p, .student-lessons .student-lesson-detail section > p,
+  .student-lesson-detail .lesson-rich-text p,
   .student-passage p, .student-read-aloud blockquote { font-size: 18px !important; }
   .student-question-list h3 { font-size: 18px !important; }
   .answer-options label, .matching-answers label { font-size: 17px !important; }
@@ -1314,3 +1317,31 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .lesson-presentation-vocabulary table { min-width: 0 !important; width: 100% !important; max-width: 100% !important; font-size: 13pt; }
   .lesson-presentation-vocabulary th, .lesson-presentation-vocabulary td { padding: 1.9mm 2.1mm; line-height: 1.26; }
 }
+
+/* Phân vùng bài học: cụm ô soạn của giáo viên và thẻ mục của học sinh dùng chung
+   một hệ nhấn — coral cho phần mở đầu và phần giao về nhà, indigo cho nội dung dạy. */
+.lesson-field-group, .student-lesson-detail .lesson-section {
+  padding: 16px 18px;
+  border: 1px solid var(--line-panel);
+  border-left: 4px solid var(--indigo);
+  border-radius: 12px;
+  background: #fbfaf6;
+}
+.lesson-field-group { display: grid; gap: 14px; }
+.lesson-field-group.is-overview, .student-lesson-detail .lesson-section.is-overview { border-left-color: var(--coral); }
+.lesson-field-group.is-homework, .student-lesson-detail .lesson-section.is-homework { border-left-color: var(--coral); background: #fdf6f2; }
+.lesson-field-group > h3 { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ink); font-size: 19px; }
+.lesson-field-group > h3 > span { padding: 3px 10px; border: 1px solid #b9c0d8; border-radius: 99px; background: #e8eaf4; color: var(--indigo); font-size: 12px; font-weight: 700; }
+.lesson-field-group > h3 > span.is-complete { border-color: #8fbfa2; background: #e5f3ea; color: #1f6640; }
+
+/* Ô chưa điền: viền nét đứt và nền ngả vàng để quét nhanh phần còn thiếu. */
+.lesson-editor label.is-empty > input, .lesson-editor label.is-empty > textarea { border-style: dashed; background: #fbf7ef; }
+
+.student-lesson-detail .lesson-section { margin-top: 16px; }
+.student-lesson-detail .lesson-section > h2 { margin: 0 0 10px; }
+.student-lesson-detail .lesson-rich-text { max-width: 900px; display: grid; gap: 9px; }
+.student-lesson-detail .lesson-rich-text p { margin: 0; color: #3d4763; font-size: var(--font-education); line-height: 1.7; white-space: pre-wrap; }
+.student-lesson-detail .lesson-rich-text p.is-lead { color: var(--indigo-dark); font-weight: 700; }
+.student-lesson-detail .lesson-rich-text p.is-child { margin-left: 1.4em; color: #4b5570; font-size: 16px; }
+.student-lesson-detail .lesson-rich-text p.is-bullet { position: relative; padding-left: 1.2em; }
+.student-lesson-detail .lesson-rich-text p.is-bullet::before { position: absolute; left: .1em; color: var(--coral); font-weight: 700; content: "•"; }

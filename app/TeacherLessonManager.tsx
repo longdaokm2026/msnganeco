@@ -14,7 +14,9 @@ type ImportPreview = { fields: Partial<Record<LessonDocumentKey, string>>; found
 type Operation = "save" | "publish" | "archive" | "upload" | "delete" | "template" | "import" | "export" | null;
 type Feedback = { kind: "success" | "error"; text: string } | null;
 
-const fields: [keyof Lesson, string, number][] = [["summary", "Tóm tắt nội dung chính", 3], ["mainContent", "Nội dung chính", 7], ["theory", "Lý thuyết", 5], ["vocabulary", "Từ vựng", 5], ["grammar", "Ngữ pháp", 5], ["examples", "Ví dụ", 5], ["reviewNotes", "Nội dung cần ôn", 4], ["homeworkNotes", "Bài tập / chuẩn bị buổi sau", 4]];
+const fields: [keyof Lesson, string, number, string][] = [["summary", "Tóm tắt nội dung chính", 3, "overview"], ["mainContent", "Nội dung chính", 7, "teaching"], ["theory", "Lý thuyết", 5, "teaching"], ["vocabulary", "Từ vựng", 5, "teaching"], ["grammar", "Ngữ pháp", 5, "teaching"], ["examples", "Ví dụ", 5, "teaching"], ["reviewNotes", "Nội dung cần ôn", 4, "homework"], ["homeworkNotes", "Bài tập / chuẩn bị buổi sau", 4, "homework"]];
+// Gom ô soạn thành ba cụm để giáo viên quét nhanh thay vì cuộn một dải ô giống hệt nhau.
+const fieldGroups: [string, string][] = [["overview", "Tổng quan"], ["teaching", "Nội dung dạy"], ["homework", "Giao về nhà"]];
 const contentKeys = fields.map(([key]) => key);
 const labels: Record<string, string> = { DRAFT: "Bản nháp", PUBLISHED: "Đã xuất bản", CLOSED: "Đã đóng", ARCHIVED: "Đã lưu trữ" };
 const publishHelp = "Cần nhập tiêu đề và ít nhất một nội dung hoặc tài liệu trước khi xuất bản.";
@@ -221,8 +223,16 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
           <dl>{Object.entries(importPreview.fields).map(([key, value]) => <div key={key}><dt>{key === "title" ? "Tiêu đề bài học" : fields.find(([field]) => field === key)?.[1] ?? key}</dt><dd>{String(value).slice(0, 240)}{String(value).length > 240 ? "…" : ""}</dd></div>)}</dl>
           <div className="lesson-import-preview-actions"><button type="button" onClick={applyImport}>Áp dụng vào biểu mẫu</button><button type="button" onClick={() => setImportPreview(null)}>Hủy</button></div>
         </section>}
-        <label>Tiêu đề bài học<input maxLength={200} value={lesson.title} onChange={(e) => setLesson({ ...lesson, title: e.target.value })} /></label>
-        {fields.map(([key, label, rows]) => <label key={key}>{label}{key === "vocabulary" && <small className="lesson-field-help">Mỗi dòng: từ | phiên âm | nghĩa | cụm từ | câu ví dụ</small>}<textarea rows={rows} placeholder={key === "vocabulary" ? "weather | /ˈweð.ər/ | thời tiết | weather forecast | The weather is nice." : undefined} value={String(lesson[key] ?? "")} onChange={(e) => setLesson({ ...lesson, [key]: e.target.value })} /></label>)}
+        {fieldGroups.map(([group, groupLabel]) => {
+          const groupFields = fields.filter(([, , , item]) => item === group);
+          const done = groupFields.filter(([key]) => String(lesson[key] ?? "").trim()).length + (group === "overview" && lesson.title.trim() ? 1 : 0);
+          const total = groupFields.length + (group === "overview" ? 1 : 0);
+          return <section className={`lesson-field-group is-${group}`} key={group}>
+            <h3>{groupLabel}<span className={done === total ? "is-complete" : ""}>{done}/{total} mục</span></h3>
+            {group === "overview" && <label className={lesson.title.trim() ? "is-filled" : "is-empty"}>Tiêu đề bài học<input maxLength={200} value={lesson.title} onChange={(e) => setLesson({ ...lesson, title: e.target.value })} /></label>}
+            {groupFields.map(([key, label, rows]) => <label className={String(lesson[key] ?? "").trim() ? "is-filled" : "is-empty"} key={key}>{label}{key === "vocabulary" && <small className="lesson-field-help">Mỗi dòng: từ | phiên âm | nghĩa | cụm từ | câu ví dụ</small>}<textarea rows={rows} placeholder={key === "vocabulary" ? "weather | /ˈweð.ər/ | thời tiết | weather forecast | The weather is nice." : undefined} value={String(lesson[key] ?? "")} onChange={(e) => setLesson({ ...lesson, [key]: e.target.value })} /></label>)}
+          </section>;
+        })}
         <section className="lesson-related-assignments"><div><h3>Bài tập liên quan <span>{relatedAssignments.length}</span></h3>{onCreateAssignment && <button type="button" onClick={() => onCreateAssignment({ classroomId: lesson.session.classroom.id, lessonId: lesson.id, title: lesson.title })}>+ Tạo bài tập từ bài học</button>}</div>{relatedAssignments.map((item) => <article key={item.id}><b>{item.title}</b><span>{labels[item.status] ?? item.status}{item.dueAt ? ` · Hạn ${date(item.dueAt)}` : ""}</span></article>)}{!relatedAssignments.length && <p>Chưa có bài tập liên quan.</p>}</section>
         <section className="lesson-attachments"><div><h3>Tài liệu đính kèm</h3><label className={`upload-button${busy ? " disabled" : ""}`}>{operation === "upload" ? "Đang tải tài liệu..." : "+ Thêm ảnh / tài liệu"}<input disabled={busy} type="file" hidden accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.pptx" onChange={(e) => void upload(e)} /></label></div>{lesson.attachments.map((item) => <article key={item.id}><button disabled={busy} type="button" onClick={() => void download(item)}><b>{item.fileName}</b><small>{item.category} · {(item.fileSize / 1024).toFixed(0)} KB</small></button><button disabled={busy} type="button" onClick={() => void remove(item.id)}>{operation === "delete" ? "Đang xóa..." : "Xóa"}</button></article>)}{!lesson.attachments.length && <p>Chưa có tài liệu đính kèm.</p>}</section>
         <div className="lesson-action-panel" aria-live="polite">
