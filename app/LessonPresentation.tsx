@@ -14,8 +14,8 @@ export type PresentableLesson = {
 };
 
 type TitleSlide = { kind: "title"; title: string };
-type TextSlide = { kind: "text"; section: string; title: string; content: string };
-type VocabularySlide = { kind: "vocabulary"; section: string; title: string; lines: VocabularyLine[] };
+type TextSlide = { kind: "text"; section: string; title: string; page: string | null; content: string };
+type VocabularySlide = { kind: "vocabulary"; section: string; title: string; page: string | null; lines: VocabularyLine[] };
 type LessonSlide = TitleSlide | TextSlide | VocabularySlide;
 const vocabularyRowsPerSlide = 5;
 
@@ -34,7 +34,8 @@ export function buildLessonSlides(lesson: PresentableLesson): LessonSlide[] {
     chunks.forEach((content, index) => slides.push({
       kind: "text",
       section: definition.section,
-      title: chunks.length > 1 ? `${definition.title} · ${index + 1}/${chunks.length}` : definition.title,
+      title: definition.title,
+      page: chunks.length > 1 ? `${index + 1}/${chunks.length}` : null,
       content,
     }));
   }
@@ -42,14 +43,15 @@ export function buildLessonSlides(lesson: PresentableLesson): LessonSlide[] {
   for (let index = 0; index < vocabulary.length; index += vocabularyRowsPerSlide) {
     const number = Math.floor(index / vocabularyRowsPerSlide) + 1;
     const pageCount = Math.ceil(vocabulary.length / vocabularyRowsPerSlide);
-    slides.push({ kind: "vocabulary", section: "Từ vựng", title: pageCount > 1 ? `Từ vựng · ${number}/${pageCount}` : "Từ vựng", lines: vocabulary.slice(index, index + vocabularyRowsPerSlide) });
+    slides.push({ kind: "vocabulary", section: "Từ vựng", title: "Từ vựng", page: pageCount > 1 ? `${number}/${pageCount}` : null, lines: vocabulary.slice(index, index + vocabularyRowsPerSlide) });
   }
   for (const definition of textSections.slice(2)) {
     const chunks = splitPresentationText(lesson[definition.key] ?? "", 680, definition.maxBlocks);
     chunks.forEach((content, index) => slides.push({
       kind: "text",
       section: definition.section,
-      title: chunks.length > 1 ? `${definition.title} · ${index + 1}/${chunks.length}` : definition.title,
+      title: definition.title,
+      page: chunks.length > 1 ? `${index + 1}/${chunks.length}` : null,
       content,
     }));
   }
@@ -121,7 +123,7 @@ export default function LessonPresentation({ lesson, onClose }: { lesson: Presen
     </header>
     <main className="lesson-presentation-deck">
       {slides.map((slide, index) => <article className={`lesson-presentation-slide${index === current ? " is-active" : ""}${slide.kind === "title" ? " is-title" : ""}`} aria-hidden={index !== current} key={`${slide.kind}-${index}`}>
-        {slide.kind === "title" ? <div className="lesson-presentation-title"><span>Bài học</span><h1>{slide.title}</h1><i aria-hidden="true" /></div> : <><header><span>{slide.section}</span><h2>{slide.title}</h2></header>{slide.kind === "vocabulary" ? <VocabularyContent lines={slide.lines} /> : <TextContent value={slide.content} />}</>}
+        {slide.kind === "title" ? <div className="lesson-presentation-title"><span>Bài học</span><h1>{slide.title}</h1><i aria-hidden="true" /></div> : <><header>{slide.page ? <span>Trang {slide.page}</span> : null}<h2>{slide.title}</h2></header>{slide.kind === "vocabulary" ? <VocabularyContent lines={slide.lines} /> : <TextContent value={slide.content} />}</>}
         <footer><span>Ms Ngân English</span><b>{index + 1}</b></footer>
       </article>)}
     </main>
