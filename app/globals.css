@@ -573,8 +573,15 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .lesson-presentation-slide > header { position: relative; z-index: 1; padding-bottom: clamp(13px, 2vh, 24px); border-bottom: 2px solid #e5e1d8; }
 .lesson-presentation-slide > header span, .lesson-presentation-title > span { color: var(--coral); font-size: clamp(12px, 1.15vw, 19px); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .lesson-presentation-slide h2 { margin: 5px 0 0; color: var(--indigo-dark); font-family: var(--font-serif), serif; font-size: clamp(30px, 3.7vw, 58px); font-weight: 600; letter-spacing: -.035em; line-height: 1.08; }
-.lesson-presentation-copy { position: relative; z-index: 1; flex: 1; padding-top: clamp(18px, 3vh, 38px); display: grid; align-content: center; gap: clamp(11px, 1.5vh, 21px); }
+.lesson-presentation-copy { position: relative; z-index: 1; min-height: 0; flex: 1; padding-top: clamp(18px, 3vh, 38px); display: grid; align-content: center; gap: clamp(11px, 1.5vh, 21px); overflow-y: auto; overscroll-behavior: contain; }
 .lesson-presentation-copy p { margin: 0; color: #303a54; font-size: clamp(18px, 2vw, 32px); line-height: 1.48; white-space: pre-wrap; }
+.lesson-presentation-copy.is-dense { gap: clamp(7px, 1vh, 13px); }
+.lesson-presentation-copy.is-dense p { font-size: clamp(14px, 1.55vw, 25px); line-height: 1.4; }
+.lesson-presentation-copy p.is-lead { color: var(--indigo-dark); font-weight: 700; }
+.lesson-presentation-copy p.is-bullet { position: relative; padding-left: 1.25em; }
+.lesson-presentation-copy p.is-bullet::before { position: absolute; left: .15em; color: var(--coral); font-weight: 700; content: "•"; }
+.lesson-presentation-copy p.is-child { margin-left: 1.5em; color: #4b5570; font-size: clamp(15px, 1.68vw, 27px); }
+.lesson-presentation-copy.is-dense p.is-child { font-size: clamp(12px, 1.3vw, 21px); }
 .lesson-presentation-slide > footer { position: absolute; z-index: 2; right: clamp(24px, 4vw, 58px); bottom: clamp(16px, 2.5vw, 34px); left: clamp(24px, 4vw, 58px); display: flex; justify-content: space-between; color: #7a8396; font-size: clamp(9px, .8vw, 13px); letter-spacing: .04em; }
 .lesson-presentation-title { position: relative; z-index: 1; margin: auto 0; max-width: 88%; }
 .lesson-presentation-title h1 { margin: 12px 0 0; color: var(--indigo-dark); font-family: var(--font-serif), serif; font-size: clamp(46px, 7vw, 106px); font-weight: 600; letter-spacing: -.055em; line-height: 1.02; }
@@ -1302,7 +1309,11 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
   .lesson-presentation-slide { width: 297mm; max-width: 297mm; height: 210mm; max-height: 210mm; padding: 13mm 16mm 12mm; display: flex !important; flex-direction: column; overflow: hidden; aspect-ratio: auto; break-after: page; page-break-after: always; border: 0; border-radius: 0; box-shadow: none; }
   .lesson-presentation-slide:last-child { break-after: auto; page-break-after: auto; }
   .lesson-presentation-slide h2 { font-size: 34pt; }
+  .lesson-presentation-copy { overflow: visible !important; }
   .lesson-presentation-copy p { font-size: 19pt; }
+  .lesson-presentation-copy.is-dense p { font-size: 14pt; }
+  .lesson-presentation-copy p.is-child { font-size: 15.5pt; }
+  .lesson-presentation-copy.is-dense p.is-child { font-size: 11.5pt; }
   .lesson-presentation-vocabulary { min-width: 0; width: 100%; max-width: 100%; padding: 4mm 0 10mm; overflow: hidden; }
   .lesson-presentation-vocabulary table { min-width: 0 !important; width: 100% !important; max-width: 100% !important; font-size: 10.5pt; }
   .lesson-presentation-vocabulary th, .lesson-presentation-vocabulary td { padding: 2.2mm 2.4mm; line-height: 1.28; }

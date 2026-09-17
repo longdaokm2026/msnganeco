@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { splitPresentationText } from "../apps/shared/lesson-presentation";
 import { parseVocabularyText, type VocabularyLine } from "../apps/shared/vocabulary-parser";
 
 export type PresentableLesson = {
@@ -18,43 +19,18 @@ type VocabularySlide = { kind: "vocabulary"; section: string; title: string; lin
 type LessonSlide = TitleSlide | TextSlide | VocabularySlide;
 const vocabularyRowsPerSlide = 5;
 
-const textSections: Array<{ key: keyof Pick<PresentableLesson, "summary" | "mainContent" | "grammar" | "examples">; title: string; section: string }> = [
+const textSections: Array<{ key: keyof Pick<PresentableLesson, "summary" | "mainContent" | "grammar" | "examples">; title: string; section: string; maxBlocks?: number }> = [
   { key: "summary", title: "Tóm tắt / Mục tiêu", section: "Tóm tắt" },
   { key: "mainContent", title: "Nội dung chính", section: "Nội dung" },
-  { key: "grammar", title: "Ngữ pháp", section: "Ngữ pháp" },
+  // Mỗi mục ngữ pháp có công thức và ví dụ đi kèm nên chỉ xếp tối đa hai mục một trang.
+  { key: "grammar", title: "Ngữ pháp", section: "Ngữ pháp", maxBlocks: 2 },
   { key: "examples", title: "Ví dụ", section: "Ví dụ" },
 ];
-
-function splitLongBlock(value: string, limit: number) {
-  const words = value.split(/\s+/u);
-  const chunks: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (current && next.length > limit) { chunks.push(current); current = word; }
-    else current = next;
-  }
-  if (current) chunks.push(current);
-  return chunks;
-}
-
-export function splitPresentationText(value: string, limit = 680) {
-  const blocks = value.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean).flatMap((item) => item.length > limit ? splitLongBlock(item, limit) : [item]);
-  const pages: string[] = [];
-  let page: string[] = [];
-  for (const block of blocks) {
-    const next = [...page, block].join("\n\n");
-    if (page.length && (next.length > limit || page.length >= 7)) { pages.push(page.join("\n\n")); page = [block]; }
-    else page.push(block);
-  }
-  if (page.length) pages.push(page.join("\n\n"));
-  return pages;
-}
 
 export function buildLessonSlides(lesson: PresentableLesson): LessonSlide[] {
   const slides: LessonSlide[] = [{ kind: "title", title: lesson.title.trim() || "Bài học" }];
   for (const definition of textSections.slice(0, 2)) {
-    const chunks = splitPresentationText(lesson[definition.key] ?? "");
+    const chunks = splitPresentationText(lesson[definition.key] ?? "", 680, definition.maxBlocks);
     chunks.forEach((content, index) => slides.push({
       kind: "text",
       section: definition.section,
@@ -69,7 +45,7 @@ export function buildLessonSlides(lesson: PresentableLesson): LessonSlide[] {
     slides.push({ kind: "vocabulary", section: "Từ vựng", title: pageCount > 1 ? `Từ vựng · ${number}/${pageCount}` : "Từ vựng", lines: vocabulary.slice(index, index + vocabularyRowsPerSlide) });
   }
   for (const definition of textSections.slice(2)) {
-    const chunks = splitPresentationText(lesson[definition.key] ?? "");
+    const chunks = splitPresentationText(lesson[definition.key] ?? "", 680, definition.maxBlocks);
     chunks.forEach((content, index) => slides.push({
       kind: "text",
       section: definition.section,
@@ -80,8 +56,19 @@ export function buildLessonSlides(lesson: PresentableLesson): LessonSlide[] {
   return slides;
 }
 
+const bulletMarker = /^[-•*]\s+/u;
+
 function TextContent({ value }: { value: string }) {
-  return <div className="lesson-presentation-copy">{value.split(/\n{2,}/u).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>;
+  const lines = value.split(/\r?\n/u).filter((line) => line.trim());
+  return <div className={`lesson-presentation-copy${lines.length > 8 ? " is-dense" : ""}`}>
+    {lines.map((raw, index) => {
+      const line = raw.trim();
+      if (/^\s/u.test(raw)) return <p className="is-child" key={index}>{line}</p>;
+      if (bulletMarker.test(line)) return <p className="is-bullet" key={index}>{line.replace(bulletMarker, "")}</p>;
+      if (/^\d+[.)]\s+/u.test(line)) return <p className="is-lead" key={index}>{line}</p>;
+      return <p key={index}>{line}</p>;
+    })}
+  </div>;
 }
 
 function VocabularyContent({ lines }: { lines: VocabularyLine[] }) {
@@ -94,6 +81,9 @@ export default function LessonPresentation({ lesson, onClose }: { lesson: Presen
   const [active, setActive] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const last = slides.length - 1;
+  // Bài học có thể được cập nhật giữa lúc trình chiếu và làm số slide giảm đi,
+  // nên vị trí hiển thị luôn được kẹp lại thay vì tin vào state cũ.
+  const current = Math.min(active, Math.max(0, last));
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -101,7 +91,7 @@ export default function LessonPresentation({ lesson, onClose }: { lesson: Presen
     const onFullscreenChange = () => setFullscreen(document.fullscreenElement === rootRef.current);
     const onKeyDown = (event: KeyboardEvent) => {
       if (["ArrowRight", "PageDown", " "].includes(event.key)) { event.preventDefault(); setActive((value) => Math.min(last, value + 1)); }
-      else if (["ArrowLeft", "PageUp"].includes(event.key)) { event.preventDefault(); setActive((value) => Math.max(0, value - 1)); }
+      else if (["ArrowLeft", "PageUp"].includes(event.key)) { event.preventDefault(); setActive((value) => Math.max(0, Math.min(value, last) - 1)); }
       else if (event.key === "Home") { event.preventDefault(); setActive(0); }
       else if (event.key === "End") { event.preventDefault(); setActive(last); }
       else if (event.key === "Escape" && !document.fullscreenElement) onClose();
@@ -130,15 +120,15 @@ export default function LessonPresentation({ lesson, onClose }: { lesson: Presen
       </div>
     </header>
     <main className="lesson-presentation-deck">
-      {slides.map((slide, index) => <article className={`lesson-presentation-slide${index === active ? " is-active" : ""}${slide.kind === "title" ? " is-title" : ""}`} aria-hidden={index !== active} key={`${slide.kind}-${index}`}>
+      {slides.map((slide, index) => <article className={`lesson-presentation-slide${index === current ? " is-active" : ""}${slide.kind === "title" ? " is-title" : ""}`} aria-hidden={index !== current} key={`${slide.kind}-${index}`}>
         {slide.kind === "title" ? <div className="lesson-presentation-title"><span>Bài học</span><h1>{slide.title}</h1><i aria-hidden="true" /></div> : <><header><span>{slide.section}</span><h2>{slide.title}</h2></header>{slide.kind === "vocabulary" ? <VocabularyContent lines={slide.lines} /> : <TextContent value={slide.content} />}</>}
         <footer><span>Ms Ngân English</span><b>{index + 1}</b></footer>
       </article>)}
     </main>
     <nav className="lesson-presentation-controls" aria-label="Điều hướng trang trình chiếu">
-      <button type="button" disabled={active === 0} onClick={() => setActive((value) => Math.max(0, value - 1))}>← Trang trước</button>
-      <span aria-live="polite">{active + 1} / {slides.length}</span>
-      <button type="button" disabled={active === last} onClick={() => setActive((value) => Math.min(last, value + 1))}>Trang sau →</button>
+      <button type="button" disabled={current === 0} onClick={() => setActive((value) => Math.max(0, value - 1))}>← Trang trước</button>
+      <span aria-live="polite">{current + 1} / {slides.length}</span>
+      <button type="button" disabled={current === last} onClick={() => setActive((value) => Math.min(last, value + 1))}>Trang sau →</button>
     </nav>
   </div>;
 }
