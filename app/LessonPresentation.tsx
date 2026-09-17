@@ -62,7 +62,7 @@ const bulletMarker = /^[-•*]\s+/u;
 
 function TextContent({ value }: { value: string }) {
   const lines = value.split(/\r?\n/u).filter((line) => line.trim());
-  return <div className={`lesson-presentation-copy${lines.length > 8 ? " is-dense" : ""}`}>
+  return <div className="lesson-presentation-copy">
     {lines.map((raw, index) => {
       const line = raw.trim();
       if (/^\s/u.test(raw)) return <p className="is-child" key={index}>{line}</p>;
