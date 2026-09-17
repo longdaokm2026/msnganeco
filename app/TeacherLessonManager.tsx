@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import WorkspacePageActions from "./WorkspacePageActions";
 import EmptyState from "./EmptyState";
+import LessonPresentation from "./LessonPresentation";
 
 type SessionItem = { id: string; title: string; scheduledStart: string; classroom: { id: string; name: string; code: string }; lesson: { id: string; title: string; status: string; updatedAt: string; publishedAt: string | null } | null };
 type Attachment = { id: string; fileName: string; fileType: string; fileSize: number; category: string; downloadUrl: string };
@@ -39,6 +40,7 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [pageError, setPageError] = useState("");
   const [relatedAssignments, setRelatedAssignments] = useState<RelatedAssignment[]>([]);
+  const [presenting, setPresenting] = useState(false);
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   const api = useCallback(async <T,>(path: string, init?: RequestInit) => {
@@ -172,6 +174,7 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
         <div className="lesson-action-panel" aria-live="polite">
           <div className="lesson-action-state"><span className={isDirty ? "unsaved" : "saved"}>{editState}</span>{lesson.status === "DRAFT" && !canPublish && <small>{publishHelp}</small>}{feedback && <p className={`lesson-feedback ${feedback.kind}`}>{feedback.text}</p>}</div>
           <div className="lesson-actions">
+            <button className="presentation-button" type="button" disabled={busy} onClick={() => setPresenting(true)}>Trình chiếu</button>
             <button disabled={busy || !isDirty}>{operation === "save" ? "Đang lưu..." : lesson.status === "DRAFT" ? "Lưu" : "Lưu cập nhật"}</button>
             {lesson.status === "DRAFT" && <button className="publish-button" type="button" disabled={busy || !canPublish} title={!canPublish ? publishHelp : "Xuất bản bài học"} onClick={() => void publish()}>{operation === "publish" ? "Đang xuất bản..." : "Xuất bản"}</button>}
             {lesson.status === "PUBLISHED" && <button className="archive-button" type="button" disabled={busy} onClick={() => void archive()}>{operation === "archive" ? "Đang lưu trữ..." : "Lưu trữ"}</button>}
@@ -179,5 +182,6 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
         </div>
       </form> : <EmptyState title="Chọn một buổi học" description="Chọn buổi học bên trái để soạn hoặc cập nhật nội dung." />}</section>
     </div>
+    {lesson && presenting && <LessonPresentation lesson={lesson} onClose={() => setPresenting(false)} />}
   </div>;
 }
