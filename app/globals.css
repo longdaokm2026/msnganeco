@@ -575,7 +575,7 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
 .lesson-presentation-slide > header { position: relative; z-index: 1; padding-bottom: clamp(5px, .9vh, 11px); border-bottom: 2px solid #e5e1d8; }
 .lesson-presentation-slide > header span, .lesson-presentation-title > span { color: var(--coral); font-size: clamp(10px, .92vw, 15px); font-weight: 800; letter-spacing: .14em; line-height: 1.15; text-transform: uppercase; }
 .lesson-presentation-slide h2 { margin: 1px 0 0; color: var(--indigo-dark); font-family: var(--font-serif), serif; font-size: clamp(19px, 2.15vw, 32px); font-weight: 600; letter-spacing: -.03em; line-height: 1.08; }
-.lesson-presentation-copy { position: relative; z-index: 1; min-height: 0; flex: 1; padding-top: clamp(9px, 1.6vh, 20px); display: grid; align-content: center; gap: clamp(8px, 1.15vh, 15px); overflow-y: auto; overscroll-behavior: contain; }
+.lesson-presentation-copy { position: relative; z-index: 1; min-height: 0; flex: 1; padding-top: clamp(9px, 1.6vh, 20px); display: grid; align-content: start; gap: clamp(8px, 1.15vh, 15px); overflow-y: auto; overscroll-behavior: contain; }
 .lesson-presentation-copy p { margin: 0; color: #303a54; font-size: clamp(16px, 1.75vw, 28px); line-height: 1.42; white-space: pre-wrap; }
 .lesson-presentation-copy p.is-lead { color: var(--indigo-dark); font-weight: 700; }
 .lesson-presentation-copy p.is-bullet { position: relative; padding-left: 1.25em; }
