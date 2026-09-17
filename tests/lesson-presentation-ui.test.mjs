@@ -40,7 +40,8 @@ test("presentation supports keyboard, fullscreen and browser PDF printing", asyn
 test("presentation paginates long text and vocabulary for readable slides", async () => {
   const presentation = await read("../app/LessonPresentation.tsx");
   assert.match(presentation, /splitPresentationText/);
-  assert.match(presentation, /index \+= 6/);
+  assert.match(presentation, /vocabularyRowsPerSlide = 5/);
+  assert.match(presentation, /index \+= vocabularyRowsPerSlide/);
   assert.match(presentation, /parseVocabularyText/);
   assert.match(presentation, /Phiên âm/);
   assert.match(presentation, /Cụm từ/);

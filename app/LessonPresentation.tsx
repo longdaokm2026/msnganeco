@@ -16,6 +16,7 @@ type TitleSlide = { kind: "title"; title: string };
 type TextSlide = { kind: "text"; section: string; title: string; content: string };
 type VocabularySlide = { kind: "vocabulary"; section: string; title: string; lines: VocabularyLine[] };
 type LessonSlide = TitleSlide | TextSlide | VocabularySlide;
+const vocabularyRowsPerSlide = 5;
 
 const textSections: Array<{ key: keyof Pick<PresentableLesson, "summary" | "mainContent" | "grammar" | "examples">; title: string; section: string }> = [
   { key: "summary", title: "Tóm tắt / Mục tiêu", section: "Tóm tắt" },
@@ -62,10 +63,10 @@ export function buildLessonSlides(lesson: PresentableLesson): LessonSlide[] {
     }));
   }
   const vocabulary = parseVocabularyText(lesson.vocabulary ?? "");
-  for (let index = 0; index < vocabulary.length; index += 6) {
-    const number = Math.floor(index / 6) + 1;
-    const pageCount = Math.ceil(vocabulary.length / 6);
-    slides.push({ kind: "vocabulary", section: "Từ vựng", title: pageCount > 1 ? `Từ vựng · ${number}/${pageCount}` : "Từ vựng", lines: vocabulary.slice(index, index + 6) });
+  for (let index = 0; index < vocabulary.length; index += vocabularyRowsPerSlide) {
+    const number = Math.floor(index / vocabularyRowsPerSlide) + 1;
+    const pageCount = Math.ceil(vocabulary.length / vocabularyRowsPerSlide);
+    slides.push({ kind: "vocabulary", section: "Từ vựng", title: pageCount > 1 ? `Từ vựng · ${number}/${pageCount}` : "Từ vựng", lines: vocabulary.slice(index, index + vocabularyRowsPerSlide) });
   }
   for (const definition of textSections.slice(2)) {
     const chunks = splitPresentationText(lesson[definition.key] ?? "");
@@ -84,7 +85,7 @@ function TextContent({ value }: { value: string }) {
 }
 
 function VocabularyContent({ lines }: { lines: VocabularyLine[] }) {
-  return <div className="lesson-presentation-vocabulary"><table><caption>Từ vựng của bài học</caption><thead><tr><th scope="col">Từ</th><th scope="col">Phiên âm</th><th scope="col">Nghĩa</th><th scope="col">Cụm từ</th><th scope="col">Câu ví dụ</th></tr></thead><tbody>{lines.map((line, index) => line.kind === "entry" ? <tr key={`${line.word}-${index}`}><th scope="row">{line.word}</th><td>{line.pronunciation || "—"}</td><td>{line.meaning}</td><td>{line.phrase || "—"}</td><td><em>{line.example || "—"}</em></td></tr> : <tr key={`fallback-${index}`}><td colSpan={5}>{line.text}</td></tr>)}</tbody></table></div>;
+  return <div className="lesson-presentation-vocabulary"><table><caption>Từ vựng của bài học</caption><colgroup><col className="vocabulary-word-column" /><col className="vocabulary-pronunciation-column" /><col className="vocabulary-meaning-column" /><col className="vocabulary-phrase-column" /><col className="vocabulary-example-column" /></colgroup><thead><tr><th scope="col">Từ</th><th scope="col">Phiên âm</th><th scope="col">Nghĩa</th><th scope="col">Cụm từ</th><th scope="col">Câu ví dụ</th></tr></thead><tbody>{lines.map((line, index) => line.kind === "entry" ? <tr key={`${line.word}-${index}`}><th scope="row">{line.word}</th><td>{line.pronunciation || "—"}</td><td>{line.meaning}</td><td>{line.phrase || "—"}</td><td><em>{line.example || "—"}</em></td></tr> : <tr key={`fallback-${index}`}><td colSpan={5}>{line.text}</td></tr>)}</tbody></table></div>;
 }
 
 export default function LessonPresentation({ lesson, onClose }: { lesson: PresentableLesson; onClose: () => void }) {

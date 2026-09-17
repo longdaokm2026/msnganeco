@@ -563,10 +563,15 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 .lesson-presentation-title { position: relative; z-index: 1; margin: auto 0; max-width: 88%; }
 .lesson-presentation-title h1 { margin: 12px 0 0; color: var(--indigo-dark); font-family: var(--font-serif), serif; font-size: clamp(46px, 7vw, 106px); font-weight: 600; letter-spacing: -.055em; line-height: 1.02; }
 .lesson-presentation-title i { width: min(220px, 28vw); height: 7px; margin-top: clamp(24px, 4vh, 48px); display: block; border-radius: 99px; background: var(--coral); }
-.lesson-presentation-vocabulary { position: relative; z-index: 1; flex: 1; padding: clamp(13px, 2vh, 25px) 0 22px; display: flex; align-items: center; }
-.lesson-presentation-vocabulary table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(10px, 1.25vw, 19px); }
+.lesson-presentation-vocabulary { position: relative; z-index: 1; min-width: 0; width: 100%; flex: 1; padding: clamp(10px, 1.5vh, 18px) 0 28px; display: flex; align-items: center; overflow: hidden; }
+.lesson-presentation-vocabulary table { min-width: 0; width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(10px, .95vw, 16px); }
+.lesson-presentation-vocabulary .vocabulary-word-column { width: 14%; }
+.lesson-presentation-vocabulary .vocabulary-pronunciation-column { width: 14%; }
+.lesson-presentation-vocabulary .vocabulary-meaning-column { width: 18%; }
+.lesson-presentation-vocabulary .vocabulary-phrase-column { width: 20%; }
+.lesson-presentation-vocabulary .vocabulary-example-column { width: 34%; }
 .lesson-presentation-vocabulary caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
-.lesson-presentation-vocabulary th, .lesson-presentation-vocabulary td { padding: clamp(6px, .9vh, 11px) clamp(7px, .8vw, 13px); border: 1px solid #d9dce5; text-align: left; vertical-align: top; line-height: 1.35; overflow-wrap: anywhere; }
+.lesson-presentation-vocabulary th, .lesson-presentation-vocabulary td { padding: clamp(5px, .72vh, 9px) clamp(6px, .7vw, 11px); border: 1px solid #d9dce5; text-align: left; vertical-align: top; line-height: 1.32; overflow-wrap: anywhere; }
 .lesson-presentation-vocabulary thead th { background: #edeff7; color: var(--indigo); font-size: .77em; letter-spacing: .04em; text-transform: uppercase; }
 .lesson-presentation-vocabulary tbody th { color: var(--indigo-dark); font-size: 1.08em; }
 .lesson-presentation-vocabulary tbody td:nth-child(2) { color: var(--indigo); }
@@ -1265,18 +1270,20 @@ input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(48,59,119,
 }
 
 @media print {
-  @page { size: landscape; margin: 0; }
+  @page { size: A4 landscape; margin: 0; }
   html, body { margin: 0 !important; background: #fff !important; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body * { visibility: hidden !important; }
   body *:not(:has(.lesson-presentation)):not(.lesson-presentation):not(.lesson-presentation *) { display: none !important; }
   .lesson-presentation, .lesson-presentation * { visibility: visible !important; }
-  .lesson-presentation { position: absolute; inset: 0; display: block; background: #fff; }
+  .lesson-presentation { position: absolute; inset: 0; width: 297mm; display: block; background: #fff; }
   .lesson-presentation-toolbar, .lesson-presentation-controls { display: none !important; }
-  .lesson-presentation-deck { display: block; padding: 0; overflow: visible; }
-  .lesson-presentation-slide { width: 100vw; height: 100vh; max-height: none; padding: 6.5vh 7vw; display: flex !important; flex-direction: column; aspect-ratio: auto; break-after: page; page-break-after: always; border: 0; border-radius: 0; box-shadow: none; }
+  .lesson-presentation-deck { width: 297mm; display: block; padding: 0; overflow: visible; }
+  .lesson-presentation-slide { width: 297mm; max-width: 297mm; height: 210mm; max-height: 210mm; padding: 13mm 16mm 12mm; display: flex !important; flex-direction: column; overflow: hidden; aspect-ratio: auto; break-after: page; page-break-after: always; border: 0; border-radius: 0; box-shadow: none; }
   .lesson-presentation-slide:last-child { break-after: auto; page-break-after: auto; }
-  .lesson-presentation-slide h2 { font-size: 5.2vw; }
-  .lesson-presentation-copy p { font-size: 2.45vw; }
-  .lesson-presentation-vocabulary table { min-width: 0; font-size: 1.45vw; }
+  .lesson-presentation-slide h2 { font-size: 34pt; }
+  .lesson-presentation-copy p { font-size: 19pt; }
+  .lesson-presentation-vocabulary { min-width: 0; width: 100%; max-width: 100%; padding: 4mm 0 10mm; overflow: hidden; }
+  .lesson-presentation-vocabulary table { min-width: 0 !important; width: 100% !important; max-width: 100% !important; font-size: 10.5pt; }
+  .lesson-presentation-vocabulary th, .lesson-presentation-vocabulary td { padding: 2.2mm 2.4mm; line-height: 1.28; }
 }
