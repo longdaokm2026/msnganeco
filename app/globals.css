@@ -1300,9 +1300,9 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
   @page { size: A4 landscape; margin: 0; }
   html, body { margin: 0 !important; background: #fff !important; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body * { visibility: hidden !important; }
-  body *:not(:has(.lesson-presentation)):not(.lesson-presentation):not(.lesson-presentation *) { display: none !important; }
-  .lesson-presentation, .lesson-presentation * { visibility: visible !important; }
+  body:has(.lesson-presentation) * { visibility: hidden !important; }
+  body:has(.lesson-presentation) *:not(:has(.lesson-presentation)):not(.lesson-presentation):not(.lesson-presentation *) { display: none !important; }
+  body:has(.lesson-presentation) .lesson-presentation, body:has(.lesson-presentation) .lesson-presentation * { visibility: visible !important; }
   .lesson-presentation { position: absolute; inset: 0; width: 297mm; display: block; background: #fff; }
   .lesson-presentation-toolbar, .lesson-presentation-controls { display: none !important; }
   .lesson-presentation-deck { width: 297mm; display: block; padding: 0; overflow: visible; }
@@ -1345,3 +1345,48 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
 .student-lesson-detail .lesson-rich-text p.is-child { margin-left: 1.4em; color: #4b5570; font-size: 16px; }
 .student-lesson-detail .lesson-rich-text p.is-bullet { position: relative; padding-left: 1.2em; }
 .student-lesson-detail .lesson-rich-text p.is-bullet::before { position: absolute; left: .1em; color: var(--coral); font-weight: 700; content: "•"; }
+
+/* Bản in đề bài khổ A4: chỉ hiện khi in, không kèm đáp án. */
+@page assignment-sheet { size: A4 portrait; margin: 13mm 14mm; }
+.assignment-print { display: none; }
+.assignment-print-button { min-height: 34px; padding: 6px 12px; border: 1px solid var(--indigo); border-radius: 8px; background: #fff; color: var(--indigo); cursor: pointer; font-size: var(--font-small); font-weight: 700; }
+
+@media print {
+  body:has(.assignment-print) * { visibility: hidden !important; }
+  body:has(.assignment-print) .assignment-print, body:has(.assignment-print) .assignment-print * { visibility: visible !important; }
+  body:has(.assignment-print) .assignment-print {
+    page: assignment-sheet;
+    position: absolute; top: 0; left: 0;
+    width: 100%;
+    display: block !important;
+    color: #000; background: #fff;
+    font-size: 11.5pt; line-height: 1.5;
+  }
+  .assignment-print-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10mm; padding-bottom: 4mm; border-bottom: 1.5pt solid #000; }
+  .assignment-print-heading strong { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; }
+  .assignment-print-heading h1 { margin: 2mm 0 1mm; font-size: 16pt; }
+  .assignment-print-heading p { margin: 0; font-size: 9.5pt; }
+  .assignment-print-heading dl { margin: 0; display: grid; gap: 2.5mm; min-width: 58mm; }
+  .assignment-print-heading dl > div { display: flex; align-items: baseline; gap: 2mm; }
+  .assignment-print-heading dt { font-size: 9.5pt; white-space: nowrap; }
+  .assignment-print-heading dd { flex: 1; margin: 0; border-bottom: .7pt dotted #000; }
+  .assignment-print .assignment-part-heading { margin: 5mm 0 3mm; break-after: avoid; page-break-after: avoid; }
+  .assignment-print .assignment-part-heading span { font-size: 8.5pt; letter-spacing: .08em; }
+  .assignment-print .assignment-part-heading h2 { margin: 0; font-size: 13pt; }
+  .assignment-print .student-passage { padding: 3mm 4mm; margin-bottom: 3mm; border: .7pt solid #000; break-inside: avoid; page-break-inside: avoid; }
+  .assignment-print .student-passage span { font-size: 8.5pt; letter-spacing: .06em; }
+  .assignment-print .student-passage h2 { margin: 1mm 0 2mm; font-size: 11.5pt; }
+  .assignment-print .student-passage p { margin: 0; text-align: justify; }
+  .print-question { margin-bottom: 4mm; break-inside: avoid; page-break-inside: avoid; }
+  .print-question-prompt { margin: 0 0 1.5mm; }
+  .print-question-prompt em { font-size: 9pt; font-style: italic; }
+  .print-options { margin: 0; padding-left: 7mm; list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1mm 5mm; }
+  .print-options li span { font-weight: 700; }
+  .print-options-inline { margin: 0 0 0 7mm; display: flex; gap: 7mm; }
+  .print-matching { margin-left: 7mm; border-collapse: collapse; }
+  .print-matching td { padding: 1mm 3mm 1mm 0; vertical-align: top; }
+  .print-matching-gap { letter-spacing: .25em; }
+  .print-tokens { margin: 0 0 0 7mm; font-style: italic; }
+  .print-answer { margin: 1.5mm 0 0 7mm; display: grid; gap: 4.5mm; }
+  .print-answer-line { display: block; border-bottom: .7pt solid #000; }
+}

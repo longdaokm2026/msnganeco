@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
+import AssignmentPrintView from "./AssignmentPrintView";
 import { groupAssignmentQuestions } from "./assignment-question-groups";
 import StudentListeningSection from "./StudentListeningSection";
 import type { ListeningTrack } from "./listening-types";
@@ -986,11 +987,25 @@ export default function StudentAssignmentManager({
                     : "Đã nộp"}
               </b>
             )}
+            <button
+              type="button"
+              className="assignment-print-button"
+              onClick={() => window.print()}
+            >
+              In đề / Lưu PDF
+            </button>
           </header>
           <AssignmentQuestionSections
             questions={regularQuestions}
             passages={attempt.assignment.passages}
             renderQuestion={renderQuestionArticle}
+          />
+          <AssignmentPrintView
+            title={attempt.assignment.title}
+            meta={`Hạn nộp: ${date(attempt.assignment.dueAt)}`}
+            questions={regularQuestions}
+            passages={attempt.assignment.passages}
+            writingPrompt={attempt.assignment.writingTask?.prompt ?? null}
           />
           {hasListening && (
             <StudentListeningSection

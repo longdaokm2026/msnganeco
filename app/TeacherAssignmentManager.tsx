@@ -3,6 +3,7 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
+import AssignmentPrintView from "./AssignmentPrintView";
 import TeacherWritingEditor from "./TeacherWritingEditor";
 import TeacherWritingGrading from "./TeacherWritingGrading";
 import TeacherListeningEditor from "./TeacherListeningEditor";
@@ -1573,6 +1574,13 @@ export default function TeacherAssignmentManager({
               >
                 Export Word
               </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                title="In đề bài khổ A4, không kèm đáp án"
+              >
+                In đề / Lưu PDF
+              </button>
               {current.status === "DRAFT" && (
                 <label
                   className={`lesson-word-import${busy ? " disabled" : ""}`}
@@ -1635,6 +1643,13 @@ export default function TeacherAssignmentManager({
               </div>
             </section>
           )}
+          <AssignmentPrintView
+            title={current.title}
+            meta={`${current.classroom.name} · Hạn nộp: ${vietnamDate(current.dueAt)}`}
+            questions={current.questions}
+            passages={current.passages}
+            writingPrompt={current.writingTask?.prompt ?? null}
+          />
           {current.generationMode !== "MANUAL" && (
             <div className="quick-quiz-notice">
               <div>
