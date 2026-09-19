@@ -4,6 +4,8 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } fro
 import WorkspacePageActions from "./WorkspacePageActions";
 import EmptyState from "./EmptyState";
 import LessonPresentation from "./LessonPresentation";
+import VocabularyFlashcards from "./VocabularyFlashcards";
+import { countFlashcardWords } from "../apps/shared/vocabulary-flashcards";
 
 type SessionItem = { id: string; title: string; scheduledStart: string; classroom: { id: string; name: string; code: string }; lesson: { id: string; title: string; status: string; updatedAt: string; publishedAt: string | null } | null };
 type Attachment = { id: string; fileName: string; fileType: string; fileSize: number; category: string; downloadUrl: string };
@@ -45,6 +47,7 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
   const [pageError, setPageError] = useState("");
   const [relatedAssignments, setRelatedAssignments] = useState<RelatedAssignment[]>([]);
   const [presenting, setPresenting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const headers = { Authorization: `Bearer ${accessToken}` };
 
@@ -80,6 +83,7 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
   }, [api, lesson?.id]);
 
   const currentSnapshot = useMemo(() => formSnapshot(lesson), [lesson]);
+  const vocabularyCount = useMemo(() => countFlashcardWords(String(lesson?.vocabulary ?? "")), [lesson]);
   const isDirty = Boolean(lesson) && currentSnapshot !== savedSnapshot;
   const canPublish = Boolean(lesson?.title.trim()) && (contentKeys.some((key) => String(lesson?.[key] ?? "").trim()) || Boolean(lesson?.attachments.length));
   const busy = operation !== null;
@@ -238,7 +242,7 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
         <div className="lesson-action-panel" aria-live="polite">
           <div className="lesson-action-state"><span className={isDirty ? "unsaved" : "saved"}>{editState}</span>{lesson.status === "DRAFT" && !canPublish && <small>{publishHelp}</small>}{feedback && <p className={`lesson-feedback ${feedback.kind}`}>{feedback.text}</p>}</div>
           <div className="lesson-actions">
-            <button className="presentation-button" type="button" disabled={busy} onClick={() => setPresenting(true)}>Trình chiếu</button>
+            <button className="presentation-button" type="button" disabled={busy} onClick={() => setPresenting(true)}>Trình chiếu</button><button className="flashcard-open-button" type="button" disabled={busy || !vocabularyCount} onClick={() => setChecking(true)} title={vocabularyCount ? `Kiểm tra ${vocabularyCount} từ của buổi học` : "Bài học chưa có từ vựng"}>Kiểm tra từ vựng</button>
             <button disabled={busy || !isDirty}>{operation === "save" ? "Đang lưu..." : lesson.status === "DRAFT" ? "Lưu" : "Lưu cập nhật"}</button>
             {lesson.status === "DRAFT" && <button className="publish-button" type="button" disabled={busy || !canPublish} title={!canPublish ? publishHelp : "Xuất bản bài học"} onClick={() => void publish()}>{operation === "publish" ? "Đang xuất bản..." : "Xuất bản"}</button>}
             {lesson.status === "PUBLISHED" && <button className="archive-button" type="button" disabled={busy} onClick={() => void archive()}>{operation === "archive" ? "Đang lưu trữ..." : "Lưu trữ"}</button>}
@@ -247,5 +251,6 @@ export default function TeacherLessonManager({ apiUrl, accessToken, onBack, onCr
       </form> : <EmptyState title="Chọn một buổi học" description="Chọn buổi học bên trái để soạn hoặc cập nhật nội dung." />}</section>
     </div>
     {lesson && presenting && <LessonPresentation lesson={lesson} onClose={() => setPresenting(false)} />}
+    {lesson && checking && <VocabularyFlashcards title={lesson.title || "Bài học"} vocabulary={String(lesson.vocabulary ?? "")} onClose={() => setChecking(false)} />}
   </div>;
 }

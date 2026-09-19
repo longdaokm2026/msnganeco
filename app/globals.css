@@ -1398,3 +1398,43 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
   .print-answer { margin: 1.5mm 0 0 7mm; display: grid; gap: 4.5mm; }
   .print-answer-line { display: block; border-bottom: .7pt solid #000; }
 }
+
+/* Kiểm tra từ vựng bằng thẻ: mỗi thẻ một từ, bấm để lật đáp án. */
+.flashcard-open-button { min-height: 42px; padding: 0 15px; border: 1px solid var(--indigo); border-radius: 10px; background: #fff; color: var(--indigo); cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.flashcard-open-button:disabled { cursor: not-allowed; opacity: .5; }
+.vocabulary-flashcards { position: fixed; z-index: 1000; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: #e6e8ef; color: var(--ink); }
+.flashcard-toolbar { min-height: 64px; padding: 10px 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #cdd1dc; background: rgba(255,253,248,.98); }
+.flashcard-toolbar > div:first-child { display: grid; }
+.flashcard-toolbar strong { color: var(--indigo); font-size: 16px; }
+.flashcard-toolbar small { color: var(--muted); font-size: var(--font-small); }
+.flashcard-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.flashcard-tools button { min-height: 40px; padding: 8px 14px; border: 1px solid var(--indigo); border-radius: 9px; background: #fff; color: var(--indigo); cursor: pointer; font-size: 13px; font-weight: 750; }
+.flashcard-tools .flashcard-close { border-color: #cbd0dc; color: var(--muted); }
+.flashcard-limits { display: flex; border: 1px solid var(--indigo); border-radius: 9px; overflow: hidden; }
+.flashcard-limits button { min-height: 38px; border: 0; border-radius: 0; font-size: 12px; }
+.flashcard-limits button + button { border-left: 1px solid var(--indigo); }
+.flashcard-limits button.is-active { background: var(--indigo); color: #fff; }
+.flashcard-stage { min-height: 0; padding: clamp(12px, 2vw, 28px); display: grid; place-items: center; overflow: hidden; }
+.flashcard { width: min(100%, calc((100vh - 164px) * 16 / 9)); aspect-ratio: 16 / 9; max-height: 100%; padding: clamp(28px, 4vw, 64px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(8px, 1.4vh, 18px); border: 1px solid #d8d5cd; border-radius: 14px; background: var(--paper); box-shadow: 0 18px 55px rgba(25,34,65,.16); cursor: pointer; text-align: center; overflow: auto; }
+.flashcard-meta { position: absolute; top: clamp(16px, 2.4vw, 30px); right: clamp(20px, 3vw, 40px); left: clamp(20px, 3vw, 40px); display: flex; justify-content: space-between; color: var(--muted); font-size: clamp(10px, .95vw, 15px); }
+.flashcard-meta em { color: var(--coral); font-style: normal; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.flashcard-stage { position: relative; }
+.flashcard { position: relative; }
+.flashcard-front { color: var(--indigo-dark); font-family: var(--font-serif), serif; font-size: clamp(34px, 5.4vw, 86px); font-weight: 600; letter-spacing: -.03em; line-height: 1.1; }
+.flashcard-hint { color: var(--muted); font-size: clamp(16px, 1.9vw, 30px); }
+.flashcard-divider { width: min(190px, 26%); height: 4px; margin: clamp(6px, 1.2vh, 14px) 0; border-radius: 99px; background: var(--coral); }
+.flashcard-back { color: var(--coral); font-family: var(--font-serif), serif; font-size: clamp(28px, 4.4vw, 68px); font-weight: 600; line-height: 1.12; }
+.flashcard-example { max-width: 42ch; color: #4b5570; font-size: clamp(14px, 1.5vw, 24px); line-height: 1.45; }
+.flashcard-prompt { margin-top: clamp(10px, 2vh, 24px); padding: 7px 16px; border: 1px dashed #aeb4c6; border-radius: 99px; color: var(--muted); font-size: clamp(12px, 1.2vw, 18px); }
+.flashcard-empty { max-width: 44ch; color: var(--muted); text-align: center; }
+.flashcard-controls { min-height: 64px; padding: 10px 22px; display: flex; align-items: center; justify-content: center; gap: 18px; border-top: 1px solid #cdd1dc; background: rgba(255,253,248,.98); }
+.flashcard-controls button { min-height: 40px; padding: 8px 14px; border: 1px solid var(--indigo); border-radius: 9px; background: #fff; color: var(--indigo); cursor: pointer; font-size: 13px; font-weight: 750; }
+.flashcard-controls button:disabled { cursor: not-allowed; opacity: .45; }
+.flashcard-controls span { min-width: 84px; color: var(--muted); font-size: var(--font-small); text-align: center; }
+
+@media (max-width: 720px) {
+  .flashcard-stage { padding: 8px; }
+  .flashcard { width: 100%; height: 100%; aspect-ratio: auto; padding: 24px 18px; }
+  .flashcard-front { font-size: clamp(30px, 9vw, 52px); }
+  .flashcard-back { font-size: clamp(24px, 7vw, 42px); }
+}
