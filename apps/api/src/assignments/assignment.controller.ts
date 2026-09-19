@@ -1,4 +1,8 @@
-import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UseGuards, ValidationPipe } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, StreamableFile, UploadedFile, UseGuards, UseInterceptors, ValidationPipe } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
+import type { AudioUploadFile } from "./assignment-audio-storage.service";
+import { docxMime } from "./assignment-document.service";
 import { ApprovedTeacherGuard } from "../access/teacher-approval-access";
 import { StrictRoles } from "../access/roles.decorator";
 import { RolesGuard } from "../access/roles.guard";
@@ -12,6 +16,23 @@ const validate = <T>(expectedType: new () => T) => new ValidationPipe({ expected
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AssignmentController {
   constructor(@Inject(AssignmentService) private readonly assignments: AssignmentService) {}
+
+  @Get("teacher/assignments/docx-template") @StrictRoles("TEACHER") @UseGuards(ApprovedTeacherGuard)
+  async docxTemplate(@Res({ passthrough: true }) response: Response) {
+    const contents = await this.assignments.docxTemplate();
+    response.setHeader("Content-Type", docxMime); response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''Mau-bai-tap-Ms-Ngan-English.docx"); response.setHeader("Content-Length", String(contents.length));
+    return new StreamableFile(contents);
+  }
+  @Get("assignments/:assignmentId/export-docx") @StrictRoles("TEACHER") @UseGuards(ApprovedTeacherGuard)
+  async exportDocx(@Req() request: AuthenticatedRequest, @Param("assignmentId", ParseUUIDPipe) id: string, @Res({ passthrough: true }) response: Response) {
+    const contents = await this.assignments.exportDocx(request.user.sub, id);
+    response.setHeader("Content-Type", docxMime); response.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent("Bai-tap.docx")}`); response.setHeader("Content-Length", String(contents.length));
+    return new StreamableFile(contents);
+  }
+  @Post("assignments/:assignmentId/import-docx/preview") @StrictRoles("TEACHER") @UseGuards(ApprovedTeacherGuard) @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  importDocxPreview(@UploadedFile() file: AudioUploadFile | undefined) { return this.assignments.importPreview(file); }
+  @Post("assignments/:assignmentId/import-docx") @StrictRoles("TEACHER") @UseGuards(ApprovedTeacherGuard) @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  importDocx(@Req() request: AuthenticatedRequest, @Param("assignmentId", ParseUUIDPipe) id: string, @UploadedFile() file: AudioUploadFile | undefined) { return this.assignments.importDocx(request.user.sub, id, file); }
 
   @Get("assignments") @StrictRoles("TEACHER") @UseGuards(ApprovedTeacherGuard)
   list(@Req() request: AuthenticatedRequest, @Query(validate(AssignmentListQueryDto)) query: AssignmentListQueryDto) { return this.assignments.listTeacher(request.user.sub, query); }

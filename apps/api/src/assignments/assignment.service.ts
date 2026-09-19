@@ -1,11 +1,14 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { AssignmentDocumentService } from "./assignment-document.service";
+import type { DocumentAssignment, DocumentQuestion } from "./assignment-document.types";
+import type { AudioUploadFile } from "./assignment-audio-storage.service";
 import { validateQuestion } from "./grading";
 import { AssignmentRepository } from "./assignment.repository";
 import type { AssignmentInput, AssignmentListQuery, AssignmentPatch, AnswerInput, PassageInput, QuestionInput, ReorderInput, RepositoryResult } from "./assignment.types";
 
 @Injectable()
 export class AssignmentService {
-  constructor(@Inject(AssignmentRepository) private readonly repository: AssignmentRepository) {}
+  constructor(@Inject(AssignmentRepository) private readonly repository: AssignmentRepository, @Inject(AssignmentDocumentService) private readonly documents: AssignmentDocumentService) {}
   private value(result: RepositoryResult) {
     if (result.status === "OK") return result.value;
     if (result.status === "NOT_FOUND") throw new NotFoundException(result.message ?? "Không tìm thấy bài tập hoặc bạn không có quyền truy cập.");
@@ -36,5 +39,36 @@ export class AssignmentService {
   async studentAttempt(studentId: string, id: string, resultOnly = false) { return this.value(await this.repository.studentAttempt(studentId, id, resultOnly)); }
   async saveAnswer(studentId: string, id: string, questionId: string, input: AnswerInput) { return this.value(await this.repository.saveAnswer(studentId, id, questionId, input)); }
   async submit(studentId: string, id: string) { return this.value(await this.repository.submit(studentId, id)); }
+
+  docxTemplate() { return this.documents.createTemplate(); }
+
+  async exportDocx(teacherId: string, id: string) {
+    const detail = await this.value(await this.repository.teacherDetail(teacherId, id)) as {
+      title: string; description: string | null; type: DocumentAssignment["type"]; maxAttempts: number; timeLimitMinutes: number | null;
+      passages: Array<{ id: string; title: string | null; content: string }>;
+      questions: Array<{ type: DocumentQuestion["type"]; section: DocumentQuestion["section"]; prompt: string; explanation: string | null; points: number; config: Record<string, unknown>; passageId: string | null }>;
+      writingTask: { type: DocumentAssignment["writing"] extends null ? never : NonNullable<DocumentAssignment["writing"]>["type"]; prompt: string | null; minWords: number | null; translationItems?: Array<{ sourceText: string }> } | null;
+    };
+    const numberByPassageId = new Map(detail.passages.map((passage, index) => [passage.id, index + 1]));
+    return this.documents.exportAssignment({
+      title: detail.title, description: detail.description, type: detail.type,
+      maxAttempts: detail.maxAttempts, timeLimitMinutes: detail.timeLimitMinutes,
+      passages: detail.passages.map((passage, index) => ({ number: index + 1, title: passage.title, content: passage.content })),
+      questions: detail.questions.map((question) => ({ type: question.type, section: question.section, prompt: question.prompt, explanation: question.explanation, points: Number(question.points), config: question.config, passageNumber: question.passageId ? numberByPassageId.get(question.passageId) ?? null : null })),
+      writing: detail.writingTask ? { type: detail.writingTask.type, prompt: detail.writingTask.prompt, minWords: detail.writingTask.minWords, translationItems: (detail.writingTask.translationItems ?? []).map((item) => item.sourceText) } : null,
+    });
+  }
+
+  async importPreview(file: AudioUploadFile | undefined) { return this.documents.parseImport(file); }
+
+  async importDocx(teacherId: string, id: string, file: AudioUploadFile | undefined) {
+    const preview = await this.documents.parseImport(file);
+    for (const question of preview.questions) {
+      const error = validateQuestion({ type: question.type, section: question.section, prompt: question.prompt, explanation: question.explanation, points: question.points, required: true, config: question.config, passageId: null, listeningTrackId: null });
+      if (error) throw new BadRequestException(`Câu “${question.prompt.slice(0, 40)}”: ${error}`);
+    }
+    const saved = await this.value(await this.repository.importDocument(teacherId, id, preview));
+    return { assignment: saved, warnings: preview.warnings, questionCount: preview.questions.length, passageCount: preview.passages.length, totalPoints: preview.totalPoints };
+  }
 }
 

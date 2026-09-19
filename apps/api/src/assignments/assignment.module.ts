@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { RolesGuard } from "../access/roles.guard";
 import { AuthModule } from "../auth/auth.module";
+import { AssignmentDocumentService } from "./assignment-document.service";
 import { AssignmentController } from "./assignment.controller";
 import { AssignmentRepository } from "./assignment.repository";
 import { AssignmentService } from "./assignment.service";
@@ -20,5 +21,5 @@ import { WritingController } from "./writing.controller";
 import { WritingRepository } from "./writing.repository";
 import { WritingService } from "./writing.service";
 
-@Module({ imports: [AuthModule], controllers: [AssignmentController, ReadAloudController, WritingController, ListeningController], providers: [AssignmentService, ReadAloudService, WritingService, ListeningService, ReadAloudStorageService, { provide: AssignmentAudioStorageService, useExisting: ReadAloudStorageService }, RolesGuard, { provide: AssignmentRepository, useClass: PrismaAssignmentRepository }, { provide: ReadAloudRepository, useClass: PrismaReadAloudRepository }, { provide: WritingRepository, useClass: PrismaWritingRepository }, { provide: ListeningRepository, useClass: PrismaListeningRepository }] })
+@Module({ imports: [AuthModule], controllers: [AssignmentController, ReadAloudController, WritingController, ListeningController], providers: [AssignmentService, AssignmentDocumentService, ReadAloudService, WritingService, ListeningService, ReadAloudStorageService, { provide: AssignmentAudioStorageService, useExisting: ReadAloudStorageService }, RolesGuard, { provide: AssignmentRepository, useClass: PrismaAssignmentRepository }, { provide: ReadAloudRepository, useClass: PrismaReadAloudRepository }, { provide: WritingRepository, useClass: PrismaWritingRepository }, { provide: ListeningRepository, useClass: PrismaListeningRepository }] })
 export class AssignmentModule {}

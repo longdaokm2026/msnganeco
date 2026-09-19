@@ -1,3 +1,4 @@
+import type { DocumentAssignment } from "./assignment-document.types";
 import type { AssignmentInput, AssignmentListQuery, AssignmentPatch, AnswerInput, PassageInput, QuestionInput, ReorderInput, RepositoryResult } from "./assignment.types";
 
 export abstract class AssignmentRepository {
@@ -15,6 +16,7 @@ export abstract class AssignmentRepository {
   abstract updatePassage(teacherId: string, assignmentId: string, passageId: string, input: PassageInput): Promise<RepositoryResult>;
   abstract deletePassage(teacherId: string, assignmentId: string, passageId: string): Promise<RepositoryResult>;
   abstract reorderPassages(teacherId: string, assignmentId: string, input: ReorderInput): Promise<RepositoryResult>;
+  abstract importDocument(teacherId: string, assignmentId: string, data: DocumentAssignment): Promise<RepositoryResult>;
   abstract results(teacherId: string, assignmentId: string): Promise<RepositoryResult>;
   abstract studentResults(teacherId: string, assignmentId: string, studentId: string): Promise<RepositoryResult>;
   abstract teacherAttempt(teacherId: string, assignmentId: string, attemptId: string): Promise<RepositoryResult>;

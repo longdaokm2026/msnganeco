@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable jsx-a11y/label-has-associated-control -- Theme A uses label styling for the fixed, non-editable audio score. */
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
 import TeacherWritingEditor from "./TeacherWritingEditor";
 import TeacherWritingGrading from "./TeacherWritingGrading";
@@ -395,6 +395,15 @@ function correctAnswerText(question: Question) {
     : "—";
 }
 
+type WordPreview = {
+  title: string;
+  totalPoints: number;
+  questions: { type: string; section: string; prompt: string; points: number }[];
+  passages: { number: number }[];
+  writing: { type: string } | null;
+  warnings: string[];
+};
+
 export default function TeacherAssignmentManager({
   apiUrl,
   accessToken,
@@ -465,6 +474,8 @@ export default function TeacherAssignmentManager({
   });
   const [gradeDraft, setGradeDraft] = useState({ score: "", feedback: "" });
   const [gradeStatus, setGradeStatus] = useState<GradeStatus>(null);
+  const [wordPreview, setWordPreview] = useState<WordPreview | null>(null);
+  const wordFileRef = useRef<HTMLInputElement>(null);
   const api = useCallback(
     async <T,>(path: string, init?: RequestInit) => {
       const response = await fetch(`${apiUrl}${path}`, {
@@ -486,6 +497,96 @@ export default function TeacherAssignmentManager({
     },
     [apiUrl, accessToken],
   );
+
+  const downloadWord = useCallback(
+    async (path: string, fileName: string) => {
+      setBusy("word");
+      setError("");
+      setFeedback("");
+      try {
+        const response = await fetch(`${apiUrl}${path}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.message ?? "Không thể tải file Word.");
+        }
+        const url = URL.createObjectURL(await response.blob());
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        setFeedback("✓ Đã tải file Word.");
+      } catch (reason) {
+        setError(
+          reason instanceof Error ? reason.message : "Không thể tải file Word.",
+        );
+      } finally {
+        setBusy("");
+      }
+    },
+    [apiUrl, accessToken],
+  );
+
+  async function previewWord(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!current || !file || busy) return;
+    if (!/\.docx$/i.test(file.name)) {
+      setError("Chỉ hỗ trợ file Word định dạng .docx.");
+      input.value = "";
+      return;
+    }
+    const form = new FormData();
+    form.append("file", file);
+    setBusy("word");
+    setError("");
+    setFeedback("");
+    setWordPreview(null);
+    try {
+      const response = await fetch(
+        `${apiUrl}/assignments/${current.id}/import-docx/preview`,
+        { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: form },
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.message ?? "Không thể đọc file Word.");
+      setWordPreview(body as WordPreview);
+      setFeedback("✓ Đã đọc file Word. Kiểm tra bản xem trước rồi bấm Áp dụng.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể đọc file Word.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function applyWordImport() {
+    const file = wordFileRef.current?.files?.[0];
+    if (!current || !file) return;
+    const form = new FormData();
+    form.append("file", file);
+    setBusy("word");
+    setError("");
+    try {
+      const response = await fetch(
+        `${apiUrl}/assignments/${current.id}/import-docx`,
+        { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: form },
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.message ?? "Không thể áp dụng file Word.");
+      acceptCurrent(body.assignment as Assignment);
+      setWordPreview(null);
+      if (wordFileRef.current) wordFileRef.current.value = "";
+      setFeedback(`✓ Đã nhập ${body.questionCount} câu hỏi từ file Word.`);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể áp dụng file Word.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+
   const fetchAssignments = useCallback(async () => {
     const collected: Assignment[] = [];
     let page = 1;
@@ -1439,6 +1540,101 @@ export default function TeacherAssignmentManager({
       )}
       {mode === "editor" && current && (
         <div className="assignment-editor">
+          <section className="lesson-word-tools">
+            <div>
+              <h3>Tài liệu Word</h3>
+              <p>
+                Soạn bài tập theo mẫu cố định rồi import. Phần nghe và đọc thành
+                tiếng cần file âm thanh nên vẫn soạn tại đây.
+              </p>
+            </div>
+            <div className="lesson-word-actions">
+              <button
+                type="button"
+                disabled={Boolean(busy)}
+                onClick={() =>
+                  void downloadWord(
+                    "/teacher/assignments/docx-template",
+                    "Mau-bai-tap-Ms-Ngan-English.docx",
+                  )
+                }
+              >
+                Tải mẫu Word
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(busy)}
+                onClick={() =>
+                  void downloadWord(
+                    `/assignments/${current.id}/export-docx`,
+                    `${current.title || "Bai-tap"}.docx`,
+                  )
+                }
+              >
+                Export Word
+              </button>
+              {current.status === "DRAFT" && (
+                <label
+                  className={`lesson-word-import${busy ? " disabled" : ""}`}
+                >
+                  {busy === "word" ? "Đang đọc..." : "Import Word"}
+                  <input
+                    ref={wordFileRef}
+                    type="file"
+                    hidden
+                    disabled={Boolean(busy)}
+                    accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={(event) => void previewWord(event)}
+                  />
+                </label>
+              )}
+            </div>
+          </section>
+          {wordPreview && (
+            <section className="lesson-import-preview" aria-live="polite">
+              <div className="lesson-import-preview-heading">
+                <div>
+                  <h3>Xem trước nội dung Word</h3>
+                  <p>
+                    {wordPreview.questions.length} câu hỏi ·{" "}
+                    {wordPreview.totalPoints} điểm
+                    {wordPreview.passages.length
+                      ? ` · ${wordPreview.passages.length} đoạn đọc`
+                      : ""}
+                    {wordPreview.writing ? " · có phần Viết" : ""}
+                  </p>
+                </div>
+                <span>Chưa lưu</span>
+              </div>
+              {wordPreview.warnings.map((warning) => (
+                <p className="lesson-import-warning" key={warning}>
+                  ⚠ {warning}
+                </p>
+              ))}
+              <dl>
+                {wordPreview.questions.slice(0, 8).map((question, index) => (
+                  <div key={`${question.prompt}-${index}`}>
+                    <dt>
+                      {index + 1}. {question.section}
+                    </dt>
+                    <dd>{question.prompt.slice(0, 120)}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="lesson-import-preview-actions">
+                <button
+                  type="button"
+                  disabled={Boolean(busy)}
+                  onClick={() => void applyWordImport()}
+                >
+                  Áp dụng vào bài tập
+                </button>
+                <button type="button" onClick={() => setWordPreview(null)}>
+                  Hủy
+                </button>
+              </div>
+            </section>
+          )}
           {current.generationMode !== "MANUAL" && (
             <div className="quick-quiz-notice">
               <div>

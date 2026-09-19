@@ -8,6 +8,7 @@ import { humanReadableQuestionResult, objectiveResult } from "./result-view";
 import { attemptDurationMs, attemptExpired } from "./attempt-timing";
 import { AssignmentRepository } from "./assignment.repository";
 import type { AssignmentInput, AssignmentListQuery, AssignmentPatch, AnswerInput, PassageInput, QuestionInput, ReorderInput, RepositoryResult } from "./assignment.types";
+import type { DocumentAssignment } from "./assignment-document.types";
 
 const classroomSelect = { id: true, code: true, name: true, _count: { select: { enrollments: { where: { status: EnrollmentStatus.ACTIVE } } } } } satisfies Prisma.ClassroomSelect;
 const lessonSelect = { id: true, title: true, session: { select: { id: true, scheduledStart: true } } } satisfies Prisma.LessonSelect;
@@ -123,6 +124,32 @@ export class PrismaAssignmentRepository extends AssignmentRepository {
   async updatePassage(teacherId: string, assignmentId: string, passageId: string, input: PassageInput): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const updated = await tx.assignmentPassage.updateMany({ where: { id: passageId, assignmentId }, data: { title: input.title?.trim() || null, content: input.content.trim() } }); if (!updated.count) return { status: "NOT_FOUND" }; return { status: "OK", value: await tx.assignmentPassage.findUnique({ where: { id: passageId }, select: passageSelect }) }; }); }
   async deletePassage(teacherId: string, assignmentId: string, passageId: string): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const passage = await tx.assignmentPassage.findFirst({ where: { id: passageId, assignmentId }, select: { id: true, _count: { select: { questions: true } } } }); if (!passage) return { status: "NOT_FOUND" }; if (passage._count.questions) return { status: "INVALID_STATE", message: `Bài đọc đang có ${passage._count.questions} câu hỏi. Hãy chuyển, tách hoặc xóa các câu hỏi đó trước.` }; await tx.assignmentPassage.delete({ where: { id: passageId } }); return { status: "OK", value: { success: true } }; }); }
   async reorderPassages(teacherId: string, assignmentId: string, input: ReorderInput): Promise<RepositoryResult> { return this.reorder(teacherId, assignmentId, input, "passage"); }
+
+  // Import Word thay thế toàn bộ câu hỏi, đoạn đọc và phần viết của một bản nháp.
+  async importDocument(teacherId: string, assignmentId: string, data: DocumentAssignment): Promise<RepositoryResult> {
+    return prisma.$transaction(async (tx) => {
+      if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" };
+      await tx.assignmentQuestion.deleteMany({ where: { assignmentId } });
+      await tx.assignmentPassage.deleteMany({ where: { assignmentId } });
+      await tx.assignmentWritingTask.deleteMany({ where: { assignmentId } });
+      const passageIdByNumber = new Map<number, string>();
+      for (const [index, passage] of data.passages.entries()) {
+        const created = await tx.assignmentPassage.create({ data: { assignmentId, title: passage.title, content: passage.content, position: index }, select: { id: true } });
+        passageIdByNumber.set(passage.number, created.id);
+      }
+      for (const [index, question] of data.questions.entries()) {
+        await tx.assignmentQuestion.create({ data: { assignmentId, passageId: question.passageNumber ? passageIdByNumber.get(question.passageNumber) ?? null : null, type: question.type, section: question.section, prompt: question.prompt, explanation: question.explanation, points: question.points, required: true, config: question.config as Prisma.InputJsonValue, position: index } });
+      }
+      if (data.writing) {
+        const task = await tx.assignmentWritingTask.create({ data: { assignmentId, type: data.writing.type, prompt: data.writing.prompt, minWords: data.writing.minWords }, select: { id: true } });
+        for (const [index, item] of data.writing.translationItems.entries()) await tx.writingTranslationItem.create({ data: { writingTaskId: task.id, sourceText: item, position: index } });
+      }
+      await tx.assignment.update({ where: { id: assignmentId }, data: { title: data.title || undefined, description: data.description, type: data.type, ...(data.maxAttempts ? { maxAttempts: data.maxAttempts } : {}), timeLimitMinutes: data.timeLimitMinutes } });
+      await tx.auditLog.create({ data: { actorId: teacherId, action: "ASSIGNMENT_IMPORTED", entityType: "Assignment", entityId: assignmentId, metadata: { questionCount: data.questions.length, passageCount: data.passages.length, hasWriting: Boolean(data.writing) } } });
+      const item = await tx.assignment.findUnique({ where: { id: assignmentId }, select: assignmentSelect });
+      return { status: "OK", value: teacherAssignment(item!) };
+    });
+  }
   private async reorder(teacherId: string, assignmentId: string, input: ReorderInput, kind: "question" | "passage"): Promise<RepositoryResult> { return prisma.$transaction(async (tx) => { if (!await this.draft(tx, teacherId, assignmentId)) return { status: "NOT_FOUND" }; const model = kind === "question" ? tx.assignmentQuestion : tx.assignmentPassage; const current = await (model as typeof tx.assignmentQuestion).findMany({ where: { assignmentId }, select: { id: true } }); if (current.length !== input.ids.length || input.ids.some((id) => !current.some((item) => item.id === id))) return { status: "INVALID", message: "Danh sách sắp xếp không đầy đủ." }; for (const [index, id] of input.ids.entries()) await (model as typeof tx.assignmentQuestion).update({ where: { id }, data: { position: -1000 - index } }); for (const [index, id] of input.ids.entries()) await (model as typeof tx.assignmentQuestion).update({ where: { id }, data: { position: index } }); return { status: "OK", value: { success: true } }; }); }
 
   async listStudent(studentId: string, query: AssignmentListQuery) {
