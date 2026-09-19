@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import LessonRichText from "./LessonRichText";
+import { printWithPage } from "./print-sheet";
 import { splitPresentationText } from "../apps/shared/lesson-presentation";
 import { parseVocabularyText, type VocabularyLine } from "../apps/shared/vocabulary-parser";
 
@@ -102,7 +103,7 @@ export default function LessonPresentation({ lesson, onClose }: { lesson: Presen
     <header className="lesson-presentation-toolbar">
       <strong>Ms Ngân English</strong>
       <div>
-        <button type="button" onClick={() => window.print()} aria-label="In hoặc lưu bài giảng thành PDF">In / Lưu PDF</button>
+        <button type="button" onClick={() => printWithPage("size: A4 landscape; margin: 0;")} aria-label="In hoặc lưu bài giảng thành PDF">In / Lưu PDF</button>
         <button type="button" onClick={() => void toggleFullscreen()}>{fullscreen ? "Thoát toàn màn hình" : "Toàn màn hình"}</button>
         <button type="button" className="lesson-presentation-close" onClick={onClose} aria-label="Đóng trình chiếu">Đóng ×</button>
       </div>

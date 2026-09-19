@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
 import AssignmentPrintView from "./AssignmentPrintView";
+import { printWithPage } from "./print-sheet";
 import { groupAssignmentQuestions } from "./assignment-question-groups";
 import StudentListeningSection from "./StudentListeningSection";
 import type { ListeningTrack } from "./listening-types";
@@ -990,7 +991,7 @@ export default function StudentAssignmentManager({
             <button
               type="button"
               className="assignment-print-button"
-              onClick={() => window.print()}
+              onClick={() => printWithPage("size: A4 portrait; margin: 15mm 14mm 18mm;")}
             >
               In đề / Lưu PDF
             </button>

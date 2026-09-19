@@ -27,12 +27,13 @@ test("presentation supports keyboard, fullscreen and browser PDF printing", asyn
     read("../app/LessonPresentation.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(presentation, /window\.print\(\)/);
+  assert.match(presentation, /printWithPage\("size: A4 landscape/);
   assert.match(presentation, /requestFullscreen\(\)/);
   assert.match(presentation, /ArrowRight/);
   assert.match(presentation, /ArrowLeft/);
   assert.match(presentation, /In \/ Lưu PDF/);
   assert.match(styles, /@media print/);
+  assert.doesNotMatch(styles, /@page/);
   assert.match(styles, /page-break-after: always/);
   assert.match(styles, /lesson-presentation-slide/);
 });

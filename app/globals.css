@@ -1297,7 +1297,6 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
 }
 
 @media print {
-  @page { size: A4 landscape; margin: 0; }
   html, body { margin: 0 !important; background: #fff !important; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body:has(.lesson-presentation) * { visibility: hidden !important; }
@@ -1347,21 +1346,30 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
 .student-lesson-detail .lesson-rich-text p.is-bullet::before { position: absolute; left: .1em; color: var(--coral); font-weight: 700; content: "•"; }
 
 /* Bản in đề bài khổ A4: chỉ hiện khi in, không kèm đáp án. */
-@page assignment-sheet { size: A4 portrait; margin: 13mm 14mm; }
 .assignment-print { display: none; }
 .assignment-print-button { min-height: 34px; padding: 6px 12px; border: 1px solid var(--indigo); border-radius: 8px; background: #fff; color: var(--indigo); cursor: pointer; font-size: var(--font-small); font-weight: 700; }
 
 @media print {
-  body:has(.assignment-print) * { visibility: hidden !important; }
-  body:has(.assignment-print) .assignment-print, body:has(.assignment-print) .assignment-print * { visibility: visible !important; }
+  /* Giữ lại chuỗi phần tử cha của bản in, ẩn mọi nhánh khác, rồi làm phẳng phần cha
+     để nội dung bắt đầu ngay mép lề giấy thay vì thừa kế padding của giao diện. */
+  body:has(.assignment-print) *:not(:has(.assignment-print)):not(.assignment-print):not(.assignment-print *) { display: none !important; }
+  body:has(.assignment-print) :has(.assignment-print) {
+    display: block !important;
+    max-width: none !important; width: auto !important; min-height: 0 !important;
+    margin: 0 !important; padding: 0 !important;
+    border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+    background: none !important; overflow: visible !important;
+  }
   body:has(.assignment-print) .assignment-print {
-    page: assignment-sheet;
-    position: absolute; top: 0; left: 0;
-    width: 100%;
     display: block !important;
     color: #000; background: #fff;
     font-size: 11.5pt; line-height: 1.5;
   }
+  /* break-inside bị bỏ qua trên grid item, nên bản in xếp lại theo khối. */
+  .assignment-print .assignment-question-sections,
+  .assignment-print .assignment-question-part,
+  .assignment-print .reading-passage-group,
+  .assignment-print .student-question-list { display: block !important; gap: 0 !important; }
   .assignment-print-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10mm; padding-bottom: 4mm; border-bottom: 1.5pt solid #000; }
   .assignment-print-heading strong { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; }
   .assignment-print-heading h1 { margin: 2mm 0 1mm; font-size: 16pt; }
@@ -1377,7 +1385,7 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
   .assignment-print .student-passage span { font-size: 8.5pt; letter-spacing: .06em; }
   .assignment-print .student-passage h2 { margin: 1mm 0 2mm; font-size: 11.5pt; }
   .assignment-print .student-passage p { margin: 0; text-align: justify; }
-  .print-question { margin-bottom: 4mm; break-inside: avoid; page-break-inside: avoid; }
+  .print-question { margin-bottom: 4mm; break-inside: avoid !important; page-break-inside: avoid !important; orphans: 3; widows: 3; }
   .print-question-prompt { margin: 0 0 1.5mm; }
   .print-question-prompt em { font-size: 9pt; font-style: italic; }
   .print-options { margin: 0; padding-left: 7mm; list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1mm 5mm; }

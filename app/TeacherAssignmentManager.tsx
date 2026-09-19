@@ -4,6 +4,7 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AssignmentQuestionSections from "./AssignmentQuestionSections";
 import AssignmentPrintView from "./AssignmentPrintView";
+import { printWithPage } from "./print-sheet";
 import TeacherWritingEditor from "./TeacherWritingEditor";
 import TeacherWritingGrading from "./TeacherWritingGrading";
 import TeacherListeningEditor from "./TeacherListeningEditor";
@@ -1576,7 +1577,7 @@ export default function TeacherAssignmentManager({
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printWithPage("size: A4 portrait; margin: 15mm 14mm 18mm;")}
                 title="In đề bài khổ A4, không kèm đáp án"
               >
                 In đề / Lưu PDF
