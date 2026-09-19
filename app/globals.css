@@ -586,7 +586,7 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
 .lesson-presentation-title h1 { margin: 12px 0 0; color: var(--indigo-dark); font-family: var(--font-serif), serif; font-size: clamp(32px, 4.4vw, 66px); font-weight: 600; letter-spacing: -.045em; line-height: 1.06; }
 .lesson-presentation-title i { width: min(150px, 20vw); height: 5px; margin-top: clamp(16px, 3vh, 32px); display: block; border-radius: 99px; background: var(--coral); }
 .lesson-presentation-vocabulary { position: relative; z-index: 1; min-width: 0; width: 100%; flex: 1; padding: clamp(6px, 1vh, 12px) 0 22px; display: flex; align-items: flex-start; overflow: auto; }
-.lesson-presentation-vocabulary table { min-width: 0; width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(16px, 1.6vw, 27px); }
+.lesson-presentation-vocabulary table { min-width: 0; width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(14px, 1.4vw, 24px); }
 .lesson-presentation-vocabulary .vocabulary-word-column { width: 12%; }
 .lesson-presentation-vocabulary .vocabulary-pronunciation-column { width: 15%; }
 .lesson-presentation-vocabulary .vocabulary-meaning-column { width: 17%; }
@@ -1293,7 +1293,7 @@ input:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px
   .lesson-presentation-copy p.is-child { font-size: clamp(16px, 4.6vw, 23px); }
   .lesson-presentation-title h1 { font-size: clamp(43px, 13vw, 70px); }
   .lesson-presentation-vocabulary { overflow: auto; align-items: flex-start; }
-  .lesson-presentation-vocabulary table { min-width: 720px; font-size: 16px; }
+  .lesson-presentation-vocabulary table { min-width: 720px; font-size: 14px; }
   .lesson-presentation-controls { min-height: 58px; padding: 8px 10px; gap: 8px; }
 }
 
